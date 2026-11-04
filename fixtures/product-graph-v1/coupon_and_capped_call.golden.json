@@ -1,0 +1,121 @@
+{
+  "document_kind": "product_graph",
+  "schema_version": 1,
+  "product": {
+    "currency_id": 2,
+    "underlying_ids": [
+      1
+    ],
+    "nodes": [
+      {
+        "id": 0,
+        "operation": {
+          "type": "terminal_spot",
+          "underlying_id": 1,
+          "observation_date": "2027-03-04"
+        }
+      },
+      {
+        "id": 1,
+        "operation": {
+          "type": "terminal_spot",
+          "underlying_id": 1,
+          "observation_date": "2027-09-04"
+        }
+      },
+      {
+        "id": 2,
+        "operation": {
+          "type": "literal",
+          "value": 95.0
+        }
+      },
+      {
+        "id": 3,
+        "operation": {
+          "type": "subtract",
+          "left": 0,
+          "right": 2
+        }
+      },
+      {
+        "id": 4,
+        "operation": {
+          "type": "smooth_indicator",
+          "input": 3,
+          "half_width": 2.0
+        }
+      },
+      {
+        "id": 5,
+        "operation": {
+          "type": "literal",
+          "value": 5.0
+        }
+      },
+      {
+        "id": 6,
+        "operation": {
+          "type": "multiply",
+          "left": 5,
+          "right": 4
+        }
+      },
+      {
+        "id": 7,
+        "operation": {
+          "type": "literal",
+          "value": 100.0
+        }
+      },
+      {
+        "id": 8,
+        "operation": {
+          "type": "subtract",
+          "left": 1,
+          "right": 7
+        }
+      },
+      {
+        "id": 9,
+        "operation": {
+          "type": "literal",
+          "value": 0.0
+        }
+      },
+      {
+        "id": 10,
+        "operation": {
+          "type": "maximum",
+          "left": 8,
+          "right": 9
+        }
+      },
+      {
+        "id": 11,
+        "operation": {
+          "type": "literal",
+          "value": 20.0
+        }
+      },
+      {
+        "id": 12,
+        "operation": {
+          "type": "minimum",
+          "left": 10,
+          "right": 11
+        }
+      }
+    ],
+    "cashflows": [
+      {
+        "output_node": 6,
+        "payment_date": "2027-03-06"
+      },
+      {
+        "output_node": 12,
+        "payment_date": "2027-09-06"
+      }
+    ]
+  }
+}

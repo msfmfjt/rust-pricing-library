@@ -255,9 +255,27 @@ impl CompiledPayoff {
     pub fn evaluate_output_with_observation_adjoints<F, G>(
         &self,
         output_index: usize,
+        observation: F,
+        pre_dividend_observation: G,
+    ) -> Result<PayoffEvaluation, GraphError>
+    where
+        F: FnMut(UnderlyingId, Date) -> Option<f64>,
+        G: FnMut(UnderlyingId, Date) -> Option<f64>,
+    {
+        self.evaluate_output_with_observation_adjoints_and_values(
+            output_index,
+            observation,
+            pre_dividend_observation,
+        )
+        .map(|(evaluation, _)| evaluation)
+    }
+
+    pub(in crate::engine) fn evaluate_output_with_observation_adjoints_and_values<F, G>(
+        &self,
+        output_index: usize,
         mut observation: F,
         mut pre_dividend_observation: G,
-    ) -> Result<PayoffEvaluation, GraphError>
+    ) -> Result<(PayoffEvaluation, Vec<f64>), GraphError>
     where
         F: FnMut(UnderlyingId, Date) -> Option<f64>,
         G: FnMut(UnderlyingId, Date) -> Option<f64>,
@@ -302,11 +320,14 @@ impl CompiledPayoff {
                 &mut pre_dividend_adjoints,
             )?;
         }
-        Ok(PayoffEvaluation {
-            value,
-            terminal_adjoints: terminal_adjoints.into_boxed_slice(),
-            pre_dividend_adjoints: pre_dividend_adjoints.into_boxed_slice(),
-        })
+        Ok((
+            PayoffEvaluation {
+                value,
+                terminal_adjoints: terminal_adjoints.into_boxed_slice(),
+                pre_dividend_adjoints: pre_dividend_adjoints.into_boxed_slice(),
+            },
+            values,
+        ))
     }
 }
 

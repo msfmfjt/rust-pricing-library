@@ -1,6 +1,6 @@
 //! Deterministic continuous-time Heston-family transform and price bindings.
 use super::rough_volatility::PyRoughVolatilityModel;
-use super::{PyValidationIssue, pricing_exception, validation_exception};
+use super::{PyValidationIssue, validation_exception};
 use pricing::rough_volatility::{
     Complex64, FourierError, HestonFourierConfig, HestonFourierGreeks, HestonFourierHurstRisk,
     HestonFourierHurstRiskPlan, HestonFourierParameterRisk, HestonFourierParameterRiskPlan,
@@ -8,7 +8,7 @@ use pricing::rough_volatility::{
 };
 use pyo3::prelude::*;
 
-fn failure(py: Python<'_>, error: FourierError) -> PyErr {
+fn failure(py: Python<'_>, error: FourierError, stage: crate::errors::Stage) -> PyErr {
     match error {
         FourierError::InvalidInput(_) => validation_exception(
             py,
@@ -18,7 +18,7 @@ fn failure(py: Python<'_>, error: FourierError) -> PyErr {
                 error.to_string(),
             ),
         ),
-        _ => pricing_exception(error),
+        _ => crate::errors::exception(error, stage, None),
     }
 }
 #[pyclass(frozen, name = "HestonFourierPrice")]
@@ -106,11 +106,11 @@ impl PyHestonFourierPlan {
         cutoff: f64,
     ) -> PyResult<Self> {
         let config = HestonFourierConfig::new(time_steps, integration_intervals, cutoff)
-            .map_err(|e| failure(py, e))?;
+            .map_err(|e| failure(py, e, crate::errors::Stage::Compile))?;
         let model = model.inner.clone();
         py.detach(|| HestonFourierPlan::compile(model, maturity, config))
             .map(|inner| Self { inner })
-            .map_err(|e| failure(py, e))
+            .map_err(|e| failure(py, e, crate::errors::Stage::Compile))
     }
     fn price(
         &self,
@@ -121,17 +121,17 @@ impl PyHestonFourierPlan {
     ) -> PyResult<PyHestonFourierPrice> {
         py.detach(|| self.inner.price(forward, strike, discount))
             .map(|inner| PyHestonFourierPrice { inner })
-            .map_err(|e| failure(py, e))
+            .map_err(|e| failure(py, e, crate::errors::Stage::Evaluate))
     }
     fn hurst_risk_plan(&self, py: Python<'_>) -> PyResult<PyHestonFourierHurstRiskPlan> {
         py.detach(|| self.inner.hurst_risk_plan())
             .map(|inner| PyHestonFourierHurstRiskPlan { inner })
-            .map_err(|e| failure(py, e))
+            .map_err(|e| failure(py, e, crate::errors::Stage::Compile))
     }
     fn parameter_risk_plan(&self, py: Python<'_>) -> PyResult<PyHestonFourierParameterRiskPlan> {
         py.detach(|| self.inner.parameter_risk_plan())
             .map(|inner| PyHestonFourierParameterRiskPlan { inner })
-            .map_err(|e| failure(py, e))
+            .map_err(|e| failure(py, e, crate::errors::Stage::Compile))
     }
     fn price_and_greeks(
         &self,
@@ -142,17 +142,17 @@ impl PyHestonFourierPlan {
     ) -> PyResult<PyHestonFourierGreeks> {
         py.detach(|| self.inner.price_and_greeks(forward, strike, discount))
             .map(|inner| PyHestonFourierGreeks { inner })
-            .map_err(|e| failure(py, e))
+            .map_err(|e| failure(py, e, crate::errors::Stage::Evaluate))
     }
     fn log_transform(&self, py: Python<'_>, real: f64, imag: f64) -> PyResult<(f64, f64)> {
         py.detach(|| self.inner.log_transform(Complex64::new(real, imag)))
             .map(|z| (z.re, z.im))
-            .map_err(|e| failure(py, e))
+            .map_err(|e| failure(py, e, crate::errors::Stage::Evaluate))
     }
     fn characteristic_function(&self, py: Python<'_>, frequency: f64) -> PyResult<(f64, f64)> {
         py.detach(|| self.inner.characteristic_function(frequency))
             .map(|z| (z.re, z.im))
-            .map_err(|e| failure(py, e))
+            .map_err(|e| failure(py, e, crate::errors::Stage::Evaluate))
     }
     #[getter]
     fn time_steps(&self) -> usize {
@@ -246,7 +246,7 @@ impl PyHestonFourierParameterRiskPlan {
     ) -> PyResult<PyHestonFourierParameterRisk> {
         py.detach(|| self.inner.price(forward, strike, discount))
             .map(|inner| PyHestonFourierParameterRisk { inner })
-            .map_err(|e| failure(py, e))
+            .map_err(|e| failure(py, e, crate::errors::Stage::Evaluate))
     }
     fn log_transform_derivatives(
         &self,
@@ -259,7 +259,7 @@ impl PyHestonFourierParameterRiskPlan {
                 .log_transform_derivatives(Complex64::new(real, imag))
         })
         .map(|v| v.iter().map(|z| (z.re, z.im)).collect())
-        .map_err(|e| failure(py, e))
+        .map_err(|e| failure(py, e, crate::errors::Stage::Evaluate))
     }
 }
 
@@ -305,7 +305,7 @@ impl PyHestonFourierHurstRiskPlan {
     ) -> PyResult<PyHestonFourierHurstRisk> {
         py.detach(|| self.inner.price(forward, strike, discount))
             .map(|inner| PyHestonFourierHurstRisk { inner })
-            .map_err(|e| failure(py, e))
+            .map_err(|e| failure(py, e, crate::errors::Stage::Evaluate))
     }
     fn log_transform_derivative(
         &self,
@@ -318,6 +318,6 @@ impl PyHestonFourierHurstRiskPlan {
                 .log_transform_derivative(Complex64::new(real, imag))
         })
         .map(|z| (z.re, z.im))
-        .map_err(|e| failure(py, e))
+        .map_err(|e| failure(py, e, crate::errors::Stage::Evaluate))
     }
 }

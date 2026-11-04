@@ -8,6 +8,8 @@ on:
       - 'rust_pricing.pyi'
       - 'scripts/check_source_archive.py'
       - 'scripts/smoke_test_wheel.py'
+      - 'scripts/wheel_validation/**'
+      - 'scripts/test_wheel_validation.py'
       - '.github/workflows/rough-family-gamma.yml'
   workflow_dispatch: {}
 permissions:

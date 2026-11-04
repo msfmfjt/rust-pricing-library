@@ -8,6 +8,8 @@ on:
       - 'scripts/*heston_iv*py'
       - 'scripts/check_source_archive.py'
       - 'scripts/smoke_test_wheel.py'
+      - 'scripts/wheel_validation/**'
+      - 'scripts/test_wheel_validation.py'
       - 'tests/python/test_heston_iv_refinement.py'
       - 'examples/python/heston_iv_refinement.py'
       - 'docs/models/heston-iv-refinement.md'

@@ -7,6 +7,8 @@ on:
       - 'rust_pricing.pyi'
       - 'scripts/check_source_archive.py'
       - 'scripts/smoke_test_wheel.py'
+      - 'scripts/wheel_validation/**'
+      - 'scripts/test_wheel_validation.py'
       - 'scripts/test_rough_family_lsv_spot_contract.py'
       - 'tests/python/test_rough_family_lsv_spot_delta.py'
       - 'examples/python/rough_family_lsv_spot_delta.py'

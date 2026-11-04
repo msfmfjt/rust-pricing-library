@@ -14,7 +14,7 @@ impl PyBassMappingBump {
     fn new(py: Python<'_>, interval: usize, left: f64, center: f64, right: f64) -> PyResult<Self> {
         BassMappingBump::new(interval, left, center, right)
             .map(|inner| Self { inner })
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[getter]
     fn interval(&self) -> usize {
@@ -101,7 +101,7 @@ impl PyBassMappingRiskPlan {
     ) -> PyResult<Vec<f64>> {
         self.inner
             .path_sensitivities(&normals, &payoff_partials)
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     fn bumped_simulation(
         &self,
@@ -110,7 +110,7 @@ impl PyBassMappingRiskPlan {
     ) -> PyResult<PyBassSimulationPlan> {
         py.detach(|| self.inner.bumped_simulation(&amplitudes))
             .map(|inner| PyBassSimulationPlan { inner })
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[pyo3(signature=(interval,strike,*,discount_factor=1.0))]
     fn vanilla_call(
@@ -122,7 +122,7 @@ impl PyBassMappingRiskPlan {
     ) -> PyResult<PyBassDeterministicMappingRisk> {
         py.detach(|| self.inner.vanilla_call(interval, strike, discount_factor))
             .map(|inner| PyBassDeterministicMappingRisk { inner })
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[pyo3(signature=(amplitudes,interval,strike,*,discount_factor=1.0))]
     fn bumped_vanilla_call(
@@ -137,7 +137,7 @@ impl PyBassMappingRiskPlan {
             self.inner
                 .bumped_vanilla_call(&amplitudes, interval, strike, discount_factor)
         })
-        .map_err(|e| error(py, e))
+        .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[pyo3(signature=(strike,*,is_call=true,paths=100_000,seed=0,discount_factor=1.0))]
     fn price_european(
@@ -154,7 +154,7 @@ impl PyBassMappingRiskPlan {
                 .price_european(strike, is_call, paths, seed, discount_factor)
         })
         .map(|inner| PyBassMappingRisk { inner })
-        .map_err(|e| error(py, e))
+        .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[pyo3(signature=(strike,*,is_call=true,paths=100_000,seed=0,discount_factor=1.0))]
     fn price_asian(
@@ -171,6 +171,6 @@ impl PyBassMappingRiskPlan {
                 .price_asian(strike, is_call, paths, seed, discount_factor)
         })
         .map(|inner| PyBassMappingRisk { inner })
-        .map_err(|e| error(py, e))
+        .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
 }

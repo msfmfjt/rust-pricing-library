@@ -23,6 +23,25 @@ pub struct MultiAssetProduct {
     pub(crate) payment_dates: Vec<Date>,
 }
 impl MultiAssetProduct {
+    #[must_use]
+    pub fn from_product_graph(product: super::GraphProduct) -> Self {
+        Self {
+            currency: product.currency(),
+            underlyings: product.underlyings().to_vec(),
+            graph: product.source_graph().clone(),
+            payment_dates: product.payment_dates().to_vec(),
+        }
+    }
+
+    pub fn to_product_graph(&self) -> Result<super::GraphProduct, super::GraphProductError> {
+        super::GraphProduct::new(
+            self.currency,
+            self.underlyings.clone(),
+            self.graph.clone(),
+            self.payment_dates.clone(),
+        )
+    }
+
     /// Each graph output is a cash flow paid on its corresponding date.
     /// Compilation checks each output's observation dependencies against its payment.
     pub fn from_graph(

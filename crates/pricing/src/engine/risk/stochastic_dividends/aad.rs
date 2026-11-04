@@ -10,6 +10,8 @@ use crate::engine::processes::stochastic_dividends::reverse::ReverseContext;
 pub struct StochasticDividendAadRisk {
     pub price: StochasticDividendPrice,
     pub parameter_labels: Box<[String]>,
+    /// Native differentiation coordinates, in exactly the same order as labels/derivatives.
+    pub parameter_kinds: Box<[crate::RiskParameterKind]>,
     pub derivatives: Box<[f64]>,
     /// MC: independent (possibly antithetic) units. RQMC: scramble means only.
     /// Neither includes time-discretization or parameter uncertainty.
@@ -103,10 +105,7 @@ impl StochasticDividendPricingPlan {
         self.evaluate_aad_scope(AadScope::Correlation)
     }
 
-    fn evaluate_aad_scope(
-        &self,
-        scope: AadScope,
-    ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+    pub(crate) fn validate_source_aad(&self) -> Result<(), MonteCarloError> {
         if self.path.is_lsv() {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "stochastic-dividend residual LSV requires a recalibration-aware reverse",
@@ -117,6 +116,13 @@ impl StochasticDividendPricingPlan {
                 model: "stochastic-dividend discontinuous payoff requires explicit smoothing",
             });
         }
+        Ok(())
+    }
+    fn evaluate_aad_scope(
+        &self,
+        scope: AadScope,
+    ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.validate_source_aad()?;
         let mut context = ReverseContext::new(&self.path, &self.market, self.payment_time)?;
         match scope {
             AadScope::Basic => {}
@@ -230,6 +236,7 @@ impl StochasticDividendPricingPlan {
                 scheme: self.scheme(),
             },
             parameter_labels: context.labels.into_boxed_slice(),
+            parameter_kinds: context.parameter_kinds.into_boxed_slice(),
             derivatives: means[1..].into(),
             standard_errors: errors[1..].into(),
             cash_times: context.cash_times.into_boxed_slice(),
@@ -284,11 +291,24 @@ impl StochasticDividendPricingPlan {
                 .zip(&states)
                 .map(|(node, state)| node.spots(*state))
                 .collect::<Result<Vec<_>, _>>()?;
-            let (payoff, seeds) = self
-                .base
-                .hybrid_spot_payoff_adjoints(self.path.times(), &spots)?;
+            let mut discount_adjoints = if self.base.cashflow_discount_adjoints.is_empty() {
+                Vec::new()
+            } else {
+                vec![0.0; context.discount_times.len()]
+            };
+            let (payoff, seeds) = self.base.hybrid_spot_payoff_market_adjoints(
+                self.path.times(),
+                &spots,
+                &mut discount_adjoints,
+            )?;
             out[0] += payoff;
-            let reverse = context.pullback(&self.path, &shocks, &states, &seeds, payoff)?;
+            let mut reverse = context.pullback(&self.path, &shocks, &states, &seeds, payoff)?;
+            for (bar, correction) in reverse[context.discount_range()]
+                .iter_mut()
+                .zip(discount_adjoints)
+            {
+                *bar += correction;
+            }
             for (target, source) in out[1..].iter_mut().zip(reverse) {
                 *target += source;
             }

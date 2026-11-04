@@ -4,28 +4,60 @@ use pricing::{
     CompiledPricingSpecification, PricingSpecification, SpecificationOutput, SpecificationResult,
 };
 
-fn wire_exception(py: Python<'_>, error: &WireError) -> PyErr {
+fn wire_exception(py: Python<'_>, context: &pricing::WireParseError) -> PyErr {
+    let error = context.wire_error();
     let mut issue = PyValidationIssue::wire(error, "pricing_specification");
     issue.schema_version = match error {
-        WireError::UnsupportedSchemaVersion(version) => *version,
-        _ => 1,
+        WireError::UnsupportedSchemaVersion(version)
+        | WireError::UnsupportedSchemaFeature {
+            schema_version: version,
+            ..
+        } => *version,
+        _ => 2,
     };
-    validation_exception(py, issue)
+    validation_exception(py, issue.with_input_version(context.schema_version()))
 }
 
 #[pyclass(frozen, name = "PricingSpecification")]
 #[derive(Clone, Debug)]
 pub struct PyPricingSpecification {
-    inner: PricingSpecification,
+    pub(super) inner: PricingSpecification,
 }
 
 #[pymethods]
 impl PyPricingSpecification {
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        py: Python<'_>,
+        valuation_date: &Bound<'_, PyAny>,
+        product: &builders::PyProduct,
+        market: &builders::PyMarket,
+        model: &source_config::PyPricingModelSpec,
+        engine: &builders::PyEngine,
+        risk: &builders::PyRiskRequest,
+        numerics: &source_config::PyPricingNumerics,
+    ) -> PyResult<Self> {
+        PricingSpecification::new(
+            builders::date_from_python(py, valuation_date, "/valuation_date")?,
+            product.inner.clone(),
+            market.inner.clone(),
+            model.inner.clone(),
+            engine.inner,
+            risk.inner.clone(),
+            numerics.inner.clone(),
+        )
+        .map(|inner| Self { inner })
+        .map_err(source_config::invalid)
+    }
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
-        pricing::parse_specification_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
-            .map(|inner| Self { inner })
-            .map_err(|e| wire_exception(py, &e))
+        pricing::parse_specification_json_with_context(
+            json.as_bytes(),
+            pricing::JsonLimits::DEFAULT,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| wire_exception(py, &e))
     }
     #[staticmethod]
     #[pyo3(signature = (request, *, worker_threads, reduction_block_size=None))]
@@ -36,30 +68,32 @@ impl PyPricingSpecification {
         reduction_block_size: Option<u64>,
     ) -> PyResult<Self> {
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size).map_err(|e| {
-            wire_exception(
-                py,
-                &WireError::DomainAt {
-                    pointer: "/numerics".into(),
-                    message: e.to_string(),
-                },
-            )
+            let error = WireError::DomainAt {
+                pointer: "/numerics".into(),
+                message: e.to_string(),
+            };
+            let mut issue = PyValidationIssue::wire(&error, "pricing_specification");
+            issue.schema_version = 2;
+            issue.error_metadata = errors::ErrorMetadata::from_error(&e, errors::Stage::Validation);
+            validation_exception(py, issue)
         })?;
         Ok(Self {
             inner: PricingSpecification::from_request(request.inner.clone(), policy),
         })
     }
     fn to_json(&self) -> PyResult<String> {
-        pricing::specification_to_json(&self.inner).map_err(pricing_exception)
+        pricing::specification_to_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
     fn to_pretty_json(&self) -> PyResult<String> {
-        pricing::specification_to_pretty_json(&self.inner).map_err(pricing_exception)
+        pricing::specification_to_pretty_json(&self.inner)
+            .map_err(crate::errors::serialize_exception)
     }
     #[getter]
     fn fingerprint(&self) -> PyResult<String> {
         self.inner
             .fingerprint()
             .map(|f| f.to_string())
-            .map_err(pricing_exception)
+            .map_err(crate::errors::serialize_exception)
     }
     fn compile(&self, py: Python<'_>) -> PyResult<PyCompiledPricingSpecification> {
         py.detach(|| self.inner.compile())
@@ -67,7 +101,7 @@ impl PyPricingSpecification {
             .map_err(|e| {
                 let mut issue = PyValidationIssue::compile(&e);
                 issue.document_kind = "pricing_specification".into();
-                issue.schema_version = 1;
+                issue.schema_version = 2;
                 validation_exception(py, issue)
             })
     }
@@ -98,7 +132,7 @@ impl PyCompiledPricingSpecification {
 #[pyclass(frozen, name = "SpecificationResult")]
 #[derive(Clone, Debug)]
 pub struct PySpecificationResult {
-    inner: SpecificationResult,
+    pub(super) inner: SpecificationResult,
 }
 #[pymethods]
 impl PySpecificationResult {
@@ -131,7 +165,11 @@ impl PySpecificationResult {
             SpecificationOutput::LocalStochasticVolatility(p) => {
                 Py::new(py, lsv::PyLsvPrice { inner: p.clone() })?.into_any()
             }
-            _ => return Err(pricing_exception("unknown specification result variant")),
+            _ => {
+                return Err(crate::errors::internal_exception(
+                    "unknown specification result variant",
+                ));
+            }
         })
     }
 }

@@ -49,6 +49,70 @@ fn rqmc(v: &mut Value) {
 }
 
 #[test]
+fn common_report_retains_deterministic_bass_diagnostics() {
+    let mut v = payload();
+    no_risk(&mut v);
+    let native = plan(&v, 1);
+    let source = PricingSpecification::from_request(
+        request(&v),
+        ExecutionPolicy::new(1, Some(128)).unwrap(),
+    );
+    let result = PricingTask::new(source, PricingOperation::Evaluate)
+        .unwrap()
+        .compile()
+        .unwrap()
+        .evaluate()
+        .unwrap();
+    let PricingTaskOutput::SingleAsset(r) = &result.native_result else {
+        panic!("single-asset result")
+    };
+    assert_eq!(
+        r.output,
+        SpecificationOutput::Standard(Box::new(native.evaluate().unwrap()))
+    );
+    assert!(result.report.calibration_seeds().is_empty());
+    let blocks = result.report.calibration_diagnostics().unwrap();
+    assert_eq!(blocks.len(), 2);
+    assert_eq!(blocks[0].kind, CalibrationKind::BassFixedPoint);
+    assert_eq!(blocks[1].kind, CalibrationKind::BassSurfaceProjection);
+    assert!(blocks.iter().all(|b| b.seed.is_none()));
+    let rows = native.bass_calibration_diagnostics().unwrap();
+    assert_eq!(
+        blocks[0].axes[0].values,
+        rows.iter().map(|r| r.end_time).collect::<Vec<_>>()
+    );
+    assert_eq!(
+        blocks[0]
+            .metrics
+            .iter()
+            .find(|m| m.name == "cdf_residual")
+            .unwrap()
+            .values,
+        rows.iter().map(|r| r.cdf_residual).collect::<Vec<_>>()
+    );
+    let rows = native.bass_projection_diagnostics().unwrap();
+    assert_eq!(
+        blocks[1]
+            .metrics
+            .iter()
+            .find(|m| m.name == "max_call_price_error")
+            .unwrap()
+            .values,
+        rows.iter()
+            .map(|r| r.max_call_price_error)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        result.report,
+        parse_valuation_report_json(
+            valuation_report_to_json(&result.report).unwrap().as_bytes(),
+            JsonLimits::DEFAULT
+        )
+        .unwrap()
+    );
+}
+
+#[test]
 fn request_wire_plan_fingerprints_result_roundtrip_and_legacy_rejection() {
     let v = payload();
     let r = request(&v);

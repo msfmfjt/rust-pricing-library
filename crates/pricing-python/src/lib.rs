@@ -6,6 +6,7 @@ mod bass_lv;
 mod builders;
 mod diagnostics;
 mod dual;
+mod errors;
 mod heston_calibration;
 mod heston_fourier;
 mod heston_iv_calibration;
@@ -18,7 +19,11 @@ mod multi_asset;
 mod multi_asset_hw;
 mod multi_asset_lsv;
 mod multi_asset_rough;
+mod pricing_source;
+mod pricing_task;
+mod product_graph;
 mod rough_volatility;
+mod source_config;
 mod specification;
 mod stochastic_dividend_hull_white;
 mod stochastic_dividends;
@@ -47,8 +52,7 @@ use pricing::{
     VegaKtResultProjection, VegaKtResultReportingStats, VegaKtResultResidualDiagnostics,
     VegaKtResultUnit, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, WireError,
     current_request_schema, current_result_schema, fingerprint_request, monte_carlo_result_to_json,
-    monte_carlo_result_to_pretty_json, parse_monte_carlo_result_json, parse_request_json,
-    parse_result_json, request_to_json, request_to_pretty_json,
+    monte_carlo_result_to_pretty_json, request_to_json, request_to_pretty_json,
 };
 use pyo3::basic::CompareOp;
 use pyo3::create_exception;
@@ -71,7 +75,7 @@ create_exception!(rust_pricing, PricingError, PyRuntimeError);
 
 /// One immutable, structured validation issue.
 #[pyclass(frozen, name = "ValidationIssue")]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct PyValidationIssue {
     pointer: String,
     phase: String,
@@ -79,7 +83,20 @@ pub struct PyValidationIssue {
     document_kind: String,
     code: String,
     message: String,
+    // Additional exception metadata; the historical ValidationIssue contract is unchanged.
+    error_metadata: errors::ErrorMetadata,
 }
+impl PartialEq for PyValidationIssue {
+    fn eq(&self, other: &Self) -> bool {
+        self.pointer == other.pointer
+            && self.phase == other.phase
+            && self.schema_version == other.schema_version
+            && self.document_kind == other.document_kind
+            && self.code == other.code
+            && self.message == other.message
+    }
+}
+impl Eq for PyValidationIssue {}
 
 impl PyValidationIssue {
     fn request_schema_version() -> u32 {
@@ -92,6 +109,13 @@ impl PyValidationIssue {
 
     fn result_document_kind() -> &'static str {
         pricing::core::DocumentKind::PricingResult.as_str()
+    }
+
+    fn with_input_version(mut self, version: Option<u32>) -> Self {
+        if let Some(version) = version {
+            self.schema_version = version;
+        }
+        self
     }
 
     fn request_wire(error: &WireError) -> Self {
@@ -133,6 +157,7 @@ impl PyValidationIssue {
             document_kind: document_kind.into(),
             code: code.into(),
             message: error.to_string(),
+            error_metadata: errors::ErrorMetadata::from_error(error, errors::Stage::Parse),
         }
     }
 
@@ -144,6 +169,7 @@ impl PyValidationIssue {
             document_kind: Self::request_document_kind().into(),
             code: "plan_compile_error".into(),
             message: error.to_string(),
+            error_metadata: errors::ErrorMetadata::from_error(error, errors::Stage::Compile),
         }
     }
 
@@ -152,13 +178,20 @@ impl PyValidationIssue {
         code: impl Into<String>,
         message: impl Into<String>,
     ) -> Self {
+        let pointer = pointer.into();
+        let code = code.into();
+        let error_metadata = errors::ErrorMetadata::domain(
+            code.clone(),
+            (!pointer.is_empty()).then(|| pointer.clone()),
+        );
         Self {
-            pointer: pointer.into(),
+            pointer,
             phase: "domain".into(),
             schema_version: Self::request_schema_version(),
             document_kind: Self::request_document_kind().into(),
-            code: code.into(),
+            code,
             message: message.into(),
+            error_metadata,
         }
     }
 }
@@ -273,24 +306,30 @@ impl PyPricingRequest {
     /// Parse and validate a versioned pricing-request JSON document.
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
-        parse_request_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
+        pricing::parse_request_json_with_context(json.as_bytes(), pricing::JsonLimits::DEFAULT)
             .map(|inner| Self { inner })
-            .map_err(|error| validation_exception(py, PyValidationIssue::request_wire(&error)))
+            .map_err(|error| {
+                validation_exception(
+                    py,
+                    PyValidationIssue::request_wire(error.wire_error())
+                        .with_input_version(error.schema_version()),
+                )
+            })
     }
 
     fn to_json(&self) -> PyResult<String> {
-        request_to_json(&self.inner).map_err(pricing_exception)
+        request_to_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
 
     fn to_pretty_json(&self) -> PyResult<String> {
-        request_to_pretty_json(&self.inner).map_err(pricing_exception)
+        request_to_pretty_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
 
     #[getter]
     fn fingerprint(&self) -> PyResult<String> {
         fingerprint_request(&self.inner)
             .map(|fingerprint| fingerprint.to_string())
-            .map_err(pricing_exception)
+            .map_err(crate::errors::serialize_exception)
     }
 
     fn __repr__(&self) -> PyResult<String> {
@@ -1179,20 +1218,32 @@ impl PyPricingResult {
     /// Parse and validate a versioned pricing-result JSON document.
     #[staticmethod]
     fn from_json(py: Python<'_>, json: &str) -> PyResult<Self> {
-        parse_monte_carlo_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
-            .or_else(|rich_error| {
-                if matches!(
-                    &rich_error,
-                    WireError::DomainAt { pointer, .. } if pointer == "/monte_carlo"
-                ) {
-                    parse_result_json(json.as_bytes(), pricing::JsonLimits::DEFAULT)
-                        .map(monte_carlo_price_from_result)
-                } else {
-                    Err(rich_error)
-                }
-            })
-            .map(|inner| Self { inner })
-            .map_err(|error| validation_exception(py, PyValidationIssue::result_wire(&error)))
+        pricing::parse_monte_carlo_result_json_with_context(
+            json.as_bytes(),
+            pricing::JsonLimits::DEFAULT,
+        )
+        .or_else(|rich_error| {
+            if matches!(
+                rich_error.wire_error(),
+                WireError::DomainAt { pointer, .. } if pointer == "/monte_carlo"
+            ) {
+                pricing::parse_result_json_with_context(
+                    json.as_bytes(),
+                    pricing::JsonLimits::DEFAULT,
+                )
+                .map(monte_carlo_price_from_result)
+            } else {
+                Err(rich_error)
+            }
+        })
+        .map(|inner| Self { inner })
+        .map_err(|error| {
+            validation_exception(
+                py,
+                PyValidationIssue::result_wire(error.wire_error())
+                    .with_input_version(error.schema_version()),
+            )
+        })
     }
 
     #[getter]
@@ -1401,11 +1452,11 @@ impl PyPricingResult {
     }
 
     fn to_json(&self) -> PyResult<String> {
-        monte_carlo_result_to_json(&self.inner).map_err(pricing_exception)
+        monte_carlo_result_to_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
 
     fn to_pretty_json(&self) -> PyResult<String> {
-        monte_carlo_result_to_pretty_json(&self.inner).map_err(pricing_exception)
+        monte_carlo_result_to_pretty_json(&self.inner).map_err(crate::errors::serialize_exception)
     }
 
     fn __repr__(&self) -> String {
@@ -1519,15 +1570,17 @@ fn vega_kt_unit_name(value: VegaKtResultUnit) -> &'static str {
 
 pub(crate) fn validation_exception(py: Python<'_>, issue: PyValidationIssue) -> PyErr {
     let message = issue.message.clone();
-    let error = ValidationError::new_err(message);
-    if let Ok(issue) = Py::new(py, issue) {
-        let _ = error.value(py).setattr("issues", vec![issue]);
+    let error = issue
+        .error_metadata
+        .attach(py, ValidationError::new_err(message), None);
+    match Py::new(py, issue).and_then(|issue| error.value(py).setattr("issues", vec![issue])) {
+        Ok(()) => error,
+        Err(e) => e,
     }
-    error
 }
 
-fn pricing_exception(error: impl ToString) -> PyErr {
-    PricingError::new_err(error.to_string())
+fn pricing_exception(error: impl std::error::Error + 'static) -> PyErr {
+    errors::exception(error, errors::Stage::Evaluate, None)
 }
 
 /// Returns the Rust facade version exposed by the Python module.
@@ -1556,6 +1609,10 @@ fn result_json_schema() -> &'static str {
 #[pymodule]
 fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     specification::register(module)?;
+    source_config::register(module)?;
+    pricing_source::register(module)?;
+    pricing_task::register(module)?;
+    product_graph::register(module)?;
     module.add_class::<bass_lv::PyBassMarginal>()?;
     module.add_class::<bass_lv::PyBassLvConfig>()?;
     module.add_class::<bass_lv::PyBassLvModel>()?;

@@ -1,4 +1,5 @@
 //! Risk implementation.
+pub(crate) mod calibration_report;
 pub(crate) mod dual;
 pub(crate) mod early_exercise;
 pub(crate) mod hull_white;
@@ -10,6 +11,9 @@ pub(crate) mod pathwise_local_vol;
 pub(crate) mod pricing;
 pub(crate) mod report;
 pub(crate) mod rough_volatility;
+pub(crate) mod source;
+mod source_capabilities;
+mod source_report;
 pub(crate) mod specification;
 pub(crate) mod stochastic_dividends;
 pub(crate) mod stochastic_volatility;

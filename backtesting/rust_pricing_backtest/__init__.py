@@ -4,6 +4,7 @@ from .domain import BacktestConfig, BacktestError, Contract, ExternalCashflow, N
 from .engine import BacktestResult, BacktestRunError, run_backtest, compare_strategies
 from .rust_adapter import RustPricingProvider
 from .domain import PathContract, PathObservation
+from .task_adapter import PricingEvidence
 
-__all__ = ["BacktestConfig", "BacktestError", "Contract", "ExternalCashflow", "Position", "Quote", "Risk", "RiskBasis",
+__all__ = ["BacktestConfig", "BacktestError", "Contract", "ExternalCashflow", "Position", "Quote", "Risk", "RiskBasis", "PricingEvidence",
            "NumeraireObservation", "PaymentDiscount", "SettlementFixing", "Snapshot", "PathContract", "PathObservation", "BacktestResult", "BacktestRunError", "RustPricingProvider", "run_backtest", "compare_strategies"]

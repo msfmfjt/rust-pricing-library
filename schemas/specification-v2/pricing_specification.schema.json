@@ -1,0 +1,3068 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rust-pricing-library:schema:specification-v2:pricing_specification",
+  "title": "PricingSpecification schema v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document_kind",
+    "schema_version",
+    "valuation_date",
+    "product",
+    "market",
+    "model",
+    "engine",
+    "risk",
+    "numerics"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "product": {
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "american_vanilla"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "lsm"
+        ]
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "properties": {
+            "product": {
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "american_vanilla"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "lsm"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "properties": {
+                  "equity": {
+                    "properties": {
+                      "type": {
+                        "enum": [
+                          "stochastic_volatility",
+                          "rough_volatility"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "allOf": [
+                  {
+                    "properties": {
+                      "rates": {
+                        "properties": {
+                          "type": {
+                            "const": "hull_white"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "equity": {
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "standard"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "numerics": {
+            "required": [
+              "maximum_step"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "numerics": {
+            "not": {
+              "required": [
+                "maximum_step"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "properties": {
+                  "rates": {
+                    "properties": {
+                      "type": {
+                        "const": "hull_white"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "not": {
+                  "properties": {
+                    "equity": {
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "standard"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "lsm"
+          ]
+        },
+        "properties": {
+          "risk": {
+            "properties": {
+              "delta": {
+                "const": false
+              },
+              "vega": {
+                "const": false
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "gamma"
+                  ]
+                },
+                {
+                  "required": [
+                    "vega_kt"
+                  ]
+                },
+                {
+                  "required": [
+                    "payoff_smoothing_width_ladder"
+                  ]
+                },
+                {
+                  "required": [
+                    "checkpoint_interval"
+                  ]
+                },
+                {
+                  "required": [
+                    "aad_tile_capacity"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "product": {
+            "properties": {
+              "type": {
+                "const": "graph"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "risk": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "payoff_smoothing"
+                  ]
+                },
+                {
+                  "required": [
+                    "payoff_smoothing_width_ladder"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "document_kind": {
+      "type": "string",
+      "const": "pricing_specification"
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 2,
+      "minimum": 1,
+      "maximum": 4294967295
+    },
+    "valuation_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "product": {
+      "$ref": "#/$defs/product"
+    },
+    "market": {
+      "$ref": "#/$defs/market"
+    },
+    "model": {
+      "$ref": "#/$defs/model_composition"
+    },
+    "engine": {
+      "$ref": "#/$defs/engine"
+    },
+    "lsm": {
+      "$ref": "#/$defs/lsm"
+    },
+    "risk": {
+      "$ref": "#/$defs/risk"
+    },
+    "numerics": {
+      "$ref": "#/$defs/numerics"
+    }
+  },
+  "$defs": {
+    "side": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "call"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "put"
+            }
+          }
+        }
+      ]
+    },
+    "product": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "expiry",
+            "strike",
+            "notional",
+            "side"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "european_vanilla"
+            },
+            "underlying_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "currency_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "expiry": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "strike": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "notional": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "side": {
+              "$ref": "#/$defs/side"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "expiry",
+            "strike",
+            "notional",
+            "side",
+            "exercise_dates"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "american_vanilla"
+            },
+            "underlying_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "currency_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "expiry": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "strike": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "notional": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "side": {
+              "$ref": "#/$defs/side"
+            },
+            "exercise_dates": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "expiry",
+            "strike",
+            "payout",
+            "side",
+            "payout_kind"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "digital"
+            },
+            "underlying_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "currency_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "expiry": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "strike": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "payout": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "side": {
+              "$ref": "#/$defs/side"
+            },
+            "payout_kind": {
+              "$ref": "#/$defs/digital_payout"
+            },
+            "payment_date": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "expiry",
+            "strike",
+            "barrier",
+            "notional",
+            "side",
+            "direction",
+            "style",
+            "monitoring",
+            "monitoring_dates",
+            "payment_date"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "barrier"
+            },
+            "underlying_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "currency_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "expiry": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "strike": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "barrier": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "notional": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "side": {
+              "$ref": "#/$defs/side"
+            },
+            "direction": {
+              "$ref": "#/$defs/barrier_direction"
+            },
+            "style": {
+              "$ref": "#/$defs/barrier_style"
+            },
+            "monitoring": {
+              "$ref": "#/$defs/barrier_monitoring"
+            },
+            "monitoring_dates": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              }
+            },
+            "payment_date": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "rebate": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "historical_hit": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "strike",
+            "notional",
+            "side",
+            "observations",
+            "payment_date"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "arithmetic_asian"
+            },
+            "underlying_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "currency_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "strike": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "notional": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "side": {
+              "$ref": "#/$defs/side"
+            },
+            "observations": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/asian_observation"
+              }
+            },
+            "payment_date": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "underlying_id",
+            "currency_id",
+            "strike",
+            "notional",
+            "side",
+            "monitoring_dates",
+            "payment_date"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "fixed_lookback"
+            },
+            "underlying_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "currency_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "strike": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "notional": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "side": {
+              "$ref": "#/$defs/side"
+            },
+            "monitoring_dates": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              }
+            },
+            "payment_date": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "historical_extremum": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "valuation_date_fixing": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "graph"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "graph"
+            },
+            "graph": {
+              "$ref": "#/$defs/graph_product"
+            }
+          },
+          "allOf": [
+            {
+              "properties": {
+                "graph": {
+                  "properties": {
+                    "underlying_ids": {
+                      "maxItems": 1
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "asian_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "date",
+        "weight",
+        "value"
+      ],
+      "properties": {
+        "date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "value": {
+          "$ref": "#/$defs/asian_observation_value"
+        }
+      }
+    },
+    "asian_observation_value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "fixing"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "known"
+            },
+            "fixing": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "unknown"
+            }
+          }
+        }
+      ]
+    },
+    "digital_payout": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cash"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "asset"
+            }
+          }
+        }
+      ]
+    },
+    "barrier_direction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "up"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "down"
+            }
+          }
+        }
+      ]
+    },
+    "barrier_style": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "knock_in"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "knock_out"
+            }
+          }
+        }
+      ]
+    },
+    "barrier_monitoring": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "discrete"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "continuous"
+            }
+          }
+        }
+      ]
+    },
+    "curve": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "curve_id",
+        "times",
+        "discount_factors"
+      ],
+      "properties": {
+        "curve_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "times": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "discount_factors": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    },
+    "market": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "currency_id",
+        "underlying_id",
+        "spot",
+        "discount_curve",
+        "dividend_curve"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "equity"
+        },
+        "currency_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "underlying_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "spot": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "discount_curve": {
+          "$ref": "#/$defs/curve"
+        },
+        "dividend_curve": {
+          "$ref": "#/$defs/curve"
+        },
+        "discrete_dividends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dividend_event"
+          }
+        }
+      }
+    },
+    "dividend_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "ex_time",
+        "quote"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "ex_time": {
+          "type": "number",
+          "minimum": 0
+        },
+        "quote": {
+          "$ref": "#/$defs/dividend_quote"
+        }
+      }
+    },
+    "dividend_quote": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "amount"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "fixed_cash"
+            },
+            "amount": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "beta"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "proportional"
+            },
+            "beta": {
+              "type": "number",
+              "minimum": 0,
+              "exclusiveMaximum": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "fixed_cash",
+            "beta"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "fixed_cash_and_proportional"
+            },
+            "fixed_cash": {
+              "type": "number",
+              "minimum": 0
+            },
+            "beta": {
+              "type": "number",
+              "minimum": 0,
+              "exclusiveMaximum": 1
+            }
+          }
+        }
+      ]
+    },
+    "model": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "parameters"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "bass_local_volatility"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "maturity_nodes",
+                "log_forward_moneyness_nodes",
+                "implied_volatilities",
+                "projection_nodes",
+                "grid_points",
+                "grid_width",
+                "max_iterations",
+                "cdf_tolerance",
+                "tail_tolerance",
+                "projection_tail_tolerance",
+                "projection_mean_tolerance",
+                "iv_bump"
+              ],
+              "properties": {
+                "maturity_nodes": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "log_forward_moneyness_nodes": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "implied_volatilities": {
+                  "type": "array",
+                  "minItems": 4,
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "projection_nodes": {
+                  "type": "array",
+                  "minItems": 33,
+                  "maxItems": 100001,
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "grid_points": {
+                  "type": "integer",
+                  "minimum": 101,
+                  "maximum": 8001
+                },
+                "grid_width": {
+                  "type": "number",
+                  "minimum": 4,
+                  "maximum": 20
+                },
+                "max_iterations": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100000
+                },
+                "cdf_tolerance": {
+                  "type": "number",
+                  "minimum": 1e-12,
+                  "maximum": 0.001
+                },
+                "tail_tolerance": {
+                  "type": "number",
+                  "minimum": 1e-12,
+                  "maximum": 0.001
+                },
+                "projection_tail_tolerance": {
+                  "type": "number",
+                  "minimum": 1e-12,
+                  "maximum": 0.01
+                },
+                "projection_mean_tolerance": {
+                  "type": "number",
+                  "minimum": 1e-12,
+                  "maximum": 0.01
+                },
+                "iv_bump": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "volatility"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "black_scholes"
+            },
+            "volatility": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "volatility"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "black_76"
+            },
+            "volatility": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "local_variance_grid"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "local_volatility"
+            },
+            "local_variance_grid": {
+              "$ref": "#/$defs/local_variance_grid"
+            },
+            "reporting_iv_basis": {
+              "$ref": "#/$defs/reporting_iv_basis"
+            }
+          }
+        }
+      ]
+    },
+    "local_variance_grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "time_nodes",
+        "log_forward_moneyness_nodes",
+        "shape",
+        "values",
+        "floor",
+        "cap"
+      ],
+      "properties": {
+        "time_nodes": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "log_forward_moneyness_nodes": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "shape": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 18446744073709551615
+          }
+        },
+        "values": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "floor": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cap": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "reporting_iv_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maturity_nodes",
+        "log_forward_moneyness_nodes",
+        "shape",
+        "implied_volatilities"
+      ],
+      "properties": {
+        "maturity_nodes": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "log_forward_moneyness_nodes": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "shape": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 18446744073709551615
+          }
+        },
+        "implied_volatilities": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    },
+    "variance_reduction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "antithetic",
+        "brownian_bridge"
+      ],
+      "properties": {
+        "antithetic": {
+          "type": "boolean"
+        },
+        "brownian_bridge": {
+          "type": "boolean"
+        }
+      }
+    },
+    "engine": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "master_seed",
+            "independent_sampling_units",
+            "variance_reduction"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "pseudo_monte_carlo"
+            },
+            "master_seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            "independent_sampling_units": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 18446744073709551615
+            },
+            "variance_reduction": {
+              "$ref": "#/$defs/variance_reduction"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "points_per_scramble",
+            "scramble_count",
+            "master_scramble_seed",
+            "variance_reduction"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "randomized_quasi_monte_carlo"
+            },
+            "points_per_scramble": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967296
+            },
+            "scramble_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967295
+            },
+            "master_scramble_seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            "variance_reduction": {
+              "$ref": "#/$defs/variance_reduction"
+            }
+          }
+        }
+      ]
+    },
+    "lsm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "training_engine",
+        "state_variables",
+        "basis",
+        "itm_abs_tolerance",
+        "cpqr",
+        "max_matrix_elements"
+      ],
+      "properties": {
+        "training_engine": {
+          "$ref": "#/$defs/engine"
+        },
+        "state_variables": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/lsm_state_variable"
+          }
+        },
+        "basis": {
+          "$ref": "#/$defs/polynomial_basis"
+        },
+        "itm_abs_tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cpqr": {
+          "$ref": "#/$defs/cpqr"
+        },
+        "max_matrix_elements": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "lsm_state_variable": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "spot"
+            }
+          }
+        }
+      ]
+    },
+    "polynomial_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "feature_count",
+        "max_degree"
+      ],
+      "properties": {
+        "feature_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "max_degree": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99999
+        }
+      }
+    },
+    "cpqr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "abs_rank_tolerance",
+        "rel_rank_tolerance"
+      ],
+      "properties": {
+        "abs_rank_tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "rel_rank_tolerance": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "delta",
+        "vega",
+        "smile_dynamics"
+      ],
+      "dependentRequired": {
+        "payoff_smoothing_width_ladder": [
+          "payoff_smoothing"
+        ]
+      },
+      "properties": {
+        "delta": {
+          "type": "boolean"
+        },
+        "vega": {
+          "type": "boolean"
+        },
+        "smile_dynamics": {
+          "$ref": "#/$defs/smile_dynamics"
+        },
+        "gamma": {
+          "$ref": "#/$defs/gamma"
+        },
+        "vega_kt": {
+          "$ref": "#/$defs/vega_kt"
+        },
+        "payoff_smoothing": {
+          "$ref": "#/$defs/payoff_smoothing"
+        },
+        "payoff_smoothing_width_ladder": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "checkpoint_interval": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "aad_tile_capacity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        }
+      }
+    },
+    "payoff_smoothing": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "half_width"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "compact_c2"
+            },
+            "half_width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "gamma": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bump"
+      ],
+      "properties": {
+        "bump": {
+          "$ref": "#/$defs/spot_bump"
+        }
+      }
+    },
+    "spot_bump": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "absolute"
+            },
+            "value": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "relative"
+            },
+            "value": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "vega_kt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maturity_nodes",
+        "log_forward_moneyness_nodes",
+        "relative_density_threshold",
+        "full_bucket_covariance"
+      ],
+      "properties": {
+        "maturity_nodes": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          }
+        },
+        "log_forward_moneyness_nodes": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "relative_density_threshold": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "full_bucket_covariance": {
+          "type": "boolean"
+        }
+      }
+    },
+    "smile_dynamics": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "sticky_log_moneyness"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "sticky_strike"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "sticky_delta"
+            }
+          }
+        }
+      ]
+    },
+    "volatility_factor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "mean_reversion",
+            "vol_of_vol",
+            "correlation"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "bergomi"
+            },
+            "mean_reversion": {
+              "type": "number",
+              "minimum": 0
+            },
+            "vol_of_vol": {
+              "type": "number",
+              "minimum": 0
+            },
+            "correlation": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "mean_reversions",
+            "vol_of_vol",
+            "mixing_weight",
+            "spot_correlations",
+            "factor_correlation"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "bergomi_two_factor"
+            },
+            "mean_reversions": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "vol_of_vol": {
+              "type": "number",
+              "minimum": 0
+            },
+            "mixing_weight": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "spot_correlations": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "factor_correlation": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "hurst",
+            "vol_of_vol",
+            "correlation"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "rough_bergomi"
+            },
+            "hurst": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.5
+            },
+            "vol_of_vol": {
+              "type": "number",
+              "minimum": 0
+            },
+            "correlation": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            }
+          }
+        }
+      ]
+    },
+    "forward_variance": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "times",
+            "values"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "knots"
+            },
+            "times": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minItems": 1
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "initial",
+            "growth"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "exponential"
+            },
+            "initial": {
+              "type": "number",
+              "minimum": 0
+            },
+            "growth": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "rough_model": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "hurst",
+            "initial_variance",
+            "mean_reversion",
+            "long_run_variance",
+            "vol_of_vol",
+            "correlation"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "rough_heston"
+            },
+            "hurst": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.5
+            },
+            "initial_variance": {
+              "type": "number",
+              "minimum": 0
+            },
+            "mean_reversion": {
+              "type": "number",
+              "minimum": 0
+            },
+            "long_run_variance": {
+              "type": "number",
+              "minimum": 0
+            },
+            "vol_of_vol": {
+              "type": "number",
+              "minimum": 0
+            },
+            "correlation": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "initial_variance",
+            "mean_reversion",
+            "long_run_variance",
+            "vol_of_vol",
+            "correlation",
+            "weights",
+            "rates"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "lifted_heston"
+            },
+            "initial_variance": {
+              "type": "number",
+              "minimum": 0
+            },
+            "mean_reversion": {
+              "type": "number",
+              "minimum": 0
+            },
+            "long_run_variance": {
+              "type": "number",
+              "minimum": 0
+            },
+            "vol_of_vol": {
+              "type": "number",
+              "minimum": 0
+            },
+            "correlation": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "weights": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "minItems": 1,
+              "maxItems": 256
+            },
+            "rates": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minItems": 1,
+              "maxItems": 256
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "hurst",
+            "initial_state",
+            "mean_reversion",
+            "vol_of_vol",
+            "quadratic",
+            "shift",
+            "variance_floor"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "quadratic_rough_heston"
+            },
+            "hurst": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.5
+            },
+            "initial_state": {
+              "type": "number"
+            },
+            "mean_reversion": {
+              "type": "number",
+              "minimum": 0
+            },
+            "vol_of_vol": {
+              "type": "number",
+              "minimum": 0
+            },
+            "quadratic": {
+              "type": "number",
+              "minimum": 0
+            },
+            "shift": {
+              "type": "number"
+            },
+            "variance_floor": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "hurst",
+            "correlation",
+            "weights",
+            "vol_of_vols",
+            "forward_variance"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "mixed_rough_bergomi"
+            },
+            "hurst": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.5
+            },
+            "correlation": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "weights": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minItems": 1,
+              "maxItems": 256
+            },
+            "vol_of_vols": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minItems": 1,
+              "maxItems": 256
+            },
+            "forward_variance": {
+              "$ref": "#/$defs/forward_variance"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "hurst",
+            "vol_of_vol",
+            "correlation",
+            "beta",
+            "forward_variance"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "rough_sabr"
+            },
+            "hurst": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.5
+            },
+            "vol_of_vol": {
+              "type": "number",
+              "minimum": 0
+            },
+            "correlation": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "beta": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "forward_variance": {
+              "$ref": "#/$defs/forward_variance"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "hurst",
+            "mean_reversion",
+            "vol_of_log_vol",
+            "mean_log_vol"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "rfsv"
+            },
+            "hurst": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.5
+            },
+            "mean_reversion": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "vol_of_log_vol": {
+              "type": "number",
+              "minimum": 0
+            },
+            "mean_log_vol": {
+              "type": "number"
+            },
+            "initial_log_vol": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "local_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_variance_grid"
+      ],
+      "properties": {
+        "local_variance_grid": {
+          "$ref": "#/$defs/local_variance_grid"
+        },
+        "reporting_iv_basis": {
+          "$ref": "#/$defs/reporting_iv_basis"
+        }
+      }
+    },
+    "particles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "particle_count",
+        "seed",
+        "log_bandwidth",
+        "minimum_effective_samples",
+        "retain_reverse_trace"
+      ],
+      "properties": {
+        "particle_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 18446744073709551615
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "log_bandwidth": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "minimum_effective_samples": {
+          "type": "number",
+          "minimum": 1
+        },
+        "retain_reverse_trace": {
+          "type": "boolean"
+        }
+      }
+    },
+    "market_iv_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maturity_nodes",
+        "log_moneyness_nodes",
+        "implied_volatilities"
+      ],
+      "properties": {
+        "maturity_nodes": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minItems": 1
+        },
+        "log_moneyness_nodes": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1
+        },
+        "implied_volatilities": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "forward_density": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_variance_grid",
+        "log_densities"
+      ],
+      "properties": {
+        "local_variance_grid": {
+          "$ref": "#/$defs/local_variance_grid"
+        },
+        "log_densities": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minItems": 1
+        },
+        "market_iv": {
+          "$ref": "#/$defs/market_iv_source"
+        }
+      }
+    },
+    "equity_model": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "model"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "standard"
+            },
+            "model": {
+              "$ref": "#/$defs/model"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "initial_volatility",
+            "factor"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "stochastic_volatility"
+            },
+            "initial_volatility": {
+              "type": "number",
+              "minimum": 0
+            },
+            "factor": {
+              "$ref": "#/$defs/volatility_factor"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "target",
+            "factor",
+            "particles"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "local_stochastic_volatility"
+            },
+            "target": {
+              "$ref": "#/$defs/local_target"
+            },
+            "factor": {
+              "$ref": "#/$defs/volatility_factor"
+            },
+            "particles": {
+              "$ref": "#/$defs/particles"
+            },
+            "forward_density": {
+              "$ref": "#/$defs/forward_density"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "model"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "rough_volatility"
+            },
+            "model": {
+              "$ref": "#/$defs/rough_model"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "target",
+            "model",
+            "particles"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "rough_local_stochastic_volatility"
+            },
+            "target": {
+              "$ref": "#/$defs/local_target"
+            },
+            "model": {
+              "$ref": "#/$defs/rough_model"
+            },
+            "particles": {
+              "$ref": "#/$defs/particles"
+            }
+          }
+        }
+      ]
+    },
+    "rate_model": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "deterministic"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "mean_reversion",
+            "volatility_times",
+            "volatilities",
+            "equity_rate_correlation",
+            "vol_rate_correlations"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "hull_white"
+            },
+            "mean_reversion": {
+              "type": "number",
+              "minimum": 0
+            },
+            "volatility_times": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minItems": 1
+            },
+            "volatilities": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              },
+              "minItems": 1
+            },
+            "equity_rate_correlation": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "vol_rate_correlations": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1
+              },
+              "minItems": 0,
+              "maxItems": 2
+            }
+          }
+        }
+      ]
+    },
+    "model_composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "equity",
+        "rates"
+      ],
+      "properties": {
+        "equity": {
+          "$ref": "#/$defs/equity_model"
+        },
+        "rates": {
+          "$ref": "#/$defs/rate_model"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "rates": {
+                "properties": {
+                  "type": {
+                    "const": "hull_white"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "allOf": [
+              {
+                "properties": {
+                  "equity": {
+                    "properties": {
+                      "type": {
+                        "enum": [
+                          "standard",
+                          "stochastic_volatility",
+                          "local_stochastic_volatility"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "equity": {
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "standard"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "equity": {
+                      "properties": {
+                        "model": {
+                          "properties": {
+                            "type": {
+                              "const": "black_scholes"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "rates": {
+                      "properties": {
+                        "vol_rate_correlations": {
+                          "maxItems": 0
+                        }
+                      }
+                    }
+                  }
+                },
+                "else": {
+                  "if": {
+                    "properties": {
+                      "equity": {
+                        "properties": {
+                          "factor": {
+                            "properties": {
+                              "type": {
+                                "const": "bergomi_two_factor"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "rates": {
+                        "properties": {
+                          "vol_rate_correlations": {
+                            "minItems": 2,
+                            "maxItems": 2
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "rates": {
+                        "properties": {
+                          "vol_rate_correlations": {
+                            "minItems": 1,
+                            "maxItems": 1
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "equity": {
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "local_stochastic_volatility"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "equity": {
+                      "required": [
+                        "forward_density"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "else": {
+            "properties": {
+              "equity": {
+                "not": {
+                  "required": [
+                    "forward_density"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "numerics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "worker_threads",
+        "reduction_block_size"
+      ],
+      "properties": {
+        "worker_threads": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "reduction_block_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        },
+        "maximum_step": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "graph_operation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "literal"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "underlying_id",
+            "observation_date"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "terminal_spot"
+            },
+            "underlying_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "observation_date": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "underlying_id",
+            "observation_date"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "pre_dividend_spot"
+            },
+            "underlying_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "observation_date": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "add"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "subtract"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "multiply"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "numerator",
+            "denominator"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "divide"
+            },
+            "numerator": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "denominator": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "minimum"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "maximum"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "input"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "indicator"
+            },
+            "input": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "input"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "negate"
+            },
+            "input": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "previous",
+            "hit_weight"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "barrier_hit_state"
+            },
+            "previous": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "hit_weight": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right",
+            "half_width"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "smooth_minimum"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "half_width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right",
+            "half_width"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "smooth_maximum"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "half_width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "input",
+            "half_width"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "smooth_indicator"
+            },
+            "input": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "half_width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "graph_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "operation"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "operation": {
+          "$ref": "#/$defs/graph_operation"
+        }
+      }
+    },
+    "graph_cashflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "output_node",
+        "payment_date"
+      ],
+      "properties": {
+        "output_node": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "payment_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
+      }
+    },
+    "graph_product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency_id",
+        "underlying_ids",
+        "nodes",
+        "cashflows"
+      ],
+      "properties": {
+        "currency_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "underlying_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/graph_node"
+          },
+          "minItems": 1,
+          "maxItems": 1000000
+        },
+        "cashflows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/graph_cashflow"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        }
+      }
+    }
+  }
+}

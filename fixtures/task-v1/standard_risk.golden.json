@@ -1,0 +1,86 @@
+{
+  "document_kind": "pricing_task",
+  "schema_version": 1,
+  "operation": {
+    "type": "evaluate"
+  },
+  "source": {
+    "type": "single_asset",
+    "specification": {
+      "document_kind": "pricing_specification",
+      "schema_version": 2,
+      "valuation_date": "2026-09-04",
+      "product": {
+        "type": "european_vanilla",
+        "underlying_id": 1,
+        "currency_id": 2,
+        "expiry": "2027-09-04",
+        "strike": 100.0,
+        "notional": 1.0,
+        "side": {
+          "type": "call"
+        }
+      },
+      "market": {
+        "type": "equity",
+        "currency_id": 2,
+        "underlying_id": 1,
+        "spot": 100.0,
+        "discount_curve": {
+          "curve_id": 10,
+          "times": [
+            0.0,
+            1.0
+          ],
+          "discount_factors": [
+            1.0,
+            0.95
+          ]
+        },
+        "dividend_curve": {
+          "curve_id": 11,
+          "times": [
+            0.0,
+            1.0
+          ],
+          "discount_factors": [
+            1.0,
+            0.98
+          ]
+        }
+      },
+      "model": {
+        "equity": {
+          "type": "standard",
+          "model": {
+            "type": "black_scholes",
+            "volatility": 0.2
+          }
+        },
+        "rates": {
+          "type": "deterministic"
+        }
+      },
+      "engine": {
+        "type": "pseudo_monte_carlo",
+        "master_seed": 7,
+        "independent_sampling_units": 32,
+        "variance_reduction": {
+          "antithetic": true,
+          "brownian_bridge": false
+        }
+      },
+      "risk": {
+        "delta": true,
+        "vega": true,
+        "smile_dynamics": {
+          "type": "sticky_log_moneyness"
+        }
+      },
+      "numerics": {
+        "worker_threads": 1,
+        "reduction_block_size": 16
+      }
+    }
+  }
+}

@@ -187,7 +187,8 @@ impl PathStateDiagnostics {
                     valuation_date_fixing: lookback.valuation_date_fixing().map(PositiveF64::get),
                 })
             }
-            ProductSpec::EuropeanVanilla(_)
+            ProductSpec::Graph(_)
+            | ProductSpec::EuropeanVanilla(_)
             | ProductSpec::AmericanVanilla(_)
             | ProductSpec::Digital(_)
             | ProductSpec::Barrier(_) => None,

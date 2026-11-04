@@ -37,7 +37,6 @@ Do not combine an optimization with an untested numerical-policy change.
 ## Required checks
 
 ```shell
-python3 -m unittest discover -s scripts -p test_ci_failure_propagation.py -v
 python3 scripts/check_local_vol_reference_fixture.py
 python3 scripts/check_local_vol_gamma_numerics.py
 python3 scripts/check_local_vol_gamma_recovery.py
@@ -55,7 +54,17 @@ python3 scripts/check_early_exercise_reference_fixture.py
 python3 scripts/check_schemas.py
 python3 -m pip install "jsonschema>=4.18,<5"
 python3 scripts/check_specification_json_schema.py
+python3 scripts/check_product_graph_json_schema.py
+python3 scripts/check_task_json_schema.py
 python3 scripts/check_markdown_links.py
+python3 -m unittest discover -s scripts -p test_smoke_test_wheel.py -v
+python3 -m unittest discover -s scripts -p test_provider_shards.py -v
+python3 -m unittest discover -s scripts -p test_remaining_shards.py -v
+python3 -m unittest discover -s scripts -p test_extended_acceptance_shards.py -v
+python3 -m unittest discover -s scripts -p test_native_debugger.py -v
+python3 -m unittest discover -s scripts -p test_native_memory_diagnostic.py -v
+python3 -m unittest discover -s scripts -p test_ci_failure_propagation.py -v
+python3 -m unittest discover -s scripts -p test_wheel_validation.py -v
 git archive --format=tar.gz --output /tmp/rust-pricing-source-check.tar.gz HEAD
 python3 scripts/check_source_archive.py /tmp/rust-pricing-source-check.tar.gz
 cargo fmt --all --check
@@ -91,19 +100,160 @@ Run `scripts/smoke_test_wheel.py` with the same CPython ABI as the built wheel
 tag, for example CPython 3.12 for a `cp312` wheel. The smoke test rejects ABI
 mismatches before installation.
 
+The main Rust and supported-wheel jobs use explicit `shell: bash` on every
+platform so a failed native command or pipeline fails its step immediately.
+Do not rely on PowerShell's final `$LASTEXITCODE` for a block with multiple
+commands. The failure-propagation tests inject nonzero native exits into the
+retained CI blocks and require that subsequent commands do not run.
+
 The default smoke command runs all package checks, examples and discovered
 Python tests. CI builds each platform wheel once, runs `--phase package`, and
-passes the same wheel artifact to three `--phase validation` jobs. Their
-`--group` values are `custom-basis`, `providers` and `remaining`; every group is
-required on Linux, macOS and Windows. New test modules automatically join
-`remaining`. Examples run with `remaining` (or `all`). Each module runs in a
-separate Python process with fault diagnostics enabled; tests within the module
-keep their shared class state. A failed test or process fails its job without
-retrying or skipping it. To reproduce one group with an existing wheel:
+passes the same wheel artifact to 40 `--phase validation` jobs per platform:
+36 provider shards and four balanced `remaining-1` through `remaining-4` groups.
+Every selection is required on
+Linux, macOS and Windows. The generated matrix in
+`scripts/wheel_validation/provider_shards.py` is the single CI plan.
+New test modules automatically join `remaining`; new methods in a provider
+suite join its contracts shard unless explicitly declared as numerical cases.
+Examples run once with `remaining-1` (or the original `remaining` / `all`).
+The remaining groups schedule every discovered module using retained Linux
+durations; a newly discovered module gets a default weight and is always included.
+Timing hints affect placement only. Each module keeps its isolated process,
+complete test inventory and failure handling. The inventory artifact records
+the generated groups as well as the provider case partition. The unsplit
+`--group remaining` command is still available locally.
+
+Extended Rust acceptance builds its release binaries once per platform. The
+complete risk suite and four balanced accuracy selections consume those same
+binaries. Before running, each selection verifies the binary hash, source
+fingerprint and compiled ignored-test inventory. It then proves that libtest's
+exact filters select precisely its assigned tests. The original named
+`Extended model acceptance / <OS>` checks remain mandatory and fail unless all
+selections on all platforms pass. Their accuracy artifacts include the combined
+logs and a structured report with every executed test. No numerical populations,
+seeds, tolerances, ignored cases or platforms are removed. New accuracy cases
+must be added to the timing inventory; a mismatch fails before execution.
+
+Inspect the historical scheduling estimates without running numerical tests:
+
+```shell
+python3 scripts/extended_acceptance_shards.py --plan
+```
+
+Provider numerical shards select one basis/extension and one interval count.
+For four-interval named bases, native panels run together and each dated ledger
+(side and product) runs separately: their combined execution exceeded the job
+limit on Windows. Six-interval named bases and extension shards retain their
+combined panels and ledgers. Every ledger keeps all four strategies, checkpoint
+replays and failure repairs. Contracts run separately with all original policy
+configurations. Before executing any selection, discovery checks both the test-ID
+multiset and the provider method/case multiset against the complete suite,
+including the original repeated coupled-basis coverage. Missing or extra cases
+fail validation. Cases, sampling, tolerances and numerical assertions are unchanged.
+
+Each example, module or shard runs in a separate Python process with fault diagnostics
+enabled. Tests within that process keep their shared class state. A failed test
+or process fails its job without retrying it. `--report-directory` saves the
+inventory and a running/completed record for each test process, including exit
+codes and signals. CI attempts to upload these records after failure or
+cancellation, together with any Python crash reports emitted by macOS.
+Provider shard processes also dump Python stacks on POSIX `SIGTRAP`, which the
+standard fault handler does not cover. They then chain to the previous handler;
+the native crash remains a failed process. Windows uses its built-in fault and
+exception handlers. An absent native crash report does not identify the cause.
+
+macOS wheel selections also use `--native-debugger lldb`, which requires a
+report directory. LLDB launches the original command once through its Python
+API, retaining literal arguments and the venv executable path. Shell argument
+expansion is disabled. Startup `exec` handoffs do not stop the process; native
+signals and exceptions still do. The runner captures thread backtraces,
+registers, image identities and stop reasons before a stopped process is terminated. Diagnostic
+logs and process observations are saved under `native-debugger/` in the same
+artifact. Each thread's JSON observation also retains up to 128 frames with
+function names, module paths/UUIDs, load and file addresses, and available source
+locations. Missing symbols remain null; invalid frames, truncated stacks and
+unwind errors are explicit. These are read-only debugger observations, not a
+diagnosis of the corruption's origin. Full text backtraces remain in the log.
+A zero debugger exit alone cannot pass: a current process record must
+confirm normal child exit zero, and the debugger must also succeed. Missing,
+stale or malformed records and debugger launch failures fail the job. Crashes
+are not resumed or retried. Ordinary positive child exit codes are preserved;
+a native stop without a normal exit has gate status 1 and its actual stop state
+in the diagnostic record. The mandatory macOS debugger tests exercise normal
+exit, nonzero exit, `exec` handoffs, SIGABRT, SIGTRAP and literal argument
+handling. A crash probe must reach its pre-signal marker and report the requested
+signal or its Mach exception before it counts as diagnostic evidence.
+
+The separate `Native memory diagnostics` workflow investigates the two retained
+macOS failures on `macos-15` with CPython 3.12.10 and the observed NumPy/SciPy
+versions. One job runs existing calibration kernels without importing native
+pricing. Two other jobs build a local diagnostic wheel with the pinned Rust
+compiler's AddressSanitizer and execute the original failed selections once.
+The normal wheel matrix remains required. A diagnostic pass is not proof that
+an intermittent fault is repaired.
+
+`scripts/native_memory_diagnostic.py` rejects an uninstrumented installed
+extension, checks both normal execution and detection of a deliberately faulty
+standalone probe, then verifies ASan can import the wheel. Framework Python is
+launched through its actual interpreter with the original environment retained;
+its startup launcher can lose sanitizer interposition. Source/binary identities,
+host/compiler versions, detector results and process completion records accompany
+the logs. Leak detection is disabled; invalid access/free detection remains on.
+CPython, NumPy, SciPy, the standard library and system libraries are not rebuilt
+with instrumentation. These diagnostic builds are not distribution artifacts.
+The workflow runs when its helper/tests/workflow change, and can also be invoked
+manually after it is available on the default branch.
+
+A missing or running record is incomplete evidence, never a passing result.
+CI gives each selection 330 minutes; successful completion on all platforms
+remains required. Runner loss can prevent the final artifact upload entirely.
+
+The original `--group custom-basis`, `--group providers`, default full execution,
+and combined four-interval shard names remain available, but those combined
+suites can exceed a hosted runner's time limit. Combined shard aliases are
+excluded from the CI matrix to avoid duplicating numerical cases. They retain
+the original process/class lifetime for investigating native faults; success
+under shorter process lifetimes does not establish a fix for those faults.
+Provider ledger tests capture detached risk/audit observations during the real
+strategy evaluations, eliminating a later history traversal used only to export
+the same evidence. All four strategies and independent partial/resumed backtests
+still call the original provider. Observations must match the complete expected
+snapshot/contract set and their provenance; failures cannot become observations.
+Combined reproduction aliases and ASan diagnostics automatically set
+`PRICING_TEST_ORIGINAL_EVIDENCE=1`, which restores the original evidence repricing
+traversal and native call sequence. Set that variable explicitly to reproduce
+the original workload with other group or shard commands.
+To reproduce a CI shard with an existing wheel:
 
 ```bash
-python scripts/smoke_test_wheel.py dist/<wheel>.whl --phase validation --group providers
+python scripts/smoke_test_wheel.py dist/<wheel>.whl --phase validation --shard coupled-basis-coupled_row_hats-4-put-fixed_lookback --report-directory wheel-validation-reports
 ```
+
+To reproduce the original combined shard, including its panels and all ledgers:
+
+```bash
+python scripts/smoke_test_wheel.py dist/<wheel>.whl --phase validation --shard coupled-basis-coupled_row_hats-4 --report-directory wheel-validation-reports
+```
+
+The CLI delegates archive/metadata checks, static API contracts, and installed
+runtime checks to `scripts/wheel_validation`. Independent frozen API expectations
+live in its `contracts` package, grouped by domain with each class's members,
+signatures and return constraints together. When extending an API, update its
+domain record and the module exports; do not regenerate expectations from the
+implementation or stub. Existing partial annotation contracts remain in force;
+new or changed declarations should freeze input and return annotations explicitly.
+
+Every declared callable (including constructors and special methods, excluding
+property getters) is also checked against the installed wheel using
+`inspect.signature`. Argument names/order, positional-only and keyword-only
+boundaries, required arguments and typed defaults must agree. Only the implicit
+instance receiver is normalized. Missing signatures, opaque defaults and
+variadic catch-all signatures fail validation. PyO3 exposes constructors on the
+class itself; use an explicit `text_signature` when a Rust constant's default is
+otherwise shown as `...`, with a behavior test that confirms the native default.
+Runtime annotations are not supplied by PyO3, so independent static contracts and
+native conformance tests still check types and semantics. See
+[ADR 0033](design/adr/0033-wheel-api-contracts.md) for the coverage boundaries.
 
 Extended-model changes must preserve the independent price, seed-dispersion and
 refinement gates in the [extended-model accuracy panel](design/validation/extended-model-accuracy.md).

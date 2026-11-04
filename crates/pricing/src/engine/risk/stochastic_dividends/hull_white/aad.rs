@@ -39,15 +39,19 @@ impl StochasticDividendHullWhitePricingPlan {
         self.evaluate_aad_scope(AadScope::Correlations)
     }
 
-    fn evaluate_aad_scope(
-        &self,
-        scope: AadScope,
-    ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+    pub(crate) fn validate_source_aad(&self) -> Result<(), MonteCarloError> {
         if !self.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "HW stochastic-dividend discontinuous payoff requires explicit smoothing",
             });
         }
+        Ok(())
+    }
+    fn evaluate_aad_scope(
+        &self,
+        scope: AadScope,
+    ) -> Result<StochasticDividendAadRisk, MonteCarloError> {
+        self.validate_source_aad()?;
         let context = HullWhiteReverseContext::new(
             &self.path,
             &self.market,
@@ -180,11 +184,22 @@ impl StochasticDividendHullWhitePricingPlan {
             return Err(invalid("risk_estimator").into());
         }
         let mut parameter_labels = context.labels.clone();
+        let mut parameter_kinds = context.parameter_kinds.clone();
         if let Some(rate_context) = &rate_context {
             parameter_labels.extend_from_slice(rate_context.labels());
+            // Native order: mean reversion, then the rate-volatility knots.
+            parameter_kinds.push(crate::RiskParameterKind::ModelParameter);
+            parameter_kinds.extend(std::iter::repeat_n(
+                crate::RiskParameterKind::Volatility,
+                rate_context.labels().len() - 1,
+            ));
         }
         if let Some(correlation_context) = &correlation_context {
             parameter_labels.extend(correlation_context.labels().iter().map(|s| (*s).to_owned()));
+            parameter_kinds.extend(std::iter::repeat_n(
+                crate::RiskParameterKind::ModelParameter,
+                correlation_context.labels().len(),
+            ));
         }
         Ok(StochasticDividendAadRisk {
             price: StochasticDividendPrice {
@@ -196,6 +211,7 @@ impl StochasticDividendHullWhitePricingPlan {
                 scheme: self.scheme(),
             },
             parameter_labels: parameter_labels.into_boxed_slice(),
+            parameter_kinds: parameter_kinds.into_boxed_slice(),
             derivatives: means[1..].into(),
             standard_errors: errors[1..].into(),
             cash_times: context.cash_times.into_boxed_slice(),
@@ -270,9 +286,16 @@ impl StochasticDividendHullWhitePricingPlan {
                     .collect::<Result<Vec<_>, _>>()?,
                 _ => Vec::new(),
             };
-            let (payoff, payoff_seeds) = self
-                .base
-                .hybrid_spot_payoff_adjoints(self.path.times(), &spots)?;
+            let mut discount_adjoints = if self.base.cashflow_discount_adjoints.is_empty() {
+                Vec::new()
+            } else {
+                vec![0.0; context.discount_times.len()]
+            };
+            let (payoff, payoff_seeds) = self.base.hybrid_spot_payoff_market_adjoints(
+                self.path.times(),
+                &spots,
+                &mut discount_adjoints,
+            )?;
             let terminal = states.last().ok_or(invalid("terminal_state"))?;
             let relative = self.payment_constant
                 * (-terminal.integrated_rate_factor()
@@ -285,13 +308,19 @@ impl StochasticDividendHullWhitePricingPlan {
                 .iter()
                 .map(|(post, pre)| (relative * post, relative * pre))
                 .collect::<Vec<_>>();
-            let reverse = context.pullback(
+            let mut reverse = context.pullback(
                 &self.path,
                 &shocks,
                 &states,
                 &discounted_seeds,
                 discounted_payoff,
             )?;
+            for (bar, correction) in reverse[context.discount_range()]
+                .iter_mut()
+                .zip(discount_adjoints)
+            {
+                *bar += relative * correction;
+            }
             for (target, source) in out[1..].iter_mut().zip(reverse) {
                 *target += source;
             }

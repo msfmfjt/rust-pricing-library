@@ -1,5 +1,5 @@
 use crate::builders::PyEssviSlice;
-use crate::{PricingError, PyValidationIssue, validation_exception};
+use crate::{PyValidationIssue, validation_exception};
 use pricing::bass_lv::{
     BassCalibrationDiagnostics, BassError, BassEstimate, BassLvConfig, BassLvModel, BassMarginal,
     BassMarginalProjection, BassSimulationPlan, BassSurfaceDiagnostics,
@@ -17,13 +17,13 @@ pub use risk::{
     PyBassDeterministicMappingRisk, PyBassMappingBump, PyBassMappingRisk, PyBassMappingRiskPlan,
 };
 
-fn error(py: Python<'_>, e: BassError) -> PyErr {
+fn error(py: Python<'_>, e: BassError, stage: crate::errors::Stage) -> PyErr {
     match e {
         BassError::InvalidInput(_) | BassError::ConvexOrder { .. } => validation_exception(
             py,
             PyValidationIssue::domain("/bass_lv", "invalid_bass_configuration", e.to_string()),
         ),
-        _ => PricingError::new_err(e.to_string()),
+        _ => crate::errors::exception(e, stage, None),
     }
 }
 
@@ -43,7 +43,7 @@ impl PyBassMarginal {
     ) -> PyResult<Self> {
         BassMarginal::new(expiry, spots, probabilities)
             .map(|inner| Self { inner })
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[staticmethod]
     #[pyo3(signature=(expiry,spot,volatility,*,nodes=1601,tail_std=7.0))]
@@ -57,7 +57,7 @@ impl PyBassMarginal {
     ) -> PyResult<Self> {
         BassMarginal::lognormal(expiry, spot, volatility, nodes, tail_std)
             .map(|inner| Self { inner })
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[getter]
     fn expiry(&self) -> f64 {
@@ -82,7 +82,13 @@ impl PyBassMarginal {
             terminal_theta_slope,
             SurfaceValidationTolerance::local_vol_vegakt_v1(),
         )
-        .map_err(|e| error(py, BassError::InvalidInput(e.to_string())))?;
+        .map_err(|e| {
+            error(
+                py,
+                BassError::InvalidInput(e.to_string()),
+                crate::errors::Stage::Validation,
+            )
+        })?;
         let config = BassSurfaceProjectionConfig {
             tail_probability_tolerance,
             relative_mean_tolerance,
@@ -91,7 +97,7 @@ impl PyBassMarginal {
             BassMarginal::from_surface(expiry, spot, &surface, &log_moneyness_nodes, config)
         })
         .map(|inner| PyBassMarginalProjection { inner })
-        .map_err(|e| error(py, e))
+        .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[getter]
     fn mean(&self) -> f64 {
@@ -113,10 +119,14 @@ impl PyBassMarginal {
         self.inner.cdf(spot)
     }
     fn quantile(&self, py: Python<'_>, probability: f64) -> PyResult<f64> {
-        self.inner.quantile(probability).map_err(|e| error(py, e))
+        self.inner
+            .quantile(probability)
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     fn call_price(&self, py: Python<'_>, strike: f64) -> PyResult<f64> {
-        self.inner.call_price(strike).map_err(|e| error(py, e))
+        self.inner
+            .call_price(strike)
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
 }
 
@@ -273,7 +283,7 @@ impl PyBassLvModel {
             .collect();
         py.detach(|| BassLvModel::calibrate(spot, marginals, config))
             .map(|inner| Self { inner })
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Calibrate))
     }
     #[getter]
     fn spot(&self) -> f64 {
@@ -294,12 +304,12 @@ impl PyBassLvModel {
     fn mapping(&self, py: Python<'_>, time: f64, brownian_state: f64) -> PyResult<f64> {
         self.inner
             .mapping(time, brownian_state)
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     fn local_volatility(&self, py: Python<'_>, time: f64, spot: f64) -> PyResult<f64> {
         self.inner
             .local_volatility(time, spot)
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     fn compile_simulation(
         &self,
@@ -308,7 +318,7 @@ impl PyBassLvModel {
     ) -> PyResult<PyBassSimulationPlan> {
         py.detach(|| self.inner.compile_simulation(observation_times))
             .map(|inner| PyBassSimulationPlan { inner })
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Compile))
     }
     fn compile_mapping_risk(
         &self,
@@ -319,7 +329,7 @@ impl PyBassLvModel {
         let bumps = bumps.iter().map(|b| b.borrow(py).inner).collect();
         py.detach(|| self.inner.compile_mapping_risk(observation_times, bumps))
             .map(|inner| PyBassMappingRiskPlan { inner })
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Compile))
     }
 }
 
@@ -345,12 +355,12 @@ impl PyBassSimulationPlan {
     fn path_from_normals(&self, py: Python<'_>, normals: Vec<f64>) -> PyResult<Vec<f64>> {
         self.inner
             .path_from_normals(&normals)
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[pyo3(signature=(paths,*,seed=0))]
     fn sample_paths(&self, py: Python<'_>, paths: usize, seed: u64) -> PyResult<Vec<Vec<f64>>> {
         py.detach(|| self.inner.sample_paths(paths, seed))
-            .map_err(|e| error(py, e))
+            .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[pyo3(signature=(strike,*,is_call=true,paths=100_000,seed=0,discount_factor=1.0))]
     fn price_european(
@@ -367,7 +377,7 @@ impl PyBassSimulationPlan {
                 .price_european(strike, is_call, paths, seed, discount_factor)
         })
         .map(Into::into)
-        .map_err(|e| error(py, e))
+        .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
     #[pyo3(signature=(strike,*,is_call=true,paths=100_000,seed=0,discount_factor=1.0))]
     fn price_asian(
@@ -384,6 +394,6 @@ impl PyBassSimulationPlan {
                 .price_asian(strike, is_call, paths, seed, discount_factor)
         })
         .map(Into::into)
-        .map_err(|e| error(py, e))
+        .map_err(|e| error(py, e, crate::errors::Stage::Evaluate))
     }
 }

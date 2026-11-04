@@ -42,10 +42,23 @@ use crate::{
 };
 
 const DOCUMENT_REQUEST: &str = "pricing_request";
+mod product_graph;
 mod specification;
+mod valuation_report;
+pub use product_graph::{
+    current_product_graph_schema, fingerprint_product_graph, parse_product_graph_json,
+    product_graph_to_json, product_graph_to_pretty_json,
+};
 pub use specification::{
-    current_specification_schema, fingerprint_specification, parse_specification_json,
+    current_pricing_task_schema, current_specification_schema, fingerprint_pricing_task,
+    fingerprint_specification, parse_pricing_task_json, parse_specification_json,
+    parse_specification_json_with_context, pricing_task_to_json, pricing_task_to_pretty_json,
     specification_to_json, specification_to_pretty_json,
+};
+pub use valuation_report::{
+    current_valuation_report_schema, parse_valuation_report_json,
+    parse_valuation_report_json_with_context, valuation_report_to_json,
+    valuation_report_to_pretty_json,
 };
 const DOCUMENT_RESULT: &str = "pricing_result";
 const MIGRATION_REQUEST_V1_TO_V2: &str = "pricing_request/v1-to-v2";
@@ -180,6 +193,49 @@ impl fmt::Display for WireError {
 
 impl Error for WireError {}
 
+/// A wire failure with the input schema version, when its envelope could be read.
+///
+/// Syntax, duplicate-member and resource-limit checks run before any envelope is
+/// trusted. This context does not change the underlying [`WireError`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WireParseError {
+    error: WireError,
+    schema_version: Option<u32>,
+}
+
+impl WireParseError {
+    /// The declared input version, including unsupported versions. `None` means
+    /// bounded JSON validation or envelope decoding failed before it was known.
+    #[must_use]
+    pub const fn schema_version(&self) -> Option<u32> {
+        self.schema_version
+    }
+
+    /// The original typed failure, with its existing message and JSON pointer.
+    #[must_use]
+    pub const fn wire_error(&self) -> &WireError {
+        &self.error
+    }
+
+    /// Discard document context while preserving the original typed failure.
+    #[must_use]
+    pub fn into_wire_error(self) -> WireError {
+        self.error
+    }
+}
+
+impl fmt::Display for WireParseError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.error.fmt(formatter)
+    }
+}
+
+impl Error for WireParseError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.error)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Fingerprint([u8; 32]);
 
@@ -281,6 +337,9 @@ struct RequestV1 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum ProductV1 {
+    Graph {
+        graph: product_graph::GraphProductV1,
+    },
     EuropeanVanilla {
         underlying_id: u32,
         currency_id: u16,
@@ -707,6 +766,9 @@ impl From<&PricingRequest> for RequestV3 {
 impl From<&ProductSpec> for ProductV1 {
     fn from(product: &ProductSpec) -> Self {
         match product {
+            ProductSpec::Graph(product) => Self::Graph {
+                graph: product.into(),
+            },
             ProductSpec::EuropeanVanilla(spec) => Self::EuropeanVanilla {
                 underlying_id: spec.underlying().get(),
                 currency_id: spec.currency().get(),
@@ -1120,6 +1182,7 @@ impl TryFrom<RequestV3> for PricingRequest {
         check_header(&value.document_kind, value.schema_version, DOCUMENT_REQUEST)?;
         let valuation_date = parse_date_at(&value.valuation_date, "/valuation_date")?;
         let product = match value.product {
+            ProductV1::Graph { graph } => ProductSpec::Graph(graph.into_domain("/product/graph")?),
             ProductV1::EuropeanVanilla {
                 underlying_id,
                 currency_id,
@@ -1342,73 +1405,9 @@ impl TryFrom<RequestV3> for PricingRequest {
                 .map_err(|error| domain_at("/product", error))?,
             ),
         };
-        let market = match value.market {
-            MarketV1::Equity {
-                currency_id,
-                underlying_id,
-                spot,
-                discount_curve,
-                dividend_curve,
-                discrete_dividends,
-            } => {
-                let discount = Arc::new(curve_from_wire(discount_curve, "/market/discount_curve")?);
-                let dividend = Arc::new(curve_from_wire(dividend_curve, "/market/dividend_curve")?);
-                let underlying = UnderlyingId::new(underlying_id);
-                let spot = PositiveF64::new(spot, "spot")
-                    .map_err(|error| domain_at("/market/spot", error))?;
-                let forward = if discrete_dividends.is_empty() {
-                    EquityForward::new(underlying, spot, discount, dividend)
-                } else {
-                    EquityForward::with_discrete_dividends(
-                        underlying,
-                        spot,
-                        discount,
-                        dividend,
-                        discrete_dividends
-                            .into_iter()
-                            .enumerate()
-                            .map(|(index, event)| {
-                                dividend_event_from_wire(
-                                    event,
-                                    format!("/market/discrete_dividends/{index}"),
-                                )
-                            })
-                            .collect::<Result<Vec<_>, _>>()?,
-                    )
-                    .map_err(|error| domain_at("/market/discrete_dividends", error))?
-                };
-                MarketContext::Equity(EquityMarket::new(CurrencyId::new(currency_id), forward))
-            }
-        };
+        let market = market_from_wire(value.market)?;
         let model = model_from_wire(value.model)?;
-        let engine = match value.engine {
-            EngineV1::PseudoMonteCarlo {
-                master_seed,
-                independent_sampling_units,
-                variance_reduction,
-            } => EngineConfig::PseudoMonteCarlo(
-                PseudoMcConfig::new(
-                    master_seed,
-                    independent_sampling_units,
-                    variance_reduction.into(),
-                )
-                .map_err(|error| domain_at("/engine", error))?,
-            ),
-            EngineV1::RandomizedQuasiMonteCarlo {
-                points_per_scramble,
-                scramble_count,
-                master_scramble_seed,
-                variance_reduction,
-            } => EngineConfig::RandomizedQuasiMonteCarlo(
-                RqmcConfig::new(
-                    points_per_scramble,
-                    scramble_count,
-                    master_scramble_seed,
-                    variance_reduction.into(),
-                )
-                .map_err(|error| domain_at("/engine", error))?,
-            ),
-        };
+        let engine = engine_from_wire(value.engine)?;
         let lsm = value.lsm.map(lsm_from_wire).transpose()?;
         let risk = risk_from_wire(value.risk)?;
         PricingRequest::new_with_lsm(valuation_date, product, market, model, engine, risk, lsm)
@@ -3953,9 +3952,11 @@ fn non_negative_finite_at(value: f64, pointer: impl Into<String>) -> Result<f64,
 }
 
 pub fn request_to_json(request: &PricingRequest) -> Result<String, WireError> {
+    require_legacy_product(request)?;
     serialize(&RequestV3::from(request), false)
 }
 pub fn request_to_pretty_json(request: &PricingRequest) -> Result<String, WireError> {
+    require_legacy_product(request)?;
     serialize(&RequestV3::from(request), true)
 }
 pub fn result_to_json(result: &PricingResult) -> Result<String, WireError> {
@@ -3983,8 +3984,26 @@ fn serialize(value: &impl Serialize, pretty: bool) -> Result<String, WireError> 
 }
 
 pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingRequest, WireError> {
-    let text = validate_and_decode(input, limits)?;
-    let version = validate_envelope(text, DOCUMENT_REQUEST)?;
+    parse_request_json_with_context(input, limits).map_err(WireParseError::into_wire_error)
+}
+
+/// Parse the document while retaining its validated input-envelope version on failure.
+pub fn parse_request_json_with_context(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<PricingRequest, WireParseError> {
+    parse_document_with_context(input, limits, request_from_document)
+}
+
+fn request_from_document(text: &str, header: Envelope) -> Result<PricingRequest, WireError> {
+    let version = header.schema_version;
+    check_header(&header.document_kind, version, DOCUMENT_REQUEST)?;
+    if serde_json::from_str::<Value>(text).map_err(json)?["product"]["type"] == "graph" {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "graph products require pricing_specification v2",
+            schema_version: version,
+        });
+    }
     if version < 3
         && serde_json::from_str::<Value>(text).map_err(json)?["model"]["type"]
             == "bass_local_volatility"
@@ -4042,8 +4061,20 @@ pub fn parse_request_json(input: &[u8], limits: JsonLimits) -> Result<PricingReq
 }
 
 pub fn parse_result_json(input: &[u8], limits: JsonLimits) -> Result<PricingResult, WireError> {
-    let text = validate_and_decode(input, limits)?;
-    let version = validate_envelope(text, DOCUMENT_RESULT)?;
+    parse_result_json_with_context(input, limits).map_err(WireParseError::into_wire_error)
+}
+
+/// Parse the document while retaining its validated input-envelope version on failure.
+pub fn parse_result_json_with_context(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<PricingResult, WireParseError> {
+    parse_document_with_context(input, limits, result_from_document)
+}
+
+fn result_from_document(text: &str, header: Envelope) -> Result<PricingResult, WireError> {
+    let version = header.schema_version;
+    check_header(&header.document_kind, version, DOCUMENT_RESULT)?;
     let current = match version {
         1 => ResultV3::from(ResultV2::from(
             serde_json::from_str::<ResultV1>(text).map_err(json)?,
@@ -4059,8 +4090,24 @@ pub fn parse_monte_carlo_result_json(
     input: &[u8],
     limits: JsonLimits,
 ) -> Result<MonteCarloPrice, WireError> {
-    let text = validate_and_decode(input, limits)?;
-    let version = validate_envelope(text, DOCUMENT_RESULT)?;
+    parse_monte_carlo_result_json_with_context(input, limits)
+        .map_err(WireParseError::into_wire_error)
+}
+
+/// Parse the document while retaining its validated input-envelope version on failure.
+pub fn parse_monte_carlo_result_json_with_context(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<MonteCarloPrice, WireParseError> {
+    parse_document_with_context(input, limits, monte_carlo_result_from_document)
+}
+
+fn monte_carlo_result_from_document(
+    text: &str,
+    header: Envelope,
+) -> Result<MonteCarloPrice, WireError> {
+    let version = header.schema_version;
+    check_header(&header.document_kind, version, DOCUMENT_RESULT)?;
     let mut current = match version {
         1 => ResultV3::from(ResultV2::from(
             serde_json::from_str::<ResultV1>(text).map_err(json)?,
@@ -4080,6 +4127,15 @@ pub fn parse_monte_carlo_result_json(
 }
 
 pub fn fingerprint_request(request: &PricingRequest) -> Result<Fingerprint, WireError> {
+    if matches!(request.product(), ProductSpec::Graph(_)) {
+        let mut value = serde_json::to_value(RequestV3::from(request)).map_err(json)?;
+        value["document_kind"] = Value::String("graph_pricing_input".into());
+        value["schema_version"] = Value::from(1);
+        let mut bytes = b"pricing/graph_request\0".to_vec();
+        bytes.extend_from_slice(&1_u32.to_be_bytes());
+        encode_value(&value, &mut bytes)?;
+        return Ok(Fingerprint::from_bytes(*blake3::hash(&bytes).as_bytes()));
+    }
     let value = serde_json::to_value(RequestV3::from(request)).map_err(json)?;
     fingerprint_request_value(&value, SchemaVersion::CURRENT.get())
 }
@@ -4346,10 +4402,24 @@ fn json(error: serde_json::Error) -> WireError {
     WireError::Json(error.to_string())
 }
 
-fn validate_envelope(text: &str, expected: &'static str) -> Result<u32, WireError> {
-    let envelope: Envelope = serde_json::from_str(text).map_err(json)?;
-    check_header(&envelope.document_kind, envelope.schema_version, expected)?;
-    Ok(envelope.schema_version)
+fn parse_document_with_context<T>(
+    input: &[u8],
+    limits: JsonLimits,
+    parse: impl FnOnce(&str, Envelope) -> Result<T, WireError>,
+) -> Result<T, WireParseError> {
+    let without_context = |error| WireParseError {
+        error,
+        schema_version: None,
+    };
+    let text = validate_and_decode(input, limits).map_err(without_context)?;
+    let header: Envelope = serde_json::from_str(text)
+        .map_err(json)
+        .map_err(without_context)?;
+    let schema_version = header.schema_version;
+    parse(text, header).map_err(|error| WireParseError {
+        error,
+        schema_version: Some(schema_version),
+    })
 }
 
 fn check_header(kind: &str, version: u32, expected: &'static str) -> Result<(), WireError> {
@@ -4407,3 +4477,85 @@ pub const fn current_result_schema() -> &'static str {
 
 #[cfg(test)]
 mod tests;
+
+fn require_legacy_product(request: &PricingRequest) -> Result<(), WireError> {
+    if matches!(request.product(), ProductSpec::Graph(_)) {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "graph products require pricing_specification v2",
+            schema_version: SchemaVersion::CURRENT.get(),
+        });
+    }
+    Ok(())
+}
+
+fn market_from_wire(value: MarketV1) -> Result<MarketContext, WireError> {
+    Ok(match value {
+        MarketV1::Equity {
+            currency_id,
+            underlying_id,
+            spot,
+            discount_curve,
+            dividend_curve,
+            discrete_dividends,
+        } => {
+            let discount = Arc::new(curve_from_wire(discount_curve, "/market/discount_curve")?);
+            let dividend = Arc::new(curve_from_wire(dividend_curve, "/market/dividend_curve")?);
+            let underlying = UnderlyingId::new(underlying_id);
+            let spot =
+                PositiveF64::new(spot, "spot").map_err(|error| domain_at("/market/spot", error))?;
+            let forward = if discrete_dividends.is_empty() {
+                EquityForward::new(underlying, spot, discount, dividend)
+            } else {
+                EquityForward::with_discrete_dividends(
+                    underlying,
+                    spot,
+                    discount,
+                    dividend,
+                    discrete_dividends
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, event)| {
+                            dividend_event_from_wire(
+                                event,
+                                format!("/market/discrete_dividends/{index}"),
+                            )
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .map_err(|error| domain_at("/market/discrete_dividends", error))?
+            };
+            MarketContext::Equity(EquityMarket::new(CurrencyId::new(currency_id), forward))
+        }
+    })
+}
+
+fn engine_from_wire(value: EngineV1) -> Result<EngineConfig, WireError> {
+    Ok(match value {
+        EngineV1::PseudoMonteCarlo {
+            master_seed,
+            independent_sampling_units,
+            variance_reduction,
+        } => EngineConfig::PseudoMonteCarlo(
+            PseudoMcConfig::new(
+                master_seed,
+                independent_sampling_units,
+                variance_reduction.into(),
+            )
+            .map_err(|error| domain_at("/engine", error))?,
+        ),
+        EngineV1::RandomizedQuasiMonteCarlo {
+            points_per_scramble,
+            scramble_count,
+            master_scramble_seed,
+            variance_reduction,
+        } => EngineConfig::RandomizedQuasiMonteCarlo(
+            RqmcConfig::new(
+                points_per_scramble,
+                scramble_count,
+                master_scramble_seed,
+                variance_reduction.into(),
+            )
+            .map_err(|error| domain_at("/engine", error))?,
+        ),
+    })
+}

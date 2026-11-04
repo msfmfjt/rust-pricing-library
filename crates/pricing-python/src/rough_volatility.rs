@@ -342,7 +342,7 @@ impl PyRoughVolatilityPlan {
         let model = model.inner.clone();
         py.detach(|| RoughVolatilityPricingPlan::compile(&request, model, maximum_step, policy))
             .map(|inner| Self { inner })
-            .map_err(pricing_exception)
+            .map_err(crate::errors::compile_exception)
     }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyHullWhitePrice> {
         py.detach(|| self.inner.evaluate())

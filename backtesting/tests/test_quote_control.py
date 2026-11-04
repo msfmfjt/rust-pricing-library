@@ -1,5 +1,6 @@
 """Contract exclusion, covariance and fail-closed control boundaries."""
 from copy import deepcopy
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 import sys
@@ -11,11 +12,12 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT/'scripts'))
 from multi_step_cases import model
-from rust_pricing_backtest import BacktestError, RustPricingProvider
+from rust_pricing_backtest import BacktestError, Contract, Quote, RiskBasis, RustPricingProvider, Snapshot
 from rust_pricing_backtest.domain import fingerprint
 from rust_pricing_backtest.multi_step_extension import MultiStepExtensionCalibrator
 from rust_pricing_backtest.multi_step_provider import check_sampling, validation
 from rust_pricing_backtest.portfolio_market_risk import sampling_covariance, evaluate_portfolio
+from rust_pricing_backtest.provider_cache import BoundedCache
 from rust_pricing_backtest.quote_control import POLICY, CONTROL_ID, virtual_request, adjust_report
 
 
@@ -79,14 +81,81 @@ class QuoteControlTests(unittest.TestCase):
     def test_cached_rejected_native_audit_still_blocks_release(self):
         key = fingerprint(dict(request=self.base, tangent=self.tangent.tolist(), subdivisions=512,
             relative_tolerance=1e-6, gamma_relative_standard_error_limit=.25, workers=1))
-        cache = {key: dict(audit=dict(status='validation_failed', estimate=None,
-                                     recovery_passed=True, validation_passed=False), risk=None)}
+        rejected = dict(status='validation_failed', estimate=None, recovery_passed=True, validation_passed=False)
+        cache = BoundedCache(1)
+        cache[key] = dict(audit=rejected, risk=None)
         native = SimpleNamespace(PricingPlan=Mock(), PricingRequest=Mock())
         with patch.dict(sys.modules, {'rust_pricing': native}):
             with self.assertRaisesRegex(BacktestError, 'portfolio_gamma_failure'):
                 evaluate_portfolio({'target':self.base}, {'target':-1.}, _native_cache=cache)
             native.PricingPlan.compile.assert_not_called()
             native.PricingRequest.from_json.assert_not_called()
+            cache['other-request'] = dict(audit=rejected, risk=None)
+            native.PricingPlan.compile.return_value.evaluate_vega_kt_multi_step_gamma_chain_audit.return_value = rejected
+            for _ in range(2):
+                with self.assertRaisesRegex(BacktestError, 'portfolio_gamma_failure'):
+                    evaluate_portfolio({'target': self.base}, {'target': -1.}, _native_cache=cache)
+            native.PricingPlan.compile.assert_called_once()
+            self.assertEqual(len(cache), 1)
+
+    def test_control_uses_dedicated_report_without_compiling_substitute_evidence(self):
+        from rust_pricing_backtest.quote_control import evaluate
+        native, requests, _ = self.fixture()
+        report = adjust_report(native, requests)
+        start = date.fromisoformat(self.base['valuation_date'])
+        at = datetime.combine(start, datetime.min.time(), timezone.utc)
+        basis = RiskBasis(start, tuple(date.fromisoformat(d) for d in self.base['risk']['vega_kt']['maturity_nodes']),
+                          tuple(self.base['risk']['vega_kt']['log_forward_moneyness_nodes']))
+        snapshot = Snapshot('control', at, Quote(100., 100., at, at), {}, basis, at, 'synthetic_control_wiring')
+        contract = Contract('lower', basis.maturity_dates[-1], 95.)
+        report['coordinate_order'] = [dict(maturity=(d-start).days/365., log_moneyness=k)
+                                      for d in basis.maturity_dates for k in basis.log_moneyness]
+        report['instruments']['lower'].update(frozen_grid_delta=.5, gamma=None, gamma_method=None, gamma_spot_bump=None)
+        report['audits']['lower']['native_price'] = dict(standard_error=.1)
+        provider = SimpleNamespace(identity='synthetic', numerical_scope='multi_step_extension_gamma',
+                                   variance_extension='all_rows')
+        with patch('rust_pricing_backtest.quote_control.portfolio', return_value=report) as portfolio, \
+                patch('rust_pricing_backtest.task_adapter.evaluate_request') as common:
+            risk, audit, evidence = evaluate(provider, requests['lower'], snapshot, contract)
+        portfolio.assert_called_once()
+        common.assert_not_called()
+        self.assertIsNone(evidence)
+        self.assertEqual(risk.buckets, tuple(report['instruments']['lower']['buckets']))
+        self.assertEqual(audit['controlled_market_report'], report)
+        self.assertEqual(audit['covariance_scope'], 'paired_same_snapshot_sampling_units')
+
+    def test_native_cache_reuses_only_the_active_complete_snapshot(self):
+        from rust_pricing_backtest.quote_control import portfolio
+        compiled = []
+        def native(requests, quantities, *, _native_cache, **kwargs):
+            for cid, request in requests.items():
+                key = fingerprint(request)
+                if key not in _native_cache:
+                    compiled.append(cid)
+                    _native_cache[key] = dict(audit={'contract': cid})
+            return {'status': 'synthetic_wiring_only'}
+        module = SimpleNamespace(__file__=__file__)
+        # Synthetic cache wiring; native API conformance is tested separately.
+        with patch.dict(sys.modules, {'rust_pricing': module}), \
+                patch('rust_pricing_backtest.native_contract.validate_native_api'):
+            provider = RustPricingProvider(numerical_scope='multi_step_extension_gamma',
+                variance_extension='all_rows', sampling_policy=POLICY, cache_max_entries=3)
+        requests = {cid: deepcopy(self.base) for cid in ('lower', 'upper')}
+        requests['lower']['product']['strike'] = 95.
+        requests['upper']['product']['strike'] = 105.
+        with patch('rust_pricing_backtest.quote_control.evaluate_portfolio', new=native), \
+                patch('rust_pricing_backtest.quote_control.adjust_report', side_effect=lambda report, _: report):
+            first = {'id': 'same-id', 'market': 1}
+            portfolio(provider, first, requests)
+            portfolio(provider, first, requests)
+            self.assertEqual(len(compiled), 3)
+            portfolio(provider, {'id': 'same-id', 'market': 2}, requests)
+            self.assertEqual(len(compiled), 6)
+            self.assertEqual(len(provider._quote_control_cache), 3)
+            provider.clear_cache()
+            self.assertFalse(provider._quote_control_cache)
+            portfolio(provider, first, requests)
+            self.assertEqual(len(compiled), 9)
 
     def test_control_rolls_with_current_spot_and_is_detached(self):
         before = deepcopy(self.base); moved = deepcopy(self.base); moved['market']['spot'] = 103.

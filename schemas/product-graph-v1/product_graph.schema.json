@@ -1,0 +1,476 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document_kind",
+    "schema_version",
+    "product"
+  ],
+  "properties": {
+    "document_kind": {
+      "type": "string",
+      "const": "product_graph"
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "product": {
+      "$ref": "#/$defs/graph_product"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rust-pricing-library:schema:product-graph-v1:product_graph",
+  "title": "Product graph schema v1",
+  "$defs": {
+    "graph_operation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "value"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "literal"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "underlying_id",
+            "observation_date"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "terminal_spot"
+            },
+            "underlying_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "observation_date": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "underlying_id",
+            "observation_date"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "pre_dividend_spot"
+            },
+            "underlying_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "observation_date": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "add"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "subtract"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "multiply"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "numerator",
+            "denominator"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "divide"
+            },
+            "numerator": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "denominator": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "minimum"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "maximum"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "input"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "indicator"
+            },
+            "input": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "input"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "negate"
+            },
+            "input": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "previous",
+            "hit_weight"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "barrier_hit_state"
+            },
+            "previous": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "hit_weight": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right",
+            "half_width"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "smooth_minimum"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "half_width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "left",
+            "right",
+            "half_width"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "smooth_maximum"
+            },
+            "left": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "right": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "half_width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "input",
+            "half_width"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "smooth_indicator"
+            },
+            "input": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "half_width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "graph_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "operation"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "operation": {
+          "$ref": "#/$defs/graph_operation"
+        }
+      }
+    },
+    "graph_cashflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "output_node",
+        "payment_date"
+      ],
+      "properties": {
+        "output_node": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "payment_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
+      }
+    },
+    "graph_product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency_id",
+        "underlying_ids",
+        "nodes",
+        "cashflows"
+      ],
+      "properties": {
+        "currency_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "underlying_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/graph_node"
+          },
+          "minItems": 1,
+          "maxItems": 1000000
+        },
+        "cashflows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/graph_cashflow"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        }
+      }
+    }
+  }
+}

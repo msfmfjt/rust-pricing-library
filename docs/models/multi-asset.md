@@ -27,6 +27,40 @@ Rust/Python APIs; they cannot be serialized through `PricingRequest.to_json()`.
 
 See the runnable [Python example](../../examples/python/multi_asset.py).
 
+## Rust error handling
+
+`MultiAssetError` is non-exhaustive. Native numerical failures use
+`NumericalSource(Box<dyn Error + Send + Sync>)`, retaining their concrete cause
+through `std::error::Error::source()`. Walk the source chain to downcast to
+`ExecutionError`, `RqmcPlanError`, model errors or `GraphError`; executor evaluation
+errors also retain the failing sampling-unit index. The outer diagnostic text
+keeps the `multi-asset numerical error:` prefix. `Numerical(String)` remains
+available for legacy diagnostics that have no typed cause.
+
+This changes the experimental Rust API: existing exhaustive matches must add a
+wildcard arm, and handlers that used only `Numerical(_)` must also handle
+`NumericalSource(_)`. For example:
+
+```rust
+use pricing::multi_asset::MultiAssetError;
+
+fn record_failure(error: &MultiAssetError) {
+    match error {
+        MultiAssetError::Numerical(_) | MultiAssetError::NumericalSource(_) => {
+            eprintln!("numerical failure: {error}");
+        }
+        other => eprintln!("pricing failure: {other}"),
+    }
+}
+```
+
+Keep an unknown failure as a failed calculation. Use concrete causes for dispatch,
+not the diagnostic string. The boxed source retains `Send + Sync`; it does not
+promise unwind-safety auto traits for arbitrary underlying errors. Python keeps
+its exception classes and supplies [structured error metadata](../library/python-errors.md).
+See [ADR 0040](../../design/adr/0040-multi-asset-error-sources.md) for compatibility
+and reproducibility details.
+
 ## Contracts and cash flows
 
 `MultiAssetProduct.basket` computes `max(side*(sum(w_i*S_i/c_i)-K), 0)`

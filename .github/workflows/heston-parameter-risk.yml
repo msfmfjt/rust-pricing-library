@@ -7,6 +7,8 @@ on:
       - 'fixtures/rough-volatility/parameter-risk.json'
       - 'scripts/*heston_parameter_risk*.py'
       - 'scripts/smoke_test_wheel.py'
+      - 'scripts/wheel_validation/**'
+      - 'scripts/test_wheel_validation.py'
       - 'scripts/check_source_archive.py'
       - 'tests/python/test_heston_parameter_risk.py'
       - 'examples/python/heston_parameter_risk.py'

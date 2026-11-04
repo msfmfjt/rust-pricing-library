@@ -1,0 +1,122 @@
+{
+  "observed_at": "2026-10-27",
+  "repository": "msfmfjt/rust-pricing-library",
+  "base_commit": "78ea2cfd3ba684b7b98c5686a0d06aff81d627ac",
+  "note": "Selected unmodified log lines, not complete logs. Successful job conclusions do not establish that every native command passed.",
+  "windows_rust": [
+    {
+      "job_id": 121654942966,
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40346566438/job/121654942966",
+      "github_conclusion": "success",
+      "first_failure": [
+        "2026-10-26T22:15:56.2405425Z thread 'v1_migration_preserves_unknown_diagnostics_and_frozen_numerical_fields' (1636) panicked at crates\\pricing\\tests\\calibration_report.rs:45:5:\r",
+        "2026-10-26T22:15:56.2406066Z assertion `left == right` failed\r",
+        "2026-10-26T22:15:56.2406454Z   left: \"blake3-256:17c08190d3b9d40a197b0f8b1fd8c610f4781fa63450947db165ae47f653c713\"\r",
+        "2026-10-26T22:15:56.2407032Z  right: \"blake3-256:65aea19d77eef0e36eb76b4354fbda4cf5786357a4d98eaf92fbbf234130614a\"\r",
+        "2026-10-26T22:15:56.2407574Z note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\r",
+        "2026-10-26T22:15:56.2408073Z \r",
+        "2026-10-26T22:15:56.2408081Z \r"
+      ],
+      "failed_commands": [
+        "2026-10-26T22:15:56.2409874Z test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s\r",
+        "2026-10-26T22:15:56.2513141Z error: test failed, to rerun pass `-p pricing --test calibration_report`\r",
+        "2026-10-26T22:24:46.9871646Z test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s\r",
+        "2026-10-26T22:24:46.9927646Z error: test failed, to rerun pass `-p pricing --test calibration_report`\r",
+        "2026-10-26T22:28:02.0337651Z test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s\r",
+        "2026-10-26T22:28:02.0361371Z error: test failed, to rerun pass `-p pricing --test calibration_report`\r"
+      ],
+      "affected_steps": [
+        {
+          "name": "Check default and minimal feature configurations",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 30
+        },
+        {
+          "name": "Run tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 31
+        }
+      ]
+    },
+    {
+      "job_id": 121642506718,
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/40343033248/job/121642506718",
+      "github_conclusion": "success",
+      "first_failure": [
+        "2026-10-26T19:40:43.5920030Z thread 'v1_migration_preserves_unknown_diagnostics_and_frozen_numerical_fields' (7100) panicked at crates\\pricing\\tests\\calibration_report.rs:45:5:\r",
+        "2026-10-26T19:40:43.5921216Z assertion `left == right` failed\r",
+        "2026-10-26T19:40:43.5922063Z   left: \"blake3-256:17c08190d3b9d40a197b0f8b1fd8c610f4781fa63450947db165ae47f653c713\"\r",
+        "2026-10-26T19:40:43.5922987Z  right: \"blake3-256:65aea19d77eef0e36eb76b4354fbda4cf5786357a4d98eaf92fbbf234130614a\"\r",
+        "2026-10-26T19:40:43.5923678Z note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\r",
+        "2026-10-26T19:40:43.5924081Z \r",
+        "2026-10-26T19:40:43.5924086Z \r"
+      ],
+      "failed_commands": [
+        "2026-10-26T19:40:43.5925209Z test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s\r",
+        "2026-10-26T19:40:43.5992910Z error: test failed, to rerun pass `-p pricing --test calibration_report`\r",
+        "2026-10-26T19:49:30.3441335Z test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s\r",
+        "2026-10-26T19:49:30.3497941Z error: test failed, to rerun pass `-p pricing --test calibration_report`\r",
+        "2026-10-26T19:52:45.6455141Z test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s\r",
+        "2026-10-26T19:52:45.6479772Z error: test failed, to rerun pass `-p pricing --test calibration_report`\r"
+      ]
+    }
+  ],
+  "macos_debugger": {
+    "job_id": 121654942849,
+    "lines": [
+      "2026-10-26T21:01:58.1140690Z test_real_trap_dumps_stack_and_remains_a_failed_process (test_provider_shards.ProviderShardTests.test_real_trap_dumps_stack_and_remains_a_failed_process) ... ok",
+      "2026-10-26T21:02:05.6385970Z test_real_launch_info_preserves_symlinked_executable_and_argv0 (test_native_debugger.LldbLaunchInfoTests.test_real_launch_info_preserves_symlinked_executable_and_argv0) ... ok",
+      "2026-10-26T21:02:10.8731780Z test_real_abort_and_trap_capture_native_stack_and_never_continue (test_native_debugger.MacNativeDebuggerTests.test_real_abort_and_trap_capture_native_stack_and_never_continue) ... ok",
+      "2026-10-26T21:02:15.1017670Z test_real_child_exit_and_literal_arguments (test_native_debugger.MacNativeDebuggerTests.test_real_child_exit_and_literal_arguments) ... ok",
+      "2026-10-26T21:02:18.2125850Z test_real_exec_handoff_reaches_the_requested_child_exit (test_native_debugger.MacNativeDebuggerTests.test_real_exec_handoff_reaches_the_requested_child_exit) ... ok",
+      "2026-10-26T21:02:18.2690260Z Ran 14 tests in 19.932s"
+    ]
+  },
+  "macos_extended_acceptance": {
+    "job_id": 121654943084,
+    "lines": [
+      "2026-10-26T22:11:47.8446480Z test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 280.23s",
+      "2026-10-27T00:43:29.1732940Z test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 9056.43s"
+    ]
+  },
+  "supported_wheels": [
+    {
+      "job_id": 121654942796,
+      "lines": [
+        "2026-10-26T20:22:55.2013113Z benchmark reports are valid in benchmark-results\r",
+        "2026-10-26T20:22:56.8321615Z replay fixture matches fixtures\\replay\\european_bs-windows-x86_64.json\r",
+        "2026-10-26T20:22:56.8832863Z replay fixture matches fixtures\\replay\\local_volatility-windows-x86_64.json\r",
+        "2026-10-26T20:22:57.2610983Z replay fixture matches fixtures\\replay\\path_dependence-windows-x86_64.json\r",
+        "2026-10-26T20:22:57.6444166Z replay fixture matches fixtures\\replay\\early_exercise-windows-x86_64.json\r",
+        "2026-10-26T20:22:58.0319036Z benchmark reports are valid in benchmark-results\r"
+      ]
+    },
+    {
+      "job_id": 121654942744,
+      "lines": [
+        "2026-10-26T19:44:03.8120320Z benchmark reports are valid in benchmark-results",
+        "2026-10-26T19:44:05.5630540Z replay fixture matches fixtures/replay/european_bs-macos-aarch64.json",
+        "2026-10-26T19:44:05.6276820Z replay fixture matches fixtures/replay/local_volatility-macos-aarch64.json",
+        "2026-10-26T19:44:05.7861220Z replay fixture matches fixtures/replay/path_dependence-macos-aarch64.json",
+        "2026-10-26T19:44:05.9347870Z replay fixture matches fixtures/replay/early_exercise-macos-aarch64.json",
+        "2026-10-26T19:44:06.1109740Z benchmark reports are valid in benchmark-results"
+      ]
+    }
+  ],
+  "linux_extended_acceptance": {
+    "job_id": 121654943161,
+    "lines": [
+      "2026-10-26T23:17:11.9131593Z test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 183.68s",
+      "2026-10-27T02:10:58.2553656Z test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 10403.14s"
+    ]
+  },
+  "windows_extended_acceptance": {
+    "job_id": 121654942894,
+    "lines": [
+      "2026-10-26T22:10:20.6406557Z test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 291.96s\r",
+      "2026-10-27T02:17:15.3190320Z test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 14761.03s\r"
+    ]
+  }
+}

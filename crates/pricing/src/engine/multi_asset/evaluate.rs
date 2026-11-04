@@ -8,6 +8,17 @@ use crate::mc::{DeterministicExecutor, DeterministicStatistics};
 use crate::multi_asset::MultiAssetError as E;
 use crate::{EstimatorKind, product::CompiledOpcode};
 
+// Resolve the same arithmetic used by both Gamma evaluators during preflight.
+// A positive relative bump alone does not guarantee distinct finite Spot values.
+fn gamma_spot_bump(spot: f64, relative: f64) -> Result<f64, E> {
+    let h = relative * spot;
+    if !h.is_finite() || h <= 0.0 || !(spot + h).is_finite() || spot + h == spot || spot - h == spot
+    {
+        return Err(E::Invalid("unrepresentable Gamma Spot bump"));
+    }
+    Ok(h)
+}
+
 pub(super) struct Layout {
     pub(super) vega: Vec<(usize, usize)>,
     pub(super) discount: (usize, usize),
@@ -82,6 +93,10 @@ impl MultiAssetPricingPlan {
         self.run(None)
     }
     pub fn evaluate_aad(&self, config: MultiAssetRiskConfig) -> Result<MultiAssetPrice, E> {
+        self.validate_aad(config)?;
+        self.run(Some(config))
+    }
+    pub(crate) fn validate_aad(&self, config: MultiAssetRiskConfig) -> Result<(), E> {
         if let Some(c) = &self.local_correlation {
             c.validate_calibration_reverse()?;
         }
@@ -116,12 +131,10 @@ impl MultiAssetPricingPlan {
         }
         if let Some(b) = config.gamma_relative_bump {
             for a in &self.assets {
+                let h = gamma_spot_bump(a.forward.spot().get(), b)?;
                 a.forward.with_spot(
-                    crate::core::PositiveF64::new(
-                        a.forward.spot().get() * (1.0 - b),
-                        "Gamma down Spot",
-                    )
-                    .map_err(E::numerical)?,
+                    crate::core::PositiveF64::new(a.forward.spot().get() - h, "Gamma down Spot")
+                        .map_err(E::numerical)?,
                 )?;
             }
         }
@@ -135,7 +148,7 @@ impl MultiAssetPricingPlan {
                 "AAD of discontinuous payoffs requires explicit smoothing",
             ));
         }
-        self.run(Some(config))
+        Ok(())
     }
     fn run(&self, risk: Option<MultiAssetRiskConfig>) -> Result<MultiAssetPrice, E> {
         let layout = Layout::new(self, risk);
@@ -151,13 +164,7 @@ impl MultiAssetPricingPlan {
             && self.recalibrated_gamma()
         {
             for (i, a) in self.assets.iter().enumerate() {
-                let h = relative * a.forward.spot().get();
-                if h == 0.0
-                    || a.forward.spot().get() + h == a.forward.spot().get()
-                    || a.forward.spot().get() - h == a.forward.spot().get()
-                {
-                    return Err(E::Invalid("unrepresentable Gamma Spot bump"));
-                }
+                let h = gamma_spot_bump(a.forward.spot().get(), relative)?;
                 let up = self.hw_spot_bump(i, h)?;
                 let down = self.hw_spot_bump(i, -h)?;
                 up.hw_market_weights(&gamma_layout)?;
@@ -650,14 +657,7 @@ impl MultiAssetPricingPlan {
             && !self.recalibrated_gamma()
         {
             for (j, a) in self.assets.iter().enumerate() {
-                let h = relative * a.forward.spot().get();
-                if !h.is_finite()
-                    || h <= 0.0
-                    || a.forward.spot().get() + h == a.forward.spot().get()
-                    || a.forward.spot().get() - h == a.forward.spot().get()
-                {
-                    return Err(E::Invalid("unrepresentable Gamma Spot bump"));
-                }
+                let h = gamma_spot_bump(a.forward.spot().get(), relative)?;
                 let up = self.delta(paths, &self.payoff_adjoints(paths, Some((j, h)))?);
                 let down = self.delta(paths, &self.payoff_adjoints(paths, Some((j, -h)))?);
                 for i in 0..paths.len() {

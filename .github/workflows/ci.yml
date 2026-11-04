@@ -21,7 +21,8 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # Cold Windows builds plus the complete refinement panels can exceed 20m.
+    timeout-minutes: ${{ matrix.os == 'windows-2025' && 30 || 20 }}
     defaults:
       run:
         shell: bash
@@ -331,12 +332,30 @@ jobs:
         run: |
           python -m pip install "jsonschema>=4.18,<5"
           python scripts/check_specification_json_schema.py
+          python scripts/check_product_graph_json_schema.py
+          python scripts/check_task_json_schema.py
 
       - name: Check Bergomi diagnostic evidence parser
         run: python -m unittest discover -s scripts -p 'test_summarize_bergomi_quality.py' -v
 
       - name: Check wheel smoke runner
         run: python -m unittest discover -s scripts -p 'test_smoke_test_wheel.py' -v
+
+      - name: Check provider shard coverage and CI plan
+        run: python -m unittest discover -s scripts -p 'test_provider_shards.py' -v
+      - name: Check remaining wheel shard coverage
+        run: python -m unittest discover -s scripts -p 'test_remaining_shards.py' -v
+      - name: Check extended acceptance inventory and failure handling
+        run: python -m unittest discover -s scripts -p 'test_extended_acceptance_shards.py' -v
+
+      - name: Check native debugger failure propagation
+        run: python -m unittest discover -s scripts -p 'test_native_debugger.py' -v
+
+      - name: Check native memory diagnostic failure handling
+        run: python -m unittest discover -s scripts -p 'test_native_memory_diagnostic.py' -v
+
+      - name: Check wheel API signature validation
+        run: python -m unittest discover -s scripts -p 'test_wheel_validation.py' -v
 
       - name: Check Markdown links
         run: python scripts/check_markdown_links.py
@@ -376,59 +395,59 @@ jobs:
         shell: bash
         run: cargo metadata --locked --format-version 1 --no-deps | python scripts/check_dependency_direction.py
 
-  extended-acceptance:
-    name: Extended model acceptance / ${{ matrix.os }}
+  extended-acceptance-run:
+    # Each invocation owns its build dependency. A queued macOS runner must not
+    # delay already-built Linux or Windows accuracy/risk consumers.
+    name: Extended acceptance jobs / ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 330
+    uses: ./.github/workflows/extended-acceptance.yml
+    with:
+      os: ${{ matrix.os }}
 
+  extended-acceptance:
+    # Preserve the original required check names and full-platform acceptance.
+    name: Extended model acceptance / ${{ matrix.os }}
+    if: always()
+    needs: extended-acceptance-run
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    # Combining JSON and logs needs no platform-native binary or macOS runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-      - name: Restore Cargo cache
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Run extended model risk acceptance
-        shell: bash
+          python-version: "3.12"
+      - name: Require every acceptance job to pass
+        env:
+          ACCEPTANCE_RESULT: ${{ needs.extended-acceptance-run.result }}
+        shell: python
         run: |
-          set -o pipefail
-          {
-            git rev-parse HEAD
-            rustc -vV
-            cargo test --locked --release -p pricing --test extended_risk_acceptance -- --ignored --nocapture --test-threads=1
-          } 2>&1 | tee extended-model-risk.log
-
-      - name: Retain extended model risk evidence
-        if: always()
-        uses: actions/upload-artifact@v7
+          import os
+          result = os.environ["ACCEPTANCE_RESULT"]
+          if result != "success":
+              raise SystemExit(f"incomplete acceptance jobs: {result}")
+      - uses: actions/download-artifact@v8
         with:
-          name: extended-model-risk-${{ matrix.os }}
-          path: extended-model-risk.log
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Run extended model accuracy acceptance
-        shell: bash
-        run: |
-          set -o pipefail
-          {
-            git rev-parse HEAD
-            rustc -vV
-            cargo test --locked --release -p pricing --test extended_model_acceptance -- --ignored --nocapture --test-threads=1
-          } 2>&1 | tee extended-model-accuracy.log
-
+          pattern: extended-model-accuracy-${{ matrix.os }}-*
+          path: extended-acceptance-reports/
+          merge-multiple: true
+      - name: Verify complete coverage and combine accuracy evidence
+        run: python scripts/extended_acceptance_shards.py --combine
       - name: Retain extended model accuracy evidence
-        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: extended-model-accuracy-${{ matrix.os }}
-          path: extended-model-accuracy.log
-          if-no-files-found: warn
+          path: |
+            extended-model-accuracy.log
+            extended-model-accuracy.json
+          if-no-files-found: error
           retention-days: 14
 
   python-wheel-linux:
@@ -572,21 +591,29 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  wheel-validation-plan:
+    name: Wheel validation plan
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Enumerate all provider shards and remaining tests
+        id: plan
+        run: python scripts/wheel_validation/provider_shards.py --github-matrix
+
   wheel-validation:
-    name: Wheel validation / ${{ matrix.target }} / ${{ matrix.group }}
-    needs: [python-wheel-linux, supported-wheels]
+    name: Wheel validation / ${{ matrix.target }} / ${{ matrix.selection }}
+    needs: [python-wheel-linux, supported-wheels, wheel-validation-plan]
+    timeout-minutes: 330
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-15, windows-2025]
-        group: [custom-basis, providers, remaining]
-        include:
-          - os: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-          - os: macos-15
-            target: aarch64-apple-darwin
-          - os: windows-2025
-            target: x86_64-pc-windows-msvc
+      matrix: ${{ fromJSON(needs.wheel-validation-plan.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -604,5 +631,41 @@ jobs:
           name: rust-pricing-${{ matrix.target }}-cp312
           path: dist
 
-      - name: Run installed-wheel validation group
-        run: python scripts/smoke_test_wheel.py --phase validation --group ${{ matrix.group }}
+      - name: Verify native debugger on this macOS runner
+        if: runner.os == 'macOS'
+        run: python -m unittest discover -s scripts -p 'test_native_debugger.py' -v
+
+      - name: Run installed-wheel validation selection
+        env:
+          RUST_BACKTRACE: full
+        run: python scripts/smoke_test_wheel.py --phase validation ${{ matrix.option }} ${{ matrix.selection }} --report-directory wheel-validation-reports ${{ runner.os == 'macOS' && '--native-debugger lldb' || '' }}
+
+      - name: Collect available macOS Python crash reports
+        if: always() && runner.os == 'macOS'
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+          import shutil
+          destination = Path('wheel-validation-reports/native-crashes')
+          destination.mkdir(parents=True, exist_ok=True)
+          collected = []
+          for label, directory in (
+              ('user', Path.home() / 'Library/Logs/DiagnosticReports'),
+              ('system', Path('/Library/Logs/DiagnosticReports')),
+          ):
+              for source in directory.glob('*'):
+                  if source.is_file() and source.name.lower().startswith('python') and source.suffix in ('.ips', '.crash'):
+                      target = destination / (label + '-' + source.name)
+                      shutil.copy2(source, target)
+                      collected.append(target.name)
+          (destination / 'collection.json').write_text(json.dumps({'files': collected}, indent=2) + '\n')
+
+      - name: Preserve inventory and process results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wheel-validation-${{ matrix.target }}-${{ matrix.selection }}
+          path: wheel-validation-reports/
+          if-no-files-found: error
+          retention-days: 14

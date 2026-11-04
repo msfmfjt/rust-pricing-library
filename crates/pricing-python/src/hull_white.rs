@@ -289,7 +289,7 @@ impl PyHullWhiteEquityPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     /// Pure 2F Bergomi with full spot/volatility/rate correlations.
     #[staticmethod]
@@ -334,7 +334,7 @@ impl PyHullWhiteEquityPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     /// Pure rough Bergomi with flat initial forward variance sigma0^2 from
     /// the request's BlackScholes volatility. Rate volatility may be zero.
@@ -370,7 +370,7 @@ impl PyHullWhiteEquityPlan {
             compile(&request, factor, rates, correlation, maximum_step, policy)
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     /// Rough-LSV particle calibration, with the same AAD/VegaKT target contract.
     #[staticmethod]
@@ -427,7 +427,7 @@ impl PyHullWhiteEquityPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     #[getter]
     fn random_factor_count(&self) -> usize {
@@ -463,7 +463,7 @@ impl PyHullWhiteEquityPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     /// Calibrate LSV with stochastic-rate correction, then price independently.
     #[staticmethod]
@@ -523,7 +523,7 @@ impl PyHullWhiteEquityPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     /// Two-factor Bergomi LSV with all spot/volatility/rate correlations explicit.
     #[staticmethod]
@@ -586,7 +586,7 @@ impl PyHullWhiteEquityPlan {
             )
         })
         .map(|inner| Self { inner })
-        .map_err(pricing_exception)
+        .map_err(crate::errors::compile_exception)
     }
     fn evaluate(&self, py: Python<'_>) -> PyResult<PyHullWhitePrice> {
         py.detach(|| self.inner.evaluate())
@@ -721,6 +721,22 @@ pub struct PyHullWhiteAadRisk {
 }
 #[pymethods]
 impl PyHullWhiteAadRisk {
+    #[getter]
+    fn parameter_kinds(&self) -> Vec<&'static str> {
+        self.inner
+            .parameter_kinds
+            .iter()
+            .map(|k| k.as_str())
+            .collect()
+    }
+    #[getter]
+    fn parameter_units(&self) -> Vec<&'static str> {
+        self.inner
+            .parameter_kinds
+            .iter()
+            .map(|k| k.unit().as_str())
+            .collect()
+    }
     #[getter]
     fn vega_kt_raw(&self) -> Option<Vec<f64>> {
         self.inner.vega_kt_raw().map(<[f64]>::to_vec)

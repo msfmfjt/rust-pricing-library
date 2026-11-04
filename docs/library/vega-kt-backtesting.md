@@ -102,6 +102,155 @@ input schedule to resume. CLI `--checkpoint` accepts the saved file. Processed
 history, code, provider binary or configuration changes invalidate the checkpoint.
 Unprocessed market values may change; the session schedule remains fixed.
 
+## Provider configuration lifetime
+
+`RustPricingProvider` binds its acceptance policy, execution settings, native
+module and identity once, when constructed. Its configuration is held in an
+immutable record. Existing constructor keywords and attribute reads remain
+available. Assignment or deletion of `numerical_scope`, `worker_threads`,
+`reduction_block_size`, `variance_extension`, `variance_basis_policy`,
+`sampling_policy`, `diagnostic_only`, `cache_max_entries`, `identity` or `rp`
+raises `AttributeError`. Calling `__init__` again on a live provider is also
+rejected. The native-module reference is fixed for that provider's lifetime.
+
+To change a policy or execution setting, construct a new provider:
+
+```python
+diagnostic = RustPricingProvider(diagnostic_only=True, worker_threads=1)
+accepted = RustPricingProvider(numerical_scope="p0_terminal_replication",
+                               worker_threads=4)
+```
+
+The second provider starts with an empty cache and applies its own acceptance
+checks. Diagnostic results cannot acquire accepted status through a setting
+assignment. Similarly, changing execution settings cannot reuse evidence made
+with the previous execution settings under the same provider identity.
+
+`clear_cache()` releases retained work while preserving all settings and the
+provider identity. Its concurrency and snapshot-switch behavior remain as
+described below. Numerical/execution changes require a new provider identity and
+cannot resume an incompatible checkpoint. Cache capacity alone remains outside
+the numerical identity, so separate providers with different capacities can
+resume compatible checkpoints. The implementation change itself invalidates
+older source hashes under the existing rules.
+
+This changes no ledger/checkpoint schema or numerical acceptance policy.
+See [ADR 0038](../../design/adr/0038-immutable-provider-configuration.md).
+
+## Native wheel compatibility
+
+Constructing `RustPricingProvider` now checks the installed native API before
+hashing its binary, creating caches or doing numerical work. A matching
+`rust-pricing==0.1.0` version alone does not establish compatibility: builds from
+different revisions can expose different task/report APIs.
+
+The check covers native classes, result members and the call signatures used by
+the selected path, including replayable task serialization:
+
+| Provider path | Required native capabilities |
+| --- | --- |
+| Diagnostic or P0 | Common task/report valuation, discount-curve evaluation and VegaKT allocation fields |
+| Multi-step or path Gamma | Common task/report valuation and the dedicated multi-step Gamma audit |
+| Extension or named-basis Gamma | The above plus ordinary plan evaluation and retained samples for joint covariance |
+| Quote-control | Dedicated ordinary plan evaluation and paired Gamma samples; unused common task/report APIs are not required |
+
+Missing classes/members or incompatible arguments raise
+`BacktestError(code="unsupported_native_version")`, with the detected native
+version and API paths that failed. For example, an older wheel lacking
+`PricingTask` is rejected at construction, instead of raising `AttributeError`
+after a backtest has started. A missing/unloadable native dependency raises
+`BacktestError(code="native_import_failure")` and preserves the original import
+error as its cause. Install or rebuild the native wheel from the same source
+revision as the companion package, using the correct Python ABI. An unavailable
+native binary file also fails construction because provenance cannot be bound.
+
+The companion package remains importable without the optional native wheel.
+Compatible extra APIs and optional arguments are allowed. These structural
+checks do not run a sample trade, certify numerical accuracy or replace the
+wheel's full compatibility tests. Request-specific report shapes, calibration,
+Gamma recovery, covariance and precision gates still run during evaluation.
+No numerical method, tolerance, accepted scope or serialized schema changes.
+See [ADR 0039](../../design/adr/0039-native-provider-compatibility.md).
+
+## Common task/report evidence
+
+The ordinary native valuation in `RustPricingProvider` runs through
+`PricingSpecification.from_request` and `PricingTask`, then converts the
+`ValuationReport` into the ledger's `Risk`. The conversion checks currency,
+underlying identity, scalar shape, raw units, calibration semantics and
+pricing-sampling uncertainty. Existing request, product, Local Volatility,
+fixed-grid Delta, reporting-coordinate and numerical acceptance checks still
+apply. This bridge does not extend the ledger to every model supported by the
+[common task API](pricing-tasks.md).
+
+```python
+risk = provider.evaluate(snapshot, contract)
+evidence = provider.pricing_evidence(snapshot, contract)
+if evidence is not None:
+    task_json = evidence.task.to_json()
+    report_json = evidence.report.to_json()
+    replay = evidence.task.compile().evaluate().report
+    assert replay.to_json() == report_json
+```
+
+`PricingEvidence` is an immutable record containing the actual task, its full
+common report, `payment_date`, `payment_scaling_factor` and `scope`. The accessor
+uses the same acceptance path and cache entry as `evaluate`; a failed valuation
+does not release evidence. Cache hits do not compile another task. The evidence
+contains source and output, with no retained compiled plan. Native warnings and
+Gamma bump diagnostics remain available to the ledger conversion.
+
+| Provider path | Evidence scope | Risk coverage |
+| --- | --- | --- |
+| Diagnostic or accepted P0 | `requested_risks` | Ordinary price/Greeks and native VegaKT, including its available covariance and projection metadata |
+| Accepted multi-step Gamma | `ordinary_price_and_greeks` | Ordinary price/Greeks; accepted market-IV Gamma-chain buckets and same-product covariance remain in `gamma_audit` |
+| Quote-control sampling policy | `None` | Dedicated paired-sample report in `gamma_audit`; no substitute common task is evaluated |
+
+Common reports are the unadjusted native outputs. For deterministic delayed
+payment, multiply monetary values, raw Greeks and their standard errors by
+`payment_scaling_factor` to obtain the corresponding ledger values; multiply
+covariances by its square. Coordinates, implied volatilities and forward levels
+are not scaled. The task itself remains independently replayable at its original
+payoff date. Per-contract reports never establish cross-instrument covariance;
+the existing `joint_market_risk` path and its gates remain authoritative.
+
+Evidence is opt-in in-memory output, not a new ledger or checkpoint field.
+Existing serialized schemas and `RiskProvider` implementations are unchanged.
+See [ADR 0037](../../design/adr/0037-backtest-task-report-bridge.md).
+
+## Provider cache lifetime
+
+`RustPricingProvider` retains one active snapshot, identified by its complete
+content hash rather than its ID or date alone. Starting a valuation on another
+snapshot replaces the cached risks, task/report evidence, Gamma audits, shared-surface guard and
+quote-control native samples. Returning to an earlier snapshot recomputes its
+risks and audits using the usual numerical gates. Within the active snapshot,
+market/reporting-surface consistency is checked before reuse and again before a
+new result is published, including when contracts are evaluated concurrently.
+
+The optional constructor keyword `cache_max_entries=128` limits each of two LRU
+caches: risk/task-evidence/Gamma-audit entries, and native quote-control audit/sample
+entries. It must be a positive integer. A risk, its evidence and audit are evicted together;
+entry eviction does not discard the active snapshot's shared-surface guard.
+This bounds retained entry counts, not bytes or temporary numerical workspaces.
+Large grids and sample matrices still require memory proportional to their size.
+Small capacities can cause repeated native evaluations, including the virtual
+quote control. Eviction does not truncate samples, change their pairing or bypass
+acceptance gates. Cached rejected native audits still reject; evicted ones are
+recomputed and checked again.
+
+Call `provider.clear_cache()` to release retained state when a run finishes or
+before reusing the provider for another batch. Existing returned risks and
+evidence and detached audits remain valid. In-flight calls keep their own snapshot state until
+completion and cannot refill a replacement cache. Independent histories should
+use separate providers to avoid displacing one another's cached work.
+
+Cache contents are never serialized, and cache capacity is not part of the
+numerical provider identity. Fresh providers and different capacities can resume
+the same checkpoint under the existing implementation/input compatibility rules.
+The implementation change itself still invalidates older implementation hashes.
+See [ADR 0036](../../design/adr/0036-backtest-provider-cache.md).
+
 ## Failure reports and recovery
 
 Expected market, risk-quality, solver and native pricing errors stop replay.

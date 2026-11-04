@@ -43,6 +43,7 @@ struct ClaimJacobian {
 
 pub(in crate::engine) struct HullWhiteReverseContext {
     pub labels: Vec<String>,
+    pub parameter_kinds: Vec<crate::RiskParameterKind>,
     pub cash_times: Vec<f64>,
     pub discount_times: Vec<f64>,
     pub repo_spread_times: Vec<f64>,
@@ -52,6 +53,11 @@ pub(in crate::engine) struct HullWhiteReverseContext {
     payment_weights: Vec<f64>,
 }
 impl HullWhiteReverseContext {
+    pub fn discount_range(&self) -> std::ops::Range<usize> {
+        let start = 5 + self.cash_times.len();
+        start..start + self.discount_times.len()
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         path: &StochasticDividendHullWhitePathPlan,
@@ -78,6 +84,12 @@ impl HullWhiteReverseContext {
         );
         labels.extend((0..p.times().len()).map(|i| format!("discount_log_df[{i}]")));
         labels.extend((0..q.times().len()).map(|i| format!("repo_spread_log_df[{i}]")));
+        let parameter_kinds =
+            crate::engine::processes::stochastic_dividends::reverse::basic_parameter_kinds(
+                events.len(),
+                p.times().len(),
+                q.times().len(),
+            );
         let po = 5 + events.len();
         let qo = po + p.times().len();
         let mut funding = vec![0.0; labels.len()];
@@ -126,6 +138,7 @@ impl HullWhiteReverseContext {
         }
         Ok(Self {
             labels,
+            parameter_kinds,
             cash_times: path.cash_times.to_vec(),
             discount_times: p.times().to_vec(),
             repo_spread_times: q.times().to_vec(),
