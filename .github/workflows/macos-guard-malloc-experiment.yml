@@ -1,0 +1,79 @@
+name: macOS Guard Malloc experiment
+
+# Temporary diagnostic for the intermittent macOS heap-corruption abort.
+# Guard Malloc places allocations against unmapped guard pages, so an
+# out-of-bounds or use-after-free write faults at the writing instruction
+# instead of being detected later by libmalloc. Uses main's built wheel.
+on:
+  push:
+    branches: ["experiment/macos-guard-malloc"]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  shard:
+    name: ${{ matrix.selection }} / ${{ matrix.allocator }}
+    runs-on: macos-15
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        allocator: ["guard-malloc"]
+        selection:
+          - custom-basis-row_hats-4-call-fixed_lookback
+          - coupled-basis-coupled_row_hats-4-call-fixed_lookback
+          - custom-basis-weighted_time_hats-4-call-arithmetic_asian
+          - put-extension-linear_time-4
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Download main's macOS wheel (run 41882223740, 7590277)
+        uses: actions/download-artifact@v8
+        with:
+          name: rust-pricing-aarch64-apple-darwin-cp312
+          path: dist
+          run-id: 41882223740
+          github-token: ${{ github.token }}
+
+      - name: Install and check the wheel without Guard Malloc
+        run: |
+          python -c "from scripts.wheel_validation.archive import selected_wheel; from scripts.wheel_validation.package import prepare_wheel; print(prepare_wheel(selected_wheel(None)))" | tail -1 > venv-python.txt
+          cat venv-python.txt
+
+      - name: Run the selection under Guard Malloc
+        env:
+          RUST_BACKTRACE: full
+          SELECTION: ${{ matrix.selection }}
+        run: |
+          PY=$(cat venv-python.txt)
+          # Set inside the shell: SIP strips DYLD_* when launching /bin/bash.
+          export DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib
+          "$PY" -X faulthandler -m scripts.wheel_validation.provider_shards --run "$SELECTION"
+
+      - name: Collect crash reports
+        if: always()
+        run: |
+          mkdir -p crash-reports
+          cp ~/Library/Logs/DiagnosticReports/*ython* crash-reports/ 2>/dev/null || true
+          cp /Library/Logs/DiagnosticReports/*ython* crash-reports/ 2>/dev/null || true
+          ls -l crash-reports
+          for f in crash-reports/*; do [ -f "$f" ] && head -c 20000 "$f"; done || true
+
+      - name: Keep crash reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: guard-malloc-${{ matrix.selection }}
+          path: crash-reports/
+          if-no-files-found: ignore
+          retention-days: 14
