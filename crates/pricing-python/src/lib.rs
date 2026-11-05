@@ -14,6 +14,7 @@ mod heston_iv_refinement;
 mod hull_white;
 mod local_correlation;
 mod lsv;
+mod lsv_config;
 mod market_iv;
 mod multi_asset;
 mod multi_asset_hw;

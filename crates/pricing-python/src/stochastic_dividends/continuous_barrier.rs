@@ -46,23 +46,23 @@ impl PyStochasticDividendContinuousBarrierPlan {
     ) -> PyResult<Self> {
         let factor =
             RoughBergomi::new(hurst, vol_of_vol, correlation).map_err(|e| invalid(py, e))?;
-        let model = BuehlerDividendModel::new(
+        let model = dividend_model(
+            py,
             dividend_mean_reversion,
             equity_linkage,
             dividend_volatility,
             equity_dividend_correlation,
-        )
-        .map_err(|e| invalid(py, e))?;
-        let particles = LsvParticleConfig::new(
+        )?;
+        let (particles, policy) = particle_config_and_policy(
             particle_count,
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
             false,
-        )
-        .map_err(|e| invalid(py, e))?;
-        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
-            .map_err(|e| invalid(py, e))?;
+            worker_threads,
+            reduction_block_size,
+            |e| invalid(py, e),
+        )?;
         let request = request.inner.clone();
         let surface = market_iv_surface.map(|s| s.inner.clone());
         py.detach(|| {

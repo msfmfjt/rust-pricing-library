@@ -1,10 +1,10 @@
 //! Conditional terminal-payoff variance risk without linear-payoff MC cancellation.
+use super::vegakt_variance_gamma_quality::quality;
 use crate::MonteCarloError;
 use crate::engine::plan::simulation::SimulationPlan;
 use crate::mc::{DeterministicExecutor, EngineConfig, RandomDomain};
 use crate::risk::{
-    RiskConfigError, VegaKtConvolutionPlan, VegaKtGammaRecoveryPolicy, VegaKtStepMoment,
-    VegaKtVarianceGammaCandidate, VegaKtVarianceGammaQuality,
+    RiskConfigError, VegaKtConvolutionPlan, VegaKtGammaRecoveryPolicy, VegaKtVarianceGammaCandidate,
 };
 use pricing_numerics::NeumaierSum;
 
@@ -13,51 +13,6 @@ fn invalid(s: &'static str) -> MonteCarloError {
 }
 fn sum(v: impl Iterator<Item = f64>) -> f64 {
     v.collect::<NeumaierSum>().total()
-}
-fn norm(v: impl Iterator<Item = f64>) -> f64 {
-    v.fold(0., f64::hypot)
-}
-fn quality(
-    b: &[VegaKtStepMoment],
-    r: &[VegaKtStepMoment],
-    q: &[VegaKtStepMoment],
-    p: &VegaKtGammaRecoveryPolicy,
-) -> Result<VegaKtVarianceGammaQuality, MonteCarloError> {
-    let metrics = |v: &[VegaKtStepMoment]| -> Result<(f64, f64), MonteCarloError> {
-        let errors = v
-            .iter()
-            .map(|m| {
-                m.standard_error()
-                    .ok_or_else(|| invalid("at least two variance-Gamma samples required"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok((norm(v.iter().map(|m| m.mean())), norm(errors.into_iter())))
-    };
-    let (b, bse) = metrics(b)?;
-    let (r, rse) = metrics(r)?;
-    let (q, qse) = metrics(q)?;
-    if [b, bse, r, rse, q, qse].iter().any(|v| !v.is_finite()) {
-        return Err(invalid("nonfinite variance-Gamma quality"));
-    }
-    let ratio = |a: f64, b: f64| (b > 0.).then(|| a / b).filter(|v| v.is_finite());
-    let reconstruction_margin_ratio = ratio(
-        r + p.mc_margin_multiplier() * rse,
-        b - p.mc_margin_multiplier() * bse,
-    );
-    let gamma_relative_standard_error = ratio(qse, q);
-    Ok(VegaKtVarianceGammaQuality {
-        sensitivity_norm: b,
-        sensitivity_mc_norm: bse,
-        reconstruction_norm: r,
-        reconstruction_mc_norm: rse,
-        gamma_norm: q,
-        gamma_mc_norm: qse,
-        reconstruction_margin_ratio,
-        gamma_relative_standard_error,
-        passed: reconstruction_margin_ratio.is_some_and(|v| v <= p.reconstruction_relative_limit())
-            && gamma_relative_standard_error
-                .is_some_and(|v| v <= p.gamma_relative_standard_error_limit()),
-    })
 }
 
 impl SimulationPlan {
