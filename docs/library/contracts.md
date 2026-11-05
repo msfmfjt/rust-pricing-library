@@ -77,3 +77,51 @@ share inclusive comparison semantics with the source expressions; observing a
 hit removes remaining monitoring dependencies. See the
 [lifecycle tests](../../crates/pricing/tests/contract_lifecycle.rs) for replay,
 settlement, early redemption and original/residual future cash-flow equivalence.
+
+## Native MC compilation
+
+`contract.compile_mc(as_of, ordered_underlyings)` lowers the validated source or
+lifecycle residual into currency groups. Supply the model's ordered underlying
+universe, including an anchor for fixed payments. Each group exposes immutable
+`product()` and `payoff()` derivatives and cash-flow IDs in output order.
+`CompiledContract::pricing_task(template, operation)` replaces the product in an
+existing `PricingSpecification`; `multi_asset_task` does the same for a basket
+source. Templates retain market, model, numeraire, seed, simulation grid policy,
+execution and risk settings. Each task prices its template currency explicitly.
+An empty contract lowers to no groups; a native task uses a zero cash flow at
+valuation. Overdue unpaid payments require explicit settlement/closeout handling.
+
+The native compiler supplies observation dates and time-grid mapping. Spot and
+pre-dividend spot reuse their existing simulation states. Intraday observations,
+rate fixings and conflicting fixing-source identities mapping to one native
+observation fail. The native capability/preflight checks still govern model,
+volatility, rates, correlations and risk. In particular, single-asset stochastic
+rates with distinct payment dates remain unsupported; the multi-asset path uses
+its existing per-payment pathwise discount factors. No deterministic-rate
+substitution is made.
+
+Exact subexpressions and observations are interned during contract lowering;
+constants and known branches are eliminated before graph compilation. The
+existing tape adds exact comparison, lazy selection, logarithm and exponential
+operations. Lazy traversal reads only selected branches, including nested early
+termination. Geometric averages require positive observations. Reuse
+`payoff.workspace()` with `evaluate_reusing` to retain path arrays and traversal
+capacity. Existing nonbranching graphs retain their forward instruction order
+and allocation count. No contract AST is evaluated in a Monte Carlo path loop.
+
+Deterministic multi-payment discount ratios, curve pullbacks, covariance-aware
+aggregation, MC/RQMC statistics and supported AAD use the native implementation.
+Live hard comparisons reject pathwise risk; they are not assigned an invented
+pathwise derivative. Explicit MC parameter-bump repricing can use the same seed
+and numerical configuration for finite-difference Greeks. Bump bias and sampling
+covariance must be assessed separately; no PDE engine or estimator substitution
+is introduced.
+
+Graph sources containing the new operations write `product_graph` v2, nested
+specifications write v3, and tasks write v2. Legacy graphs/specifications/tasks
+continue writing v1/v2/v1 with unchanged source fingerprint domains. New operations
+under old envelope versions are rejected. Current schema accessors accept both
+legacy emitted and extended versions; frozen historical schema files are unchanged.
+The [extended schema checks](../../scripts/check_contract_mc_json_schema.py)
+exercise new sources and reject version downgrades. Native and contract regression
+coverage is in [contract MC tests](../../crates/pricing/tests/contract_mc.rs).

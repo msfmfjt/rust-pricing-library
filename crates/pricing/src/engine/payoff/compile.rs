@@ -491,6 +491,10 @@ pub(in crate::engine) fn compile(
         return Err(GraphError::NoOutputs);
     }
 
+    let branching = graph
+        .nodes
+        .iter()
+        .any(|n| matches!(n.opcode, SourceOpcode::Select { .. }));
     let mut nodes = BTreeMap::new();
     for node in graph.nodes.iter().copied() {
         if nodes.insert(node.id, node.opcode).is_some() {
@@ -533,7 +537,11 @@ pub(in crate::engine) fn compile(
     while let Some(id) = ready.pop_first() {
         let opcode = nodes[&id];
         topological.push(id);
-        folded.insert(id, fold_node(id, opcode, &folded)?);
+        let value = match fold_node(id, opcode, &folded) {
+            Err(GraphError::NonFiniteConstantFold { .. }) if branching => None,
+            result => result?,
+        };
+        folded.insert(id, value);
         if let Some(destinations) = outgoing.get(&id) {
             for destination in destinations {
                 let degree = indegree
@@ -613,6 +621,7 @@ pub(in crate::engine) fn compile(
     let source_fingerprint = fingerprint_source(&nodes, &graph.outputs);
     let tape_fingerprint = fingerprint_tape(&opcodes, &output_slots, &mapping);
     Ok(CompiledPayoff {
+        branching,
         opcodes: opcodes.into_boxed_slice(),
         output_slots: output_slots.into_boxed_slice(),
         source_to_slot: mapping.into_boxed_slice(),
@@ -651,6 +660,20 @@ pub(in crate::engine) fn fold_node(
     ) {
         return Ok(None);
     }
+    if let SourceOpcode::Select {
+        condition,
+        then_value,
+        else_value,
+    } = opcode
+    {
+        return Ok(folded[&condition].and_then(|v| {
+            folded[&if v.get() != 0.0 {
+                then_value
+            } else {
+                else_value
+            }]
+        }));
+    }
     let (operands, count) = opcode.operands();
     let values: Option<Vec<f64>> = operands
         .into_iter()
@@ -661,6 +684,16 @@ pub(in crate::engine) fn fold_node(
         return Ok(None);
     };
     let result = match opcode {
+        SourceOpcode::Select { .. } => unreachable!("handled above"),
+        SourceOpcode::Log { .. } => values[0].ln(),
+        SourceOpcode::Exp { .. } => values[0].exp(),
+        SourceOpcode::Compare { operation, .. } => {
+            if operation.test(values[0], values[1]) {
+                1.0
+            } else {
+                0.0
+            }
+        }
         SourceOpcode::Add { .. } => values[0] + values[1],
         SourceOpcode::Subtract { .. } => values[0] - values[1],
         SourceOpcode::Multiply { .. } => values[0] * values[1],
@@ -721,6 +754,34 @@ pub(in crate::engine) fn compile_opcode(
             .ok_or(GraphError::InternalOrdering { operand: id })
     };
     match opcode {
+        SourceOpcode::Select {
+            condition,
+            then_value,
+            else_value,
+        } => Ok(CompiledOpcode::Select {
+            condition: slot(condition)?,
+            then_value: slot(then_value)?,
+            else_value: slot(else_value)?,
+            output,
+        }),
+        SourceOpcode::Log { input } => Ok(CompiledOpcode::Log {
+            input: slot(input)?,
+            output,
+        }),
+        SourceOpcode::Exp { input } => Ok(CompiledOpcode::Exp {
+            input: slot(input)?,
+            output,
+        }),
+        SourceOpcode::Compare {
+            left,
+            right,
+            operation,
+        } => Ok(CompiledOpcode::Compare {
+            left: slot(left)?,
+            right: slot(right)?,
+            operation,
+            output,
+        }),
         SourceOpcode::Literal(value) => Ok(CompiledOpcode::Literal {
             value: value.get(),
             output,
@@ -890,6 +951,15 @@ pub(in crate::engine) fn fingerprint_tape(
 pub(in crate::engine) fn encode_source_opcode(bytes: &mut Vec<u8>, opcode: SourceOpcode) {
     bytes.push(opcode_tag(opcode));
     match opcode {
+        SourceOpcode::Compare {
+            left,
+            right,
+            operation,
+        } => {
+            put_u32(bytes, left.get());
+            put_u32(bytes, right.get());
+            bytes.push(operation as u8);
+        }
         SourceOpcode::Literal(value) => put_u64(bytes, value.to_bits()),
         SourceOpcode::TerminalSpot {
             underlying,
@@ -945,6 +1015,31 @@ pub(in crate::engine) fn encode_source_opcode(bytes: &mut Vec<u8>, opcode: Sourc
 pub(in crate::engine) fn encode_compiled_opcode(bytes: &mut Vec<u8>, opcode: CompiledOpcode) {
     bytes.push(compiled_opcode_tag(opcode));
     match opcode {
+        CompiledOpcode::Select {
+            condition,
+            then_value,
+            else_value,
+            output,
+        } => {
+            for v in [condition, then_value, else_value, output] {
+                put_u32(bytes, v);
+            }
+        }
+        CompiledOpcode::Compare {
+            left,
+            right,
+            operation,
+            output,
+        } => {
+            put_u32(bytes, left);
+            put_u32(bytes, right);
+            bytes.push(operation as u8);
+            put_u32(bytes, output);
+        }
+        CompiledOpcode::Log { input, output } | CompiledOpcode::Exp { input, output } => {
+            put_u32(bytes, input);
+            put_u32(bytes, output);
+        }
         CompiledOpcode::Literal { value, output } => {
             put_u64(bytes, value.to_bits());
             put_u32(bytes, output);
@@ -1064,6 +1159,10 @@ pub(in crate::engine) const fn opcode_tag(opcode: SourceOpcode) -> u8 {
         SourceOpcode::SmoothIndicator { .. } => 12,
         SourceOpcode::BarrierHitState { .. } => 13,
         SourceOpcode::PreDividendSpot { .. } => 14,
+        SourceOpcode::Select { .. } => 15,
+        SourceOpcode::Log { .. } => 16,
+        SourceOpcode::Exp { .. } => 17,
+        SourceOpcode::Compare { .. } => 18,
     }
 }
 
@@ -1084,6 +1183,10 @@ pub(in crate::engine) const fn compiled_opcode_tag(opcode: CompiledOpcode) -> u8
         CompiledOpcode::SmoothIndicator { .. } => 12,
         CompiledOpcode::BarrierHitState { .. } => 13,
         CompiledOpcode::PreDividendSpot { .. } => 14,
+        CompiledOpcode::Select { .. } => 15,
+        CompiledOpcode::Log { .. } => 16,
+        CompiledOpcode::Exp { .. } => 17,
+        CompiledOpcode::Compare { .. } => 18,
     }
 }
 

@@ -235,7 +235,7 @@ pub fn advance(
                     &mut BTreeMap::new(),
                     NumericExpr::from(1.0),
                 )?;
-                let amounts = collect_determined(&reduced, e.effective_date, &BTreeSet::new());
+                let amounts = collect_determined(&reduced, e.effective_date, &BTreeSet::new())?;
                 let amount = amounts
                     .iter()
                     .find(|c| &c.id == cashflow_id)
@@ -276,7 +276,7 @@ pub fn advance(
         &mut barrier_states,
         NumericExpr::from(1.0),
     )?;
-    let determined_cashflows = collect_determined(&reduced, as_of, &settled);
+    let determined_cashflows = collect_determined(&reduced, as_of, &settled)?;
     let outstanding_payments = determined_cashflows
         .iter()
         .filter(|c| !c.settled)
@@ -476,29 +476,43 @@ fn collect_determined(
     t: &Term,
     as_of: Date,
     settled: &BTreeSet<String>,
-) -> Vec<DeterminedCashflow> {
+) -> Result<Vec<DeterminedCashflow>, ContractError> {
     match t {
-        Term::Cashflow { cashflow: c } if c.determination_date <= as_of => c
-            .amount
-            .constant()
-            .map(|amount| DeterminedCashflow {
-                id: c.id.clone(),
-                currency: c.currency,
-                amount: amount * c.direction.sign(),
-                determination_date: c.determination_date,
-                payment_date: c.payment_date,
-                settlement_date: c.settlement_date,
-                settled: settled.contains(&c.id),
-            })
-            .into_iter()
-            .collect(),
-        Term::Bundle { contracts } => contracts
-            .iter()
-            .flat_map(|t| collect_determined(t, as_of, settled))
-            .collect(),
-        _ => vec![],
+        Term::Cashflow { cashflow: c } if c.determination_date <= as_of => {
+            if let Some(amount) = c.amount.constant() {
+                Ok(vec![DeterminedCashflow {
+                    id: c.id.clone(),
+                    currency: c.currency,
+                    amount: amount * c.direction.sign(),
+                    determination_date: c.determination_date,
+                    payment_date: c.payment_date,
+                    settlement_date: c.settlement_date,
+                    settled: settled.contains(&c.id),
+                }])
+            } else {
+                let mut refs = BTreeSet::new();
+                c.amount.refs(&mut refs, 0, &mut 0)?;
+                if refs.is_empty() {
+                    Err(ContractError::Invalid(format!(
+                        "cashflow {} has invalid determined arithmetic",
+                        c.id
+                    )))
+                } else {
+                    Ok(vec![])
+                }
+            }
+        }
+        Term::Bundle { contracts } => {
+            let mut result = Vec::new();
+            for t in contracts {
+                result.extend(collect_determined(t, as_of, settled)?);
+            }
+            Ok(result)
+        }
+        _ => Ok(vec![]),
     }
 }
+
 fn remove_settled(t: Term, settled: &BTreeSet<String>) -> Term {
     match t {
         Term::Cashflow {

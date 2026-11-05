@@ -7,3 +7,5 @@ pub(crate) mod compile;
 mod conformance;
 pub(crate) mod tape;
 pub(crate) mod valuation;
+
+pub(crate) mod contract;

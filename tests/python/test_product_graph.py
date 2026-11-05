@@ -155,7 +155,7 @@ class ProductGraphTests(unittest.TestCase):
             self.assertEqual((issue.document_kind, issue.schema_version), ('product_graph', 1))
             self.assertEqual(issue.pointer, '/product/observation_date')
         self.assertEqual(json.loads(rp.product_graph_json_schema()),
-                         json.loads((ROOT / 'schemas/product-graph-v1/product_graph.schema.json').read_text()))
+                         json.loads((ROOT / 'schemas/product-graph-v2/product_graph.schema.json').read_text()))
 
 
     def test_multiple_payment_curve_aad_includes_discount_ratio_pullback(self):

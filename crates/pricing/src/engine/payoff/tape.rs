@@ -1,11 +1,31 @@
 use crate::core::{Date, NodeId, UnderlyingId};
-use crate::product::CompactC2Smoothing;
 use crate::product::graph::GraphError;
 use crate::product::graph::GraphFingerprint;
+use crate::product::{CompactC2Smoothing, GraphComparison};
 use std::collections::BTreeSet;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CompiledOpcode {
+    Select {
+        condition: u32,
+        then_value: u32,
+        else_value: u32,
+        output: u32,
+    },
+    Log {
+        input: u32,
+        output: u32,
+    },
+    Exp {
+        input: u32,
+        output: u32,
+    },
+    Compare {
+        left: u32,
+        right: u32,
+        operation: GraphComparison,
+        output: u32,
+    },
     Literal {
         value: f64,
         output: u32,
@@ -84,12 +104,23 @@ pub enum CompiledOpcode {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CompiledPayoff {
+    pub(in crate::engine) branching: bool,
     pub(in crate::engine) opcodes: Box<[CompiledOpcode]>,
     pub(in crate::engine) output_slots: Box<[u32]>,
     pub(in crate::engine) source_to_slot: Box<[(NodeId, u32)]>,
     pub(in crate::engine) removed_source_nodes: Box<[NodeId]>,
     pub(in crate::engine) source_fingerprint: GraphFingerprint,
     pub(in crate::engine) tape_fingerprint: GraphFingerprint,
+}
+
+/// Reusable path values and traversal state. A workspace may be reused across
+/// paths for this payoff; resizing for another payoff is explicit in evaluation.
+#[derive(Clone, Debug)]
+pub struct PayoffWorkspace {
+    values: Vec<f64>,
+    visited: Vec<bool>,
+    pending: Vec<u32>,
+    outputs: Vec<f64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -198,27 +229,140 @@ impl CompiledPayoff {
         F: FnMut(UnderlyingId, Date) -> Option<f64>,
         G: FnMut(UnderlyingId, Date) -> Option<f64>,
     {
-        let mut slots = vec![0.0; self.opcodes.len()];
-        for opcode in &self.opcodes {
-            let (output, value) = execute_opcode(
-                *opcode,
-                &slots,
-                &mut observation,
-                &mut pre_dividend_observation,
-            )?;
-            let output = checked_index(output, slots.len())?;
-            if !value.is_finite() {
-                return Err(GraphError::NonFiniteRuntimeValue {
-                    opcode: opcode.name(),
-                    bits: value.to_bits(),
-                });
+        if !self.branching {
+            // Preserve the legacy allocation count and instruction order.
+            let mut values = vec![0.0; self.opcodes.len()];
+            for &opcode in &self.opcodes {
+                let (output, value) = execute_opcode(
+                    opcode,
+                    &values,
+                    &mut observation,
+                    &mut pre_dividend_observation,
+                )?;
+                check_value(opcode, value)?;
+                values[output as usize] = value;
             }
-            slots[output] = value;
+            return Ok(self
+                .output_slots
+                .iter()
+                .map(|slot| values[*slot as usize])
+                .collect());
         }
-        self.output_slots
-            .iter()
-            .map(|slot| checked_index(*slot, slots.len()).map(|index| slots[index]))
-            .collect()
+        let mut workspace = self.workspace();
+        self.evaluate_reusing(
+            &mut workspace,
+            &mut observation,
+            &mut pre_dividend_observation,
+        )
+        .map(|values| values.to_vec())
+    }
+
+    #[must_use]
+    pub fn workspace(&self) -> PayoffWorkspace {
+        PayoffWorkspace {
+            values: vec![0.0; self.opcodes.len()],
+            visited: if self.branching {
+                vec![false; self.opcodes.len()]
+            } else {
+                vec![]
+            },
+            pending: Vec::new(),
+            outputs: vec![0.0; self.output_slots.len()],
+        }
+    }
+
+    /// Evaluate native compiled operations without allocating path arrays after
+    /// workspace initialization (and the first branch traversal capacity growth).
+    pub fn evaluate_reusing<'a, F, G>(
+        &self,
+        workspace: &'a mut PayoffWorkspace,
+        mut observation: F,
+        mut pre_dividend_observation: G,
+    ) -> Result<&'a [f64], GraphError>
+    where
+        F: FnMut(UnderlyingId, Date) -> Option<f64>,
+        G: FnMut(UnderlyingId, Date) -> Option<f64>,
+    {
+        workspace.values.resize(self.opcodes.len(), 0.0);
+        workspace.outputs.resize(self.output_slots.len(), 0.0);
+        if self.branching {
+            workspace.visited.resize(self.opcodes.len(), false);
+            workspace.visited.fill(false);
+            workspace.values.fill(0.0);
+            workspace.pending.clear();
+            for &root in &self.output_slots {
+                workspace.pending.push(root);
+                while let Some(slot) = workspace.pending.pop() {
+                    let i = checked_index(slot, self.opcodes.len())?;
+                    if workspace.visited[i] {
+                        continue;
+                    }
+                    let opcode = self.opcodes[i];
+                    if let CompiledOpcode::Select {
+                        condition,
+                        then_value,
+                        else_value,
+                        ..
+                    } = opcode
+                    {
+                        let ci = checked_index(condition, self.opcodes.len())?;
+                        if !workspace.visited[ci] {
+                            workspace.pending.push(slot);
+                            workspace.pending.push(condition);
+                            continue;
+                        }
+                        let selected = if workspace.values[ci] != 0.0 {
+                            then_value
+                        } else {
+                            else_value
+                        };
+                        if !workspace.visited[checked_index(selected, self.opcodes.len())?] {
+                            workspace.pending.push(slot);
+                            workspace.pending.push(selected);
+                            continue;
+                        }
+                    } else {
+                        let (operands, count) = opcode.operands();
+                        let missing = operands[..count]
+                            .iter()
+                            .any(|v| !workspace.visited[*v as usize]);
+                        if missing {
+                            workspace.pending.push(slot);
+                            for &v in operands[..count].iter().rev() {
+                                if !workspace.visited[v as usize] {
+                                    workspace.pending.push(v);
+                                }
+                            }
+                            continue;
+                        }
+                    }
+                    let (_, value) = execute_opcode(
+                        opcode,
+                        &workspace.values,
+                        &mut observation,
+                        &mut pre_dividend_observation,
+                    )?;
+                    check_value(opcode, value)?;
+                    workspace.values[i] = value;
+                    workspace.visited[i] = true;
+                }
+            }
+        } else {
+            for &opcode in &self.opcodes {
+                let (output, value) = execute_opcode(
+                    opcode,
+                    &workspace.values,
+                    &mut observation,
+                    &mut pre_dividend_observation,
+                )?;
+                check_value(opcode, value)?;
+                workspace.values[output as usize] = value;
+            }
+        }
+        for (value, &slot) in workspace.outputs.iter_mut().zip(&self.output_slots) {
+            *value = workspace.values[slot as usize];
+        }
+        Ok(&workspace.outputs)
     }
 
     pub fn evaluate_single_with_terminal_adjoint<F>(
@@ -288,23 +432,28 @@ impl CompiledPayoff {
                     index: output_index,
                     count: self.output_slots.len(),
                 })?;
-        let mut values = vec![0.0; self.opcodes.len()];
-        for opcode in &self.opcodes {
-            let (output, value) = execute_opcode(
-                *opcode,
-                &values,
+        let (values, visited) = if self.branching {
+            let mut workspace = self.workspace();
+            self.evaluate_reusing(
+                &mut workspace,
                 &mut observation,
                 &mut pre_dividend_observation,
             )?;
-            let output = checked_index(output, values.len())?;
-            if !value.is_finite() {
-                return Err(GraphError::NonFiniteRuntimeValue {
-                    opcode: opcode.name(),
-                    bits: value.to_bits(),
-                });
+            (workspace.values, workspace.visited)
+        } else {
+            let mut values = vec![0.0; self.opcodes.len()];
+            for &opcode in &self.opcodes {
+                let (output, value) = execute_opcode(
+                    opcode,
+                    &values,
+                    &mut observation,
+                    &mut pre_dividend_observation,
+                )?;
+                check_value(opcode, value)?;
+                values[output as usize] = value;
             }
-            values[output] = value;
-        }
+            (values, Vec::new())
+        };
         let output = checked_index(output_slot, values.len())?;
         let value = values[output];
         let mut adjoints = vec![0.0; self.opcodes.len()];
@@ -312,6 +461,9 @@ impl CompiledPayoff {
         let mut terminal_adjoints = Vec::new();
         let mut pre_dividend_adjoints = Vec::new();
         for opcode in self.opcodes.iter().rev().copied() {
+            if self.branching && !visited[opcode.output() as usize] {
+                continue;
+            }
             reverse_opcode(
                 opcode,
                 &values,
@@ -341,6 +493,32 @@ pub(in crate::engine) fn reverse_opcode(
     let output = checked_index(opcode.output(), adjoints.len())?;
     let output_adjoint = adjoints[output];
     match opcode {
+        CompiledOpcode::Select {
+            condition,
+            then_value,
+            else_value,
+            ..
+        } => {
+            let selected = if values[condition as usize] != 0.0 {
+                then_value
+            } else {
+                else_value
+            };
+            add_adjoint(adjoints, selected, output_adjoint, opcode.name())?;
+        }
+        CompiledOpcode::Compare { .. } => {}
+        CompiledOpcode::Log { input, .. } => add_adjoint(
+            adjoints,
+            input,
+            output_adjoint / values[input as usize],
+            opcode.name(),
+        )?,
+        CompiledOpcode::Exp { input, .. } => add_adjoint(
+            adjoints,
+            input,
+            output_adjoint * values[output],
+            opcode.name(),
+        )?,
         CompiledOpcode::Literal { .. } => {}
         CompiledOpcode::TerminalSpot {
             underlying,
@@ -567,9 +745,60 @@ pub(in crate::engine) fn add_adjoint(
     Ok(())
 }
 
+fn check_value(opcode: CompiledOpcode, value: f64) -> Result<(), GraphError> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(GraphError::NonFiniteRuntimeValue {
+            opcode: opcode.name(),
+            bits: value.to_bits(),
+        })
+    }
+}
 impl CompiledOpcode {
+    fn operands(self) -> ([u32; 3], usize) {
+        match self {
+            Self::Literal { .. } | Self::TerminalSpot { .. } | Self::PreDividendSpot { .. } => {
+                ([0; 3], 0)
+            }
+            Self::Select {
+                condition,
+                then_value,
+                else_value,
+                ..
+            } => ([condition, then_value, else_value], 3),
+            Self::Log { input, .. }
+            | Self::Exp { input, .. }
+            | Self::Negate { input, .. }
+            | Self::Indicator { input, .. }
+            | Self::SmoothIndicator { input, .. } => ([input, 0, 0], 1),
+            Self::Add { left, right, .. }
+            | Self::Subtract { left, right, .. }
+            | Self::Multiply { left, right, .. }
+            | Self::Minimum { left, right, .. }
+            | Self::Maximum { left, right, .. }
+            | Self::SmoothMinimum { left, right, .. }
+            | Self::SmoothMaximum { left, right, .. }
+            | Self::Compare { left, right, .. } => ([left, right, 0], 2),
+            Self::Divide {
+                numerator,
+                denominator,
+                ..
+            } => ([numerator, denominator, 0], 2),
+            Self::BarrierHitState {
+                previous,
+                hit_weight,
+                ..
+            } => ([previous, hit_weight, 0], 2),
+        }
+    }
+
     pub(in crate::engine) const fn name(self) -> &'static str {
         match self {
+            Self::Select { .. } => "select",
+            Self::Log { .. } => "log",
+            Self::Exp { .. } => "exp",
+            Self::Compare { .. } => "compare",
             Self::Literal { .. } => "literal",
             Self::TerminalSpot { .. } => "terminal_spot",
             Self::PreDividendSpot { .. } => "pre_dividend_spot",
@@ -590,7 +819,11 @@ impl CompiledOpcode {
 
     pub(in crate::engine) const fn output(self) -> u32 {
         match self {
-            Self::Literal { output, .. }
+            Self::Select { output, .. }
+            | Self::Log { output, .. }
+            | Self::Exp { output, .. }
+            | Self::Compare { output, .. }
+            | Self::Literal { output, .. }
             | Self::TerminalSpot { output, .. }
             | Self::PreDividendSpot { output, .. }
             | Self::Add { output, .. }
@@ -625,6 +858,33 @@ where
         ))
     };
     match opcode {
+        CompiledOpcode::Select {
+            condition,
+            then_value,
+            else_value,
+            output,
+        } => {
+            let selected = if slots[checked_index(condition, slots.len())?] != 0.0 {
+                then_value
+            } else {
+                else_value
+            };
+            Ok((output, slots[checked_index(selected, slots.len())?]))
+        }
+        CompiledOpcode::Compare {
+            left,
+            right,
+            operation,
+            output,
+        } => {
+            binary(left, right).map(|(a, b)| (output, if operation.test(a, b) { 1.0 } else { 0.0 }))
+        }
+        CompiledOpcode::Log { input, output } => {
+            Ok((output, slots[checked_index(input, slots.len())?].ln()))
+        }
+        CompiledOpcode::Exp { input, output } => {
+            Ok((output, slots[checked_index(input, slots.len())?].exp()))
+        }
         CompiledOpcode::Literal { value, output } => Ok((output, value)),
         CompiledOpcode::TerminalSpot {
             underlying,
