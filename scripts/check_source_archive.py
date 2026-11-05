@@ -14,6 +14,8 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "crates/pricing/src/contract/lifecycle.rs",
+    "crates/pricing/tests/contract_lifecycle.rs",
     "crates/pricing/src/contract/mod.rs",
     "crates/pricing/src/contract/expression.rs",
     "crates/pricing/src/contract/source.rs",

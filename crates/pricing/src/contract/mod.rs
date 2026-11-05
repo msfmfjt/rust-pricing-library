@@ -8,3 +8,6 @@ pub use source::{
     BarrierDirection, Cashflow, Contract, ContractAnalysis, ContractError, Observation,
     ObservationKind, PaymentDirection, Term,
 };
+
+mod lifecycle;
+pub use lifecycle::{DeterminedCashflow, Event, LifecycleEvent, LifecycleResult, advance};
