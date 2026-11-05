@@ -340,7 +340,18 @@ impl Contract {
             barriers: BTreeSet::new(),
             flows: Vec::new(),
             count: 0,
+            prune_constants: false,
         };
+        state.walk(&self.root, &BTreeSet::new(), 0)?;
+        // Validate the complete source, including inactive branches. Extract
+        // actual requirements separately after deterministic simplification.
+        state.used.clear();
+        state.ids.clear();
+        state.barrier_ids.clear();
+        state.barriers.clear();
+        state.flows.clear();
+        state.count = 0;
+        state.prune_constants = true;
         state.walk(&self.root, &BTreeSet::new(), 0)?;
         let mut required_observations: Vec<_> = state
             .used
@@ -370,7 +381,7 @@ impl Contract {
             .chain(required_observations.iter().map(|o| o.date))
             .max();
         // A constant amount behind an unresolved predicate is potential, not determined.
-        let determined_cashflows = unconditional_constants(&self.root);
+        let determined_cashflows = unconditional_constants(&self.root)?;
         for cashflow in &determined_cashflows {
             if let Some(value) = cashflow.amount.constant() {
                 super::expression::finite(value)?;
@@ -404,6 +415,7 @@ struct AnalysisState<'a> {
     barriers: BTreeSet<Date>,
     flows: Vec<Cashflow>,
     count: usize,
+    prune_constants: bool,
 }
 impl AnalysisState<'_> {
     fn check_refs(&mut self, refs: &BTreeSet<String>) -> Result<(), ContractError> {
@@ -439,7 +451,15 @@ impl AnalysisState<'_> {
                     )));
                 }
                 let mut refs = guards.clone();
-                c.amount.refs(&mut refs, depth + 1, &mut self.count)?;
+                if self.prune_constants {
+                    c.amount.reduce(&BTreeMap::new())?.refs(
+                        &mut refs,
+                        depth + 1,
+                        &mut self.count,
+                    )?;
+                } else {
+                    c.amount.refs(&mut refs, depth + 1, &mut self.count)?;
+                }
                 self.check_refs(&refs)?;
                 if refs
                     .iter()
@@ -462,28 +482,69 @@ impl AnalysisState<'_> {
                 then_contract,
                 else_contract,
             } => {
+                let reduced = self
+                    .prune_constants
+                    .then(|| condition.reduce(&BTreeMap::new()))
+                    .transpose()?;
+                let condition = reduced.as_ref().unwrap_or(condition);
+                if self.prune_constants
+                    && let Some(value) = condition.constant()
+                {
+                    return self.walk(
+                        if value { then_contract } else { else_contract },
+                        guards,
+                        depth + 1,
+                    );
+                }
                 let mut refs = guards.clone();
                 condition.refs(&mut refs, depth + 1, &mut self.count)?;
                 self.check_refs(&refs)?;
                 self.walk(then_contract, &refs, depth + 1)?;
                 self.walk(else_contract, &refs, depth + 1)?;
             }
-            Term::Reverse { contract } => self.walk(contract, guards, depth + 1)?,
+            Term::Reverse { contract } => {
+                let start = self.flows.len();
+                self.walk(contract, guards, depth + 1)?;
+                if self.prune_constants {
+                    for c in &mut self.flows[start..] {
+                        c.direction = if c.direction == PaymentDirection::Pay {
+                            PaymentDirection::Receive
+                        } else {
+                            PaymentDirection::Pay
+                        };
+                    }
+                }
+            }
             Term::Scale { factor, contract } => {
+                let start = self.flows.len();
                 let mut refs = guards.clone();
-                factor.refs(&mut refs, depth + 1, &mut self.count)?;
+                if self.prune_constants {
+                    factor
+                        .reduce(&BTreeMap::new())?
+                        .refs(&mut refs, depth + 1, &mut self.count)?;
+                } else {
+                    factor.refs(&mut refs, depth + 1, &mut self.count)?;
+                }
                 self.check_refs(&refs)?;
                 self.walk(contract, &refs, depth + 1)?;
+                if self.prune_constants {
+                    for c in &mut self.flows[start..] {
+                        c.amount = c.amount.clone().times(factor.clone());
+                    }
+                }
             }
             Term::Barrier {
                 id,
                 observations,
                 direction: _,
                 level,
-                hit: _,
+                hit,
                 on_hit,
                 on_no_hit,
             } => {
+                if self.prune_constants && *hit {
+                    return self.walk(on_hit, guards, depth + 1);
+                }
                 identifier(id)?;
                 if !self.barrier_ids.insert(id.clone()) {
                     return Err(ContractError::Invalid(format!("duplicate barrier {id}")));
@@ -530,18 +591,40 @@ impl AnalysisState<'_> {
         Ok(())
     }
 }
-fn unconditional_constants(t: &Term) -> Vec<Cashflow> {
-    match t {
-        Term::Cashflow { cashflow } if cashflow.amount.constant().is_some() => {
-            vec![cashflow.clone()]
+fn unconditional_constants(t: &Term) -> Result<Vec<Cashflow>, ContractError> {
+    let empty = BTreeMap::new();
+    Ok(match t {
+        Term::Cashflow { cashflow } => {
+            if let Some(value) = cashflow.amount.reduce(&empty)?.constant() {
+                let mut c = cashflow.clone();
+                c.amount = value.into();
+                vec![c]
+            } else {
+                vec![]
+            }
         }
-        Term::Bundle { contracts } => contracts.iter().flat_map(unconditional_constants).collect(),
+        Term::Bundle { contracts } => {
+            let mut flows = Vec::new();
+            for term in contracts {
+                flows.extend(unconditional_constants(term)?);
+            }
+            flows
+        }
         Term::Conditional {
-            condition: BooleanExpr::Constant { value },
+            condition,
             then_contract,
             else_contract,
-        } => unconditional_constants(if *value { then_contract } else { else_contract }),
-        Term::Reverse { contract } => unconditional_constants(contract)
+        } => {
+            if let Some(value) = condition.reduce(&empty)?.constant() {
+                unconditional_constants(if value { then_contract } else { else_contract })?
+            } else {
+                vec![]
+            }
+        }
+        Term::Barrier {
+            hit: true, on_hit, ..
+        } => unconditional_constants(on_hit)?,
+        Term::Reverse { contract } => unconditional_constants(contract)?
             .into_iter()
             .map(|mut c| {
                 c.direction = if c.direction == PaymentDirection::Pay {
@@ -552,16 +635,19 @@ fn unconditional_constants(t: &Term) -> Vec<Cashflow> {
                 c
             })
             .collect(),
-        Term::Scale {
-            factor: NumericExpr::Constant { value },
-            contract,
-        } => unconditional_constants(contract)
-            .into_iter()
-            .map(|mut c| {
-                c.amount = NumericExpr::from(c.amount.constant().unwrap() * value);
-                c
-            })
-            .collect(),
+        Term::Scale { factor, contract } => {
+            if let Some(value) = factor.reduce(&empty)?.constant() {
+                unconditional_constants(contract)?
+                    .into_iter()
+                    .map(|mut c| {
+                        c.amount = NumericExpr::from(c.amount.constant().unwrap() * value);
+                        c
+                    })
+                    .collect()
+            } else {
+                vec![]
+            }
+        }
         _ => vec![],
-    }
+    })
 }

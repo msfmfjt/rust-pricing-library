@@ -84,8 +84,11 @@ No direct main push or merge is part of this work.
 
 The native graph adds Select, Compare, Log and Exp with appended opcode tags;
 legacy opcode tags and nonbranching instruction order remain unchanged. Lazy
-selection uses reusable iterative traversal state, avoiding recursion in path
-loops and avoiding inactive branch arithmetic/observations. Contract lowering
+selection uses a precompiled, bounded control-flow schedule over the native
+SSA tape, avoiding per-path graph searches, recursive evaluation and inactive
+branch arithmetic/observations. Unique dependencies are inlined; shared
+dependencies become memoized calls. Compilation is iterative and linear in
+graph size even for repeatedly shared expressions. Contract lowering
 interns exact operations and drops known branches before native compilation.
 Graph v2 / specification v3 / task v2 are selected only when these operations
 occur. Legacy writers and fingerprint domains remain at v1 / v2 / v1. Current
@@ -95,7 +98,9 @@ than raising its inactive error; selected invalid determined amounts still fail.
 
 The first performance pass exposed allocation overhead for new lazy tapes.
 Their existing `evaluate` entrypoint now reuses thread-local scratch arrays,
-retaining at most 1 MiB per worker and clearing values/visited state on each path.
+retaining at most 1 MiB per worker and resetting reachability/call state per path.
+Finite literal slots are prepared once per tape fingerprint. Switching tapes
+reinitializes constants; returning from a nonbranching tape invalidates the cache.
 Reentrant observation callbacks use an owned fallback. This cache contains no
 contract/model inputs, does not affect fingerprints, and is never serialized.
 Legacy nonbranching evaluation and AAD keep their original allocation/order.
@@ -106,3 +111,12 @@ Native deterministic aggregation also recognizes two complementary zero-masked
 payments on the same date and compiles one lazy choice. Source cash-flow IDs and
 per-output analysis remain unchanged. The rewrite preserves positive-zero
 addition and is unavailable to legacy graphs without Select operations.
+
+
+Analysis first validates the complete contractual source, including inactive
+branches, then extracts requirements from deterministically reduced expressions.
+Known conditional branches and already-hit barrier monitoring do not add future
+observations, currencies or horizon dates. Determined cashflows include folded
+arithmetic and known date/numeric conditions, with Scale and Reverse applied.
+Unknown left operands of Boolean operators remain observable even when their
+right operands are constants; reduction preserves ordered, lazy semantics.

@@ -1,8 +1,11 @@
 # Contract DSL Phase 0–4 verification
 
 Implementation baseline: main `75902772ea615b7cf551f8f849db7cb7636ef87c`.
-Pricing implementation commit: `a7f3d62`; subsequent commits retain benchmark
-and validation evidence without changing pricing logic.
+Earlier retained implementation: `a7f3d62`. The current Phase 4 follow-up adds
+a precompiled lazy schedule and completes deterministic analysis. Its final
+regression and five-invocation performance evidence is being collected under
+[the fixed protocol](performance-protocol.json); the counts below describe the
+earlier retained run until replaced by commit-specific completion evidence.
 Validation date: 2026-11-05. Local environment: Darwin 27.0.0 arm64,
 Rust 1.98.1, CPython 3.14.2, release wheel built with maturin 1.16.0.
 

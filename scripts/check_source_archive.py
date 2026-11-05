@@ -24,6 +24,7 @@ REQUIRED_FILES = {
     "scripts/check_contract_mutations.py",
     "scripts/wheel_validation/contracts/contract.py",
     "crates/pricing/src/engine/payoff/contract.rs",
+    "crates/pricing/src/engine/payoff/program.rs",
     "crates/pricing/tests/contract_mc.rs",
     "schemas/product-graph-v2/product_graph.schema.json",
     "schemas/specification-v3/pricing_specification.schema.json",

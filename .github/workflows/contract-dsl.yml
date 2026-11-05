@@ -45,6 +45,7 @@ jobs:
         run: |
           cargo test --locked -p pricing --test contract_source --test contract_lifecycle --test contract_mc --test contract_builders
           cargo test --locked -p pricing --lib contract_aggregation_tests
+          cargo test --locked -p pricing --lib engine::payoff
       - name: Curated semantic mutations
         run: python scripts/check_contract_mutations.py --report-directory contract-mutations
       - name: Compare compilation, path evaluation, memory and native MC

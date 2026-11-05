@@ -30,7 +30,10 @@ at construction. The owned tree has no reference cycles.
 
 `analyze()` returns required observations (the fixing schedule), potential and
 unconditionally determined cash flows, underlyings, currencies, barrier dates
-and horizon. Potential amounts retain their expressions. Currencies are never
+and horizon. Potential amounts retain their expressions, with enclosing Scale
+and Reverse applied. Analysis validates all source branches before extracting
+only live deterministic dependencies; known arithmetic and date conditions are
+folded for determined payments. Currencies are never
 implicitly aggregated. A constant amount under a stochastic condition is not a
 determined obligation.
 
@@ -106,9 +109,10 @@ substitution is made.
 Exact subexpressions and observations are interned during contract lowering;
 constants and known branches are eliminated before graph compilation. The
 existing tape adds exact comparison, lazy selection, logarithm and exponential
-operations. Lazy traversal reads only selected branches, including nested early
-termination. Geometric averages require positive observations. Reuse
-`payoff.workspace()` with `evaluate_reusing` to retain path arrays and traversal
+operations. An immutable control-flow schedule reads only selected branches,
+including nested early termination. Shared intermediate results are memoized
+per path, and literal values are prepared once per workspace and tape identity. Geometric averages require positive observations. Reuse
+`payoff.workspace()` with `evaluate_reusing` to retain path arrays and call-stack
 capacity. Native calls on new lazy tapes also reuse scratch buffers per worker,
 with at most 1 MiB retained and an owned fallback for reentrant callbacks.
 Existing nonbranching graphs retain their forward instruction order
@@ -200,7 +204,13 @@ Run focused conformance with `cargo test -p pricing --test contract_source
 --test contract_lifecycle --test contract_mc --test contract_builders` and the
 installed-wheel suite `python -m unittest discover -s tests/python -p test_contracts.py`.
 Run `cargo run --release -p pricing --example benchmark_contract` for compilation,
-payoff and complete MC timings. Reserved workspace bytes and capacity growth are
+payoff and complete MC timings. Defaults are 1,000,000 payoff paths, 262,144
+MC sampling units, 12 observation dates, two workers, one warmup and seven
+measured repetitions with alternating execution order. Override these with
+`CONTRACT_BENCH_PATHS`, `CONTRACT_BENCH_SAMPLES`, `CONTRACT_BENCH_PERIODS`,
+`CONTRACT_BENCH_WORKERS` and `CONTRACT_BENCH_REPETITIONS`; periods must divide 12.
+Raw paired samples and immutable evaluation-program bytes are reported.
+Reserved workspace bytes and capacity growth are
 measured explicitly; these are not process-wide allocation counts. Advanced
 register liveness compression and model-wide buffer reuse remain Phase 5 work;
 the existing engine owns simulated path storage.

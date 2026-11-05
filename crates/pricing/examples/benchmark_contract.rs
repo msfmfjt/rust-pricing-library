@@ -10,7 +10,16 @@ use pricing::product::{
 use pricing::{JsonLimits, PricingOperation, PricingPlan, PricingRequest, PricingSpecification};
 use serde_json::{Value, json};
 use std::{hint::black_box, time::Instant};
-const PATHS: usize = 100_000;
+fn setting(name: &str, default: usize) -> usize {
+    let value = std::env::var(name)
+        .map(|v| {
+            v.parse::<usize>()
+                .expect("positive integer benchmark setting")
+        })
+        .unwrap_or(default);
+    assert!(value > 0, "benchmark setting must be positive");
+    value
+}
 fn d(s: &str) -> Date {
     s.parse().unwrap()
 }
@@ -22,6 +31,7 @@ fn measured_compile(mut f: impl FnMut() -> CompiledPayoff) -> f64 {
     start.elapsed().as_secs_f64() * 1e6 / 200.0
 }
 fn path_benchmark(p: &CompiledPayoff) -> Value {
+    let paths = setting("CONTRACT_BENCH_PATHS", 1_000_000);
     let mut w = p.workspace();
     for spot in [60.0, 110.0, 160.0] {
         p.evaluate_reusing(&mut w, |_, _| Some(spot), |_, _| None)
@@ -32,7 +42,7 @@ fn path_benchmark(p: &CompiledPayoff) -> Value {
     let mut bytes = before;
     let start = Instant::now();
     let mut checksum = 0.0;
-    for i in 0..PATHS {
+    for i in 0..paths {
         let spot = 60.0 + (i % 101) as f64;
         let values = p
             .evaluate_reusing(&mut w, |_, _| Some(black_box(spot)), |_, _| None)
@@ -42,15 +52,15 @@ fn path_benchmark(p: &CompiledPayoff) -> Value {
         growth += usize::from(current != bytes);
         bytes = current;
     }
-    let reused = start.elapsed().as_secs_f64() * 1e9 / PATHS as f64;
+    let reused = start.elapsed().as_secs_f64() * 1e9 / paths as f64;
     let start = Instant::now();
-    for i in 0..PATHS {
+    for i in 0..paths {
         black_box(p.evaluate(|_, _| Some(60.0 + (i % 101) as f64)).unwrap());
     }
-    let allocated = start.elapsed().as_secs_f64() * 1e9 / PATHS as f64;
+    let allocated = start.elapsed().as_secs_f64() * 1e9 / paths as f64;
     json!({"reused_ns_per_path":reused, "owned_output_ns_per_path":allocated,
         "workspace_bytes":bytes,"workspace_capacity_growth_after_warmup":growth,
-        "state_value_slots":p.opcodes().len(),"observation_slots":p.terminal_observations().len(),
+        "state_value_slots":p.opcodes().len(),"evaluation_program_bytes":p.evaluation_program_bytes(),"observation_slots":p.terminal_observations().len(),
         "checksum":checksum})
 }
 fn bench(c: &Contract, old: Option<SourceGraph>) -> Value {
@@ -81,7 +91,21 @@ fn main() {
     let u = UnderlyingId::new(1);
     let ccy = CurrencyId::new(2);
     let expiry = d("2027-09-04");
-    let dates = vec![d("2027-03-04"), expiry];
+    let periods = setting("CONTRACT_BENCH_PERIODS", 12);
+    assert!(periods <= 12 && 12 % periods == 0, "periods must divide 12");
+    let dates: Vec<_> = (1..=periods)
+        .map(|i| {
+            let month = 9 + i * (12 / periods);
+            d(&format!(
+                "{}-{:02}-04",
+                2026 + (month - 1) / 12,
+                (month - 1) % 12 + 1
+            ))
+        })
+        .collect();
+    let samples = setting("CONTRACT_BENCH_SAMPLES", 262_144);
+    let repetitions = setting("CONTRACT_BENCH_REPETITIONS", 7);
+    let workers = setting("CONTRACT_BENCH_WORKERS", 2);
     let b = InstrumentBuilder::new("benchmark", ccy, u, "close").unwrap();
     let vanilla = b
         .european(OptionSide::Call, 100.0, 1.0, expiry, expiry)
@@ -106,7 +130,7 @@ fn main() {
         OptionSide::Call,
         dates
             .iter()
-            .map(|t| product::AsianObservation::unknown(*t, 0.5).unwrap())
+            .map(|t| product::AsianObservation::unknown(*t, 1.0 / periods as f64).unwrap())
             .collect(),
         expiry,
     )
@@ -162,13 +186,13 @@ fn main() {
         "../../../fixtures/v3/pricing_request.golden.json"
     ))
     .unwrap();
-    request["engine"]["independent_sampling_units"] = json!(16384);
+    request["engine"]["independent_sampling_units"] = json!(samples);
     request["risk"]["delta"] = json!(false);
     request["risk"]["vega"] = json!(false);
     let r =
         pricing::parse_request_json(&serde_json::to_vec(&request).unwrap(), JsonLimits::DEFAULT)
             .unwrap();
-    let policy = pricing::mc::ExecutionPolicy::new(2, Some(256)).unwrap();
+    let policy = pricing::mc::ExecutionPolicy::new(workers.try_into().unwrap(), Some(256)).unwrap();
     let mut mc = serde_json::Map::new();
     for (name, contract, product) in [
         (
@@ -200,16 +224,20 @@ fn main() {
         let mut old_times = Vec::new();
         let mut new_times = Vec::new();
         let mut native_task_times = Vec::new();
+        let mut paired_ratios = Vec::new();
         let mut result = json!({});
-        for iteration in 0..6 {
-            let start = Instant::now();
+        let mut native_plan = || {
             let old = PricingPlan::compile(&req, policy)
                 .unwrap()
                 .evaluate()
                 .unwrap();
-            let old_ms = start.elapsed().as_secs_f64() * 1e3;
-            let start = Instant::now();
-            let native_task = pricing::PricingTask::new(
+            (
+                old.pricing_result.value.value().get(),
+                old.pricing_result.value.standard_error().get(),
+            )
+        };
+        let mut native_task = || {
+            let old = pricing::PricingTask::new(
                 pricing::PricingSource::SingleAsset(source.clone()),
                 PricingOperation::Evaluate,
             )
@@ -217,13 +245,11 @@ fn main() {
             .compile()
             .unwrap()
             .evaluate()
-            .unwrap();
-            let native_task_ms = start.elapsed().as_secs_f64() * 1e3;
-            assert_eq!(
-                native_task.report.value(),
-                old.pricing_result.value.value().get()
-            );
-            let start = Instant::now();
+            .unwrap()
+            .report;
+            (old.value(), old.standard_error())
+        };
+        let mut contract_task = || {
             let new = contract
                 .compile_mc(r.valuation_date(), vec![u])
                 .unwrap()
@@ -232,31 +258,53 @@ fn main() {
                 .compile()
                 .unwrap()
                 .evaluate()
-                .unwrap();
-            let new_ms = start.elapsed().as_secs_f64() * 1e3;
-            assert!((old.pricing_result.value.value().get() - new.report.value()).abs() < 1e-11);
-            assert!(
-                (old.pricing_result.value.standard_error().get() - new.report.standard_error())
-                    .abs()
-                    < 1e-11
-            );
-            if iteration > 0 {
-                old_times.push(old_ms);
-                new_times.push(new_ms);
-                native_task_times.push(native_task_ms);
+                .unwrap()
+                .report;
+            (new.value(), new.standard_error())
+        };
+        for iteration in 0..=repetitions {
+            let mut values = [(0.0, 0.0); 3];
+            let mut times = [0.0; 3];
+            let runs: [&mut dyn FnMut() -> (f64, f64); 3] =
+                [&mut native_plan, &mut native_task, &mut contract_task];
+            let order = if iteration % 2 == 0 {
+                [0, 1, 2]
+            } else {
+                [2, 1, 0]
+            };
+            for index in order {
+                let start = Instant::now();
+                values[index] = runs[index]();
+                times[index] = start.elapsed().as_secs_f64() * 1e3;
             }
-            result = json!({"pv":new.report.value(),"standard_error":new.report.standard_error(),"native_pv":old.pricing_result.value.value().get()});
+            for value in &values[1..] {
+                assert!((values[0].0 - value.0).abs() < 1e-11);
+                assert!((values[0].1 - value.1).abs() < 1e-11);
+            }
+            if iteration > 0 {
+                old_times.push(times[0]);
+                native_task_times.push(times[1]);
+                new_times.push(times[2]);
+                paired_ratios.push(times[2] / times[1]);
+            }
+            result = json!({"pv":values[2].0,"standard_error":values[2].1,"native_pv":values[0].0});
         }
+        result["native_plan_samples_ms"] = json!(old_times);
+        result["native_task_samples_ms"] = json!(native_task_times);
+        result["contract_samples_ms"] = json!(new_times);
+        result["paired_contract_native_ratios"] = json!(paired_ratios);
         native_task_times.sort_by(f64::total_cmp);
         old_times.sort_by(f64::total_cmp);
         new_times.sort_by(f64::total_cmp);
-        result["native_total_ms"] = json!(old_times[2]);
-        result["native_task_total_ms"] = json!(native_task_times[2]);
-        result["contract_total_ms"] = json!(new_times[2]);
-        result["timing_repetitions_after_warmup"] = json!(5);
+        paired_ratios.sort_by(f64::total_cmp);
+        result["native_total_ms"] = json!(old_times[repetitions / 2]);
+        result["native_task_total_ms"] = json!(native_task_times[repetitions / 2]);
+        result["contract_total_ms"] = json!(new_times[repetitions / 2]);
+        result["median_paired_ratio"] = json!(paired_ratios[repetitions / 2]);
+        result["timing_repetitions_after_warmup"] = json!(repetitions);
         mc.insert(name.into(), result);
     }
-    println!("{}", serde_json::to_string_pretty(&json!({"schema_version":1,"paths":PATHS,"mc_sampling_units":16384,"worker_threads":2,"seed":7,
+    println!("{}", serde_json::to_string_pretty(&json!({"schema_version":1,"paths":setting("CONTRACT_BENCH_PATHS", 1_000_000),"periods":periods,"mc_sampling_units":samples,"worker_threads":workers,"seed":7,
         "allocation_metric":"Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
         "european":bench(&vanilla, Some(native.source_graph().unwrap())),
         "asian":bench(&asian, Some(old_asian.source_graph().unwrap())),

@@ -161,3 +161,108 @@ fn unsupported_exercise_is_not_reinterpreted_as_a_maximum() {
         Err(ContractError::Unsupported(_))
     ));
 }
+
+#[test]
+fn analysis_folds_determined_expressions_and_prunes_only_validated_dead_branches() {
+    let dates = BooleanExpr::DateCompare {
+        operation: Comparison::Less,
+        left: Box::new(date("2026-01-01").into()),
+        right: Box::new(date("2027-01-01").into()),
+    };
+    let known = cashflow(NumericExpr::from(2.0).plus(3.0.into()));
+    let mut future = cashflow(NumericExpr::observation("close"));
+    future.id = "inactive".into();
+    future.currency = CurrencyId::new(3);
+    future.settlement_date = date("2028-01-01");
+    let root = Term::conditional(dates, known.into(), future.into())
+        .scale(NumericExpr::from(4.0).minus(1.0.into()))
+        .reverse();
+    let c = Contract::new("known", vec![observation()], root.clone()).unwrap();
+    let a = c.analyze().unwrap();
+    assert!(a.required_observations.is_empty());
+    assert!(a.underlying_dependencies.is_empty());
+    assert_eq!(a.currencies, [CurrencyId::new(2)]);
+    assert_eq!(a.horizon, Some(date("2027-01-03")));
+    assert_eq!(a.potential_cashflows.len(), 1);
+    assert_eq!(
+        a.potential_cashflows[0]
+            .amount
+            .evaluate(&BTreeMap::new())
+            .unwrap(),
+        15.0
+    );
+    assert_eq!(a.potential_cashflows[0].direction, PaymentDirection::Pay);
+    assert_eq!(a.determined_cashflows.len(), 1);
+    assert_eq!(
+        a.determined_cashflows[0]
+            .amount
+            .evaluate(&BTreeMap::new())
+            .unwrap(),
+        15.0
+    );
+    assert_eq!(a.determined_cashflows[0].direction, PaymentDirection::Pay);
+    // Dead code is still checked for unresolved references before extraction.
+    assert!(Contract::new("bad", vec![], root).is_err());
+    let duplicate = Term::conditional(
+        true.into(),
+        cashflow(1.0.into()).into(),
+        cashflow(2.0.into()).into(),
+    );
+    assert!(Contract::new("duplicate", vec![], duplicate).is_err());
+}
+
+#[test]
+fn analysis_preserves_ordered_unknown_conditions_and_reduces_nested_expressions() {
+    let mut unused = observation();
+    unused.id = "unused".into();
+    unused.underlying = UnderlyingId::new(9);
+    let selected = NumericExpr::select(
+        true.into(),
+        NumericExpr::observation("close"),
+        NumericExpr::observation("unused"),
+    );
+    let condition = selected
+        .compare(Comparison::Greater, 100.0.into())
+        .and(false.into());
+    let c = Contract::new(
+        "ordered",
+        vec![observation(), unused],
+        Term::conditional(condition, cashflow(1.0.into()).into(), Term::Empty),
+    )
+    .unwrap();
+    let a = c.analyze().unwrap();
+    // Reading the left operand is required even though the right operand is false.
+    assert_eq!(a.required_observations, [observation()]);
+    assert!(a.determined_cashflows.is_empty());
+}
+
+#[test]
+fn analysis_of_already_hit_barrier_excludes_remaining_monitoring() {
+    let mut inactive = cashflow(NumericExpr::observation("close"));
+    inactive.id = "vanilla".into();
+    let c = Contract::new(
+        "hit",
+        vec![observation()],
+        Term::Barrier {
+            id: "barrier".into(),
+            observations: vec!["close".into()],
+            direction: BarrierDirection::Up,
+            level: 120.0,
+            hit: true,
+            on_hit: Box::new(cashflow(3.0.into()).into()),
+            on_no_hit: Box::new(inactive.into()),
+        },
+    )
+    .unwrap();
+    let a = c.analyze().unwrap();
+    assert!(a.required_observations.is_empty());
+    assert!(a.barrier_monitoring_dates.is_empty());
+    assert_eq!(a.potential_cashflows.len(), 1);
+    assert_eq!(
+        a.determined_cashflows[0]
+            .amount
+            .evaluate(&BTreeMap::new())
+            .unwrap(),
+        3.0
+    );
+}
