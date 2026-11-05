@@ -341,10 +341,12 @@ impl Contract {
             flows: Vec::new(),
             count: 0,
             prune_constants: false,
+            analysis_nodes: 0,
         };
         state.walk(&self.root, &BTreeSet::new(), 0)?;
         // Validate the complete source, including inactive branches. Extract
         // actual requirements separately after deterministic simplification.
+        state.analysis_nodes = state.count;
         state.used.clear();
         state.ids.clear();
         state.barrier_ids.clear();
@@ -416,6 +418,7 @@ struct AnalysisState<'a> {
     flows: Vec<Cashflow>,
     count: usize,
     prune_constants: bool,
+    analysis_nodes: usize,
 }
 impl AnalysisState<'_> {
     fn check_refs(&mut self, refs: &BTreeSet<String>) -> Result<(), ContractError> {
@@ -518,16 +521,23 @@ impl AnalysisState<'_> {
             Term::Scale { factor, contract } => {
                 let start = self.flows.len();
                 let mut refs = guards.clone();
-                if self.prune_constants {
-                    factor
-                        .reduce(&BTreeMap::new())?
-                        .refs(&mut refs, depth + 1, &mut self.count)?;
-                } else {
-                    factor.refs(&mut refs, depth + 1, &mut self.count)?;
-                }
+                let reduced = self
+                    .prune_constants
+                    .then(|| factor.reduce(&BTreeMap::new()))
+                    .transpose()?;
+                let factor = reduced.as_ref().unwrap_or(factor);
+                factor.refs(&mut refs, depth + 1, &mut self.count)?;
                 self.check_refs(&refs)?;
                 self.walk(contract, &refs, depth + 1)?;
                 if self.prune_constants {
+                    // Bound amplification before cloning a factor into many payments.
+                    let mut factor_nodes = 0;
+                    factor.refs(&mut BTreeSet::new(), 0, &mut factor_nodes)?;
+                    self.analysis_nodes = (self.flows.len() - start)
+                        .checked_mul(factor_nodes + 1)
+                        .and_then(|extra| self.analysis_nodes.checked_add(extra))
+                        .ok_or_else(|| ContractError::Invalid("analysis size overflow".into()))?;
+                    super::expression::budget(0, &mut self.analysis_nodes)?;
                     for c in &mut self.flows[start..] {
                         c.amount = c.amount.clone().times(factor.clone());
                     }

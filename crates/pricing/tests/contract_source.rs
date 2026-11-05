@@ -266,3 +266,26 @@ fn analysis_of_already_hit_barrier_excludes_remaining_monitoring() {
         3.0
     );
 }
+
+#[test]
+fn analysis_bounds_scale_expansion_before_allocating_derived_payment_expressions() {
+    let factor = NumericExpr::Aggregate {
+        operation: Aggregate::ArithmeticAverage,
+        values: vec![NumericExpr::observation("close"); 1000],
+    };
+    let payments = (0..100)
+        .map(|index| {
+            let mut payment = cashflow(1.0.into());
+            payment.id = format!("payment/{index}");
+            payment.into()
+        })
+        .collect();
+    assert!(matches!(
+        Contract::new(
+            "bounded",
+            vec![observation()],
+            Term::bundle(payments).scale(factor)
+        ),
+        Err(ContractError::Invalid(_))
+    ));
+}

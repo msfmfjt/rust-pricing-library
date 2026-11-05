@@ -120,3 +120,7 @@ observations, currencies or horizon dates. Determined cashflows include folded
 arithmetic and known date/numeric conditions, with Scale and Reverse applied.
 Unknown left operands of Boolean operators remain observable even when their
 right operands are constants; reduction preserves ordered, lazy semantics.
+
+Potential payments carry enclosing Scale/Reverse effects. The existing source
+node budget also bounds derived expression expansion, checked before cloning
+large factors across many payments; deterministic factors are folded first.
