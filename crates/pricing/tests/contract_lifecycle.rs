@@ -54,7 +54,9 @@ fn replay_is_idempotent_order_independent_and_checkpoint_recomputes() {
     assert_eq!(r.outstanding_payments.len(), 1);
     assert_eq!(r.remaining_observations.len(), 1);
     let last = fixing("fix-last", &c.observations()[1], 110.0);
-    let complete = r.advance(&[last.clone()], d("2027-06-01")).unwrap();
+    let complete = r
+        .advance(std::slice::from_ref(&last), d("2027-06-01"))
+        .unwrap();
     let replay = c.advance(&[last, first], d("2027-06-01")).unwrap();
     assert_eq!(complete, replay);
     assert_eq!(complete.outstanding_payments[1].amount, 190.0);
