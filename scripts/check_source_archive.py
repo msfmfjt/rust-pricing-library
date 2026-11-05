@@ -14,6 +14,15 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    ".github/workflows/contract-dsl.yml",
+    "crates/pricing/src/contract/builders.rs",
+    "crates/pricing-python/src/contract.rs",
+    "crates/pricing/tests/contract_builders.rs",
+    "tests/python/test_contracts.py",
+    "examples/python/contracts.py",
+    "crates/pricing/examples/benchmark_contract.rs",
+    "scripts/check_contract_mutations.py",
+    "scripts/wheel_validation/contracts/contract.py",
     "crates/pricing/src/engine/payoff/contract.rs",
     "crates/pricing/tests/contract_mc.rs",
     "schemas/product-graph-v2/product_graph.schema.json",

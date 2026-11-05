@@ -87,7 +87,10 @@ universe, including an anchor for fixed payments. Each group exposes immutable
 `CompiledContract::pricing_task(template, operation)` replaces the product in an
 existing `PricingSpecification`; `multi_asset_task` does the same for a basket
 source. Templates retain market, model, numeraire, seed, simulation grid policy,
-execution and risk settings. Each task prices its template currency explicitly.
+execution and risk settings. Multi-currency contracts require explicitly separate
+native tasks from `groups()`; the convenience adapter rejects multiple currencies
+rather than dropping another currency. `stochastic_dividend_task` preserves the
+existing dividend dynamics and driver correlations.
 An empty contract lowers to no groups; a native task uses a zero cash flow at
 valuation. Overdue unpaid payments require explicit settlement/closeout handling.
 
@@ -106,7 +109,9 @@ existing tape adds exact comparison, lazy selection, logarithm and exponential
 operations. Lazy traversal reads only selected branches, including nested early
 termination. Geometric averages require positive observations. Reuse
 `payoff.workspace()` with `evaluate_reusing` to retain path arrays and traversal
-capacity. Existing nonbranching graphs retain their forward instruction order
+capacity. Native calls on new lazy tapes also reuse scratch buffers per worker,
+with at most 1 MiB retained and an owned fallback for reentrant callbacks.
+Existing nonbranching graphs retain their forward instruction order
 and allocation count. No contract AST is evaluated in a Monte Carlo path loop.
 
 Deterministic multi-payment discount ratios, curve pullbacks, covariance-aware
@@ -125,3 +130,77 @@ legacy emitted and extended versions; frozen historical schema files are unchang
 The [extended schema checks](../../scripts/check_contract_mc_json_schema.py)
 exercise new sources and reject version downgrades. Native and contract regression
 coverage is in [contract MC tests](../../crates/pricing/tests/contract_mc.rs).
+
+## Instrument and Python builders
+
+`InstrumentBuilder::new(id, currency, underlying, fixing_source)` generates the
+same source types for `forward`, `european`, `digital`, `asian`, `swap`,
+`discrete_barrier` and `autocall`. No builder owns a simulation algorithm.
+`Contract::bundle`, `reversed` and `scaled` compose validated sources. Cash-flow
+and observation IDs are stable names derived from the builder ID; use different
+builder IDs for separate trades. Analysis returns fixing schedules in date/time,
+underlying and ID order, independently of canonical serialization order.
+
+* Digital call/put boundaries are inclusive and payout is a cash amount.
+* Asian aggregation supports arithmetic/geometric average and running min/max.
+  Geometric averages require positive observed values.
+* Swap periods specify fixing/payment dates and positive accrual fractions;
+  fixed and floating legs remain separate signed cash flows. Future rate
+  observations currently fail native MC compilation because the graph does not
+  expose a simulated rate fixing. Published fixings can be reduced and the
+  resulting fixed payments can be priced with existing curves.
+* Discrete barrier rebates are absolute cash amounts paid at the specified final
+  payment date. Both knock-in/out and up/down boundaries use inclusive hits.
+* Autocall levels are absolute spot levels; coupon rates multiply notional.
+  A qualifying coupon is paid on a call date. A call pays notional and cancels
+  later coupons/principal. At maturity, principal is notional above the
+  protection level; below it, principal is `notional * final_spot / initial_spot`.
+  No memory coupon is implied. Version 1 supports at most 20 observation periods
+  within the source depth and graph-output bounds.
+
+```rust
+use pricing::contract::InstrumentBuilder;
+use pricing::core::{CurrencyId, UnderlyingId};
+use pricing::product::OptionSide;
+let expiry = "2027-09-04".parse()?;
+let contract = InstrumentBuilder::new("call", CurrencyId::new(2),
+    UnderlyingId::new(1), "exchange.close")?
+    .european(OptionSide::Call, 100.0, 1.0, expiry, expiry)?;
+let compiled = contract.compile_mc("2026-09-04".parse()?, vec![UnderlyingId::new(1)])?;
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Python exposes immutable `ContractBuilder`, `Contract` and `ContractLifecycle`.
+`Contract.from_json` constructs arbitrary typed source trees beyond the builders;
+`Contract.json_schema()` describes their strict structure. A complete example is
+[examples/python/contracts.py](../../examples/python/contracts.py).
+
+```python
+builder = rp.ContractBuilder("call", 2, 1, "exchange.close")
+contract = builder.european("call", 100., 1., "2027-09-04", "2027-09-04")
+# source is an existing complete PricingSpecification, MultiAssetSpecification,
+# or StochasticDividendSpecification.
+task = contract.pricing_task(source, operation="evaluate")
+report = task.compile().evaluate().report
+schedule = json.loads(contract.analysis_json())["required_observations"]
+event = contract.fixing_event_json("fix", schedule[0]["id"], 120.)
+rolled = contract.advance("[" + event + "]", "2027-09-04")
+checkpoint = rolled.to_json()
+```
+
+`pricing_task(..., operation="aad")` uses the existing source capability checks.
+Hard digitals, autocalls and barriers reject unsupported pathwise estimators;
+there is no silent smoothing. Source errors expose `code`, `stage` and `field`
+on `ValueError`. Native task errors retain their existing typed metadata.
+`to_graphs(as_of, underlying_ids)` returns one graph per currency and does not
+sum or convert currencies. JSON analysis/payment methods return detached data.
+Heavy native lowering, replay and task compilation/evaluation release the GIL.
+
+Run focused conformance with `cargo test -p pricing --test contract_source
+--test contract_lifecycle --test contract_mc --test contract_builders` and the
+installed-wheel suite `python -m unittest discover -s tests/python -p test_contracts.py`.
+Run `cargo run --release -p pricing --example benchmark_contract` for compilation,
+payoff and complete MC timings. Reserved workspace bytes and capacity growth are
+measured explicitly; these are not process-wide allocation counts. Advanced
+register liveness compression and model-wide buffer reuse remain Phase 5 work;
+the existing engine owns simulated path storage.

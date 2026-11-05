@@ -336,16 +336,20 @@ impl Contract {
             registry,
             used: BTreeSet::new(),
             ids: BTreeSet::new(),
+            barrier_ids: BTreeSet::new(),
             barriers: BTreeSet::new(),
             flows: Vec::new(),
             count: 0,
         };
         state.walk(&self.root, &BTreeSet::new(), 0)?;
-        let required_observations: Vec<_> = state
+        let mut required_observations: Vec<_> = state
             .used
             .iter()
             .map(|id| state.registry[id].clone())
             .collect();
+        required_observations.sort_by(|a, b| {
+            (a.date, &a.time, a.underlying, &a.id).cmp(&(b.date, &b.time, b.underlying, &b.id))
+        });
         let underlying_dependencies = required_observations
             .iter()
             .map(|o| o.underlying)
@@ -396,6 +400,7 @@ struct AnalysisState<'a> {
     registry: BTreeMap<String, &'a Observation>,
     used: BTreeSet<String>,
     ids: BTreeSet<String>,
+    barrier_ids: BTreeSet<String>,
     barriers: BTreeSet<Date>,
     flows: Vec<Cashflow>,
     count: usize,
@@ -480,6 +485,9 @@ impl AnalysisState<'_> {
                 on_no_hit,
             } => {
                 identifier(id)?;
+                if !self.barrier_ids.insert(id.clone()) {
+                    return Err(ContractError::Invalid(format!("duplicate barrier {id}")));
+                }
                 super::expression::finite(*level)?;
                 if observations.is_empty() {
                     return Err(ContractError::Invalid(

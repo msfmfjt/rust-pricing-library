@@ -407,8 +407,18 @@ fn reduce_term(
             if termination.is_some_and(|d| all_cancelled(t, d)) {
                 Term::Empty
             } else {
+                // Any published hit resolves the barrier even if an earlier fixing
+                // is unavailable. Ordinary logical expressions remain ordered.
+                let known_hit =
+                    *hit || observations.iter().filter_map(|id| f.get(id)).any(
+                        |v| match direction {
+                            super::BarrierDirection::Up => *v >= *level,
+                            super::BarrierDirection::Down => *v <= *level,
+                        },
+                    );
                 let condition =
-                    Term::barrier_condition(observations, *direction, *level, *hit).reduce(f)?;
+                    Term::barrier_condition(observations, *direction, *level, known_hit)
+                        .reduce(f)?;
                 let triggered = condition.constant() == Some(true);
                 states.insert(id.clone(), triggered);
                 if let Some(v) = condition.constant() {
@@ -525,5 +535,40 @@ fn remove_settled(t: Term, settled: &BTreeSet<String>) -> Term {
                 .collect(),
         ),
         other => other,
+    }
+}
+
+/// Bounded, duplicate-rejecting event-array parser. Contract-specific consistency
+/// (including exact fixing-source identity) is checked by advance.
+pub fn parse_events_json(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<Vec<LifecycleEvent>, ContractError> {
+    let text = crate::wire::validate_and_decode(input, limits)
+        .map_err(|e| ContractError::Wire(e.to_string()))?;
+    serde_json::from_str(text).map_err(wire_error)
+}
+
+impl LifecycleEvent {
+    pub fn to_json(&self) -> Result<String, ContractError> {
+        if let Event::Fixing { value, .. } | Event::Determination { amount: value, .. } = self.event
+        {
+            super::expression::finite(value)?;
+        }
+        serde_json::to_string(self).map_err(wire_error)
+    }
+}
+impl LifecycleResult {
+    pub fn determined_cashflows_json(&self) -> Result<String, ContractError> {
+        serde_json::to_string(&self.determined_cashflows).map_err(wire_error)
+    }
+    pub fn outstanding_payments_json(&self) -> Result<String, ContractError> {
+        serde_json::to_string(&self.outstanding_payments).map_err(wire_error)
+    }
+    pub fn remaining_observations_json(&self) -> Result<String, ContractError> {
+        serde_json::to_string(&self.remaining_observations).map_err(wire_error)
+    }
+    pub fn barrier_states_json(&self) -> Result<String, ContractError> {
+        serde_json::to_string(&self.barrier_states).map_err(wire_error)
     }
 }

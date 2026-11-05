@@ -69,3 +69,26 @@ impl Contract {
         Ok(Fingerprint::from_bytes(*blake3::hash(&bytes).as_bytes()))
     }
 }
+
+impl Contract {
+    pub fn json_schema() -> &'static str {
+        include_str!("../../../../schemas/contract-v1/contract.schema.json")
+    }
+    pub fn analysis_json(&self) -> Result<String, ContractError> {
+        let a = self.analyze()?;
+        let mut v = serde_json::json!({"document_kind":"contract_analysis","schema_version":1,
+            "required_observations":a.required_observations,"potential_cashflows":a.potential_cashflows,
+            "determined_cashflows":a.determined_cashflows,"underlying_ids":a.underlying_dependencies.iter().map(|u|u.get()).collect::<Vec<_>>(),
+            "currency_ids":a.currencies.iter().map(|c|c.get()).collect::<Vec<_>>(),"barrier_monitoring_dates":a.barrier_monitoring_dates.iter().map(ToString::to_string).collect::<Vec<_>>()});
+        if let Some(date) = a.horizon {
+            v["horizon"] = serde_json::json!(date.to_string());
+        }
+        serde_json::to_string(&v).map_err(|e| ContractError::Wire(e.to_string()))
+    }
+}
+
+impl Contract {
+    pub fn observations_json(&self) -> Result<String, ContractError> {
+        serde_json::to_string(self.observations()).map_err(|e| ContractError::Wire(e.to_string()))
+    }
+}

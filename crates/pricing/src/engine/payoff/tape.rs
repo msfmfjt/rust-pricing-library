@@ -2,7 +2,7 @@ use crate::core::{Date, NodeId, UnderlyingId};
 use crate::product::graph::GraphError;
 use crate::product::graph::GraphFingerprint;
 use crate::product::{CompactC2Smoothing, GraphComparison};
-use std::collections::BTreeSet;
+use std::{cell::RefCell, collections::BTreeSet};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CompiledOpcode {
@@ -115,12 +115,35 @@ pub struct CompiledPayoff {
 
 /// Reusable path values and traversal state. A workspace may be reused across
 /// paths for this payoff; resizing for another payoff is explicit in evaluation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PayoffWorkspace {
     values: Vec<f64>,
     visited: Vec<bool>,
     pending: Vec<u32>,
     outputs: Vec<f64>,
+}
+
+// Legacy nonbranching paths remain allocation-compatible. New lazy tapes keep
+// only scratch state here, never source/model data, and clear it on every path.
+// Bound retained capacity per worker; reentrant observation callbacks fall back
+// to an owned workspace instead of borrowing this cell twice.
+thread_local! {
+    static BRANCH_WORKSPACE: RefCell<PayoffWorkspace> = const { RefCell::new(PayoffWorkspace {
+        values: Vec::new(), visited: Vec::new(), pending: Vec::new(), outputs: Vec::new(),
+    }) };
+}
+const MAX_RETAINED_BRANCH_BYTES: usize = 1024 * 1024;
+
+impl PayoffWorkspace {
+    /// Heap storage reserved for values, visited flags, traversal and outputs.
+    /// Excludes the immutable tape and model simulation state.
+    #[must_use]
+    pub fn allocated_bytes(&self) -> usize {
+        self.values.capacity() * std::mem::size_of::<f64>()
+            + self.visited.capacity() * std::mem::size_of::<bool>()
+            + self.pending.capacity() * std::mem::size_of::<u32>()
+            + self.outputs.capacity() * std::mem::size_of::<f64>()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -248,13 +271,29 @@ impl CompiledPayoff {
                 .map(|slot| values[*slot as usize])
                 .collect());
         }
-        let mut workspace = self.workspace();
-        self.evaluate_reusing(
-            &mut workspace,
-            &mut observation,
-            &mut pre_dividend_observation,
-        )
-        .map(|values| values.to_vec())
+        BRANCH_WORKSPACE.with(|cached| {
+            if let Ok(mut workspace) = cached.try_borrow_mut() {
+                let result = self
+                    .evaluate_reusing(
+                        &mut workspace,
+                        &mut observation,
+                        &mut pre_dividend_observation,
+                    )
+                    .map(<[f64]>::to_vec);
+                if workspace.allocated_bytes() > MAX_RETAINED_BRANCH_BYTES {
+                    *workspace = PayoffWorkspace::default();
+                }
+                result
+            } else {
+                let mut workspace = self.workspace();
+                self.evaluate_reusing(
+                    &mut workspace,
+                    &mut observation,
+                    &mut pre_dividend_observation,
+                )?;
+                Ok(workspace.outputs)
+            }
+        })
     }
 
     #[must_use]
@@ -272,7 +311,7 @@ impl CompiledPayoff {
     }
 
     /// Evaluate native compiled operations without allocating path arrays after
-    /// workspace initialization (and the first branch traversal capacity growth).
+    /// workspace initialization once branch traversal capacity is sufficient.
     pub fn evaluate_reusing<'a, F, G>(
         &self,
         workspace: &'a mut PayoffWorkspace,

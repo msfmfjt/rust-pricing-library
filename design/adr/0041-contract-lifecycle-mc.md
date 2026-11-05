@@ -92,3 +92,12 @@ occur. Legacy writers and fingerprint domains remain at v1 / v2 / v1. Current
 schemas include conditional version guards; old schema files remain frozen.
 Lifecycle partial evaluation retains arithmetic with an unresolved branch rather
 than raising its inactive error; selected invalid determined amounts still fail.
+
+The first performance pass exposed allocation overhead for new lazy tapes.
+Their existing `evaluate` entrypoint now reuses thread-local scratch arrays,
+retaining at most 1 MiB per worker and clearing values/visited state on each path.
+Reentrant observation callbacks use an owned fallback. This cache contains no
+contract/model inputs, does not affect fingerprints, and is never serialized.
+Legacy nonbranching evaluation and AAD keep their original allocation/order.
+Callers that own workspaces can use `evaluate_reusing` without allocating an
+owned output vector. Existing model simulation buffers are unchanged.
