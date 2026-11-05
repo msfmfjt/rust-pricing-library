@@ -101,3 +101,8 @@ contract/model inputs, does not affect fingerprints, and is never serialized.
 Legacy nonbranching evaluation and AAD keep their original allocation/order.
 Callers that own workspaces can use `evaluate_reusing` without allocating an
 owned output vector. Existing model simulation buffers are unchanged.
+
+Native deterministic aggregation also recognizes two complementary zero-masked
+payments on the same date and compiles one lazy choice. Source cash-flow IDs and
+per-output analysis remain unchanged. The rewrite preserves positive-zero
+addition and is unavailable to legacy graphs without Select operations.

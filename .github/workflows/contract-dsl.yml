@@ -7,6 +7,7 @@ on:
       - .github/workflows/contract-dsl.yml
       - crates/pricing/src/contract/**
       - crates/pricing/src/engine/payoff/**
+      - crates/pricing/src/engine/compile/**
       - crates/pricing/src/product/**
       - crates/pricing/tests/contract_*.rs
       - crates/pricing/examples/benchmark_contract.rs
@@ -41,7 +42,9 @@ jobs:
         with:
           python-version: "3.12.10"
       - name: Source, lifecycle, identical-path and MC regressions
-        run: cargo test --locked -p pricing --test contract_source --test contract_lifecycle --test contract_mc --test contract_builders
+        run: |
+          cargo test --locked -p pricing --test contract_source --test contract_lifecycle --test contract_mc --test contract_builders
+          cargo test --locked -p pricing --lib contract_aggregation_tests
       - name: Curated semantic mutations
         run: python scripts/check_contract_mutations.py --report-directory contract-mutations
       - name: Compare compilation, path evaluation, memory and native MC
