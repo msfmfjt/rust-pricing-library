@@ -1,8 +1,9 @@
-use std::collections::TryReserveError;
+use std::collections::{HashMap, TryReserveError};
 use std::error::Error;
 use std::fmt;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::ops::Range;
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use pricing_numerics::{
     CenteredCovariance, CenteredMoment, NeumaierSum, reduce_covariances, reduce_moments,
@@ -74,10 +75,7 @@ impl fmt::Display for ExecutorBuildError {
             Self::ThreadCountUnsupported { value } => {
                 write!(formatter, "worker-thread count {value} does not fit usize")
             }
-            Self::PoolBuild => write!(
-                formatter,
-                "failed to build the calculation-owned thread pool"
-            ),
+            Self::PoolBuild => write!(formatter, "failed to build the worker thread pool"),
         }
     }
 }
@@ -217,10 +215,40 @@ fn try_filled_vector<T: Clone>(length: usize, value: T) -> Result<Vec<T>, TryRes
     Ok(buffer)
 }
 
-/// Executes fixed logical blocks on a calculation-owned Rayon pool.
+/// Distinct worker counts whose pools are kept for reuse; further counts get a
+/// pool of their own, so arbitrary policies cannot accumulate idle threads.
+const MAX_SHARED_POOLS: usize = 8;
+
+/// Reuses one pool per worker count. Building and dropping a pool for every
+/// calculation makes worker threads exit continually, and the intermittent macOS
+/// allocator aborts are detected during that thread teardown. Results depend
+/// only on the fixed block table, never on which pool runs the blocks.
+fn shared_pool(thread_count: usize) -> Result<Arc<ThreadPool>, ExecutorBuildError> {
+    static POOLS: OnceLock<Mutex<HashMap<usize, Arc<ThreadPool>>>> = OnceLock::new();
+    let mut pools = POOLS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    if let Some(pool) = pools.get(&thread_count) {
+        return Ok(Arc::clone(pool));
+    }
+    let pool = Arc::new(
+        ThreadPoolBuilder::new()
+            .num_threads(thread_count)
+            .thread_name(|index| format!("pricing-worker-{index}"))
+            .build()
+            .map_err(|_| ExecutorBuildError::PoolBuild)?,
+    );
+    if pools.len() < MAX_SHARED_POOLS {
+        pools.insert(thread_count, Arc::clone(&pool));
+    }
+    Ok(pool)
+}
+
+/// Executes fixed logical blocks on a Rayon pool with the policy's worker count.
 pub struct DeterministicExecutor {
     policy: ExecutionPolicy,
-    pool: ThreadPool,
+    pool: Arc<ThreadPool>,
 }
 
 impl DeterministicExecutor {
@@ -230,11 +258,7 @@ impl DeterministicExecutor {
                 value: policy.worker_threads().get(),
             }
         })?;
-        let pool = ThreadPoolBuilder::new()
-            .num_threads(thread_count)
-            .thread_name(|index| format!("pricing-worker-{index}"))
-            .build()
-            .map_err(|_| ExecutorBuildError::PoolBuild)?;
+        let pool = shared_pool(thread_count)?;
         Ok(Self { policy, pool })
     }
 
@@ -243,7 +267,7 @@ impl DeterministicExecutor {
         self.policy
     }
 
-    /// Runs `op` on this executor's calculation-owned pool, for engine loops
+    /// Runs `op` on this executor's pool, for engine loops
     /// whose results do not depend on scheduling.
     pub(crate) fn install<R: Send>(&self, op: impl FnOnce() -> R + Send) -> R {
         self.pool.install(op)
@@ -595,6 +619,19 @@ mod tests {
     fn executor(worker_threads: u32, block_size: u64) -> DeterministicExecutor {
         let policy = ExecutionPolicy::new(worker_threads, Some(block_size)).expect("valid policy");
         DeterministicExecutor::new(policy).expect("thread pool")
+    }
+
+    #[test]
+    fn executors_with_the_same_worker_count_reuse_one_pool() {
+        let first = executor(3, 7);
+        let second = executor(3, 11);
+        assert!(Arc::ptr_eq(&first.pool, &second.pool));
+        assert_eq!(first.pool.current_num_threads(), 3);
+        let other = executor(2, 7);
+        assert!(!Arc::ptr_eq(&first.pool, &other.pool));
+        assert_eq!(other.pool.current_num_threads(), 2);
+        let sum = |e: &DeterministicExecutor| e.map_reduce(1000, |i| i as f64).unwrap().total();
+        assert_eq!(sum(&first).to_bits(), sum(&executor(3, 7)).to_bits());
     }
 
     #[test]
