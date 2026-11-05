@@ -1,0 +1,47 @@
+{
+  "pricing_implementation_commit": "a7f3d62debff606473a64e78a4fb0883c2942e98",
+  "local": {
+    "rust_workspace": {
+      "command": "cargo test --locked --workspace --all-features --exclude pricing-python",
+      "passed": 1155,
+      "ignored": 91,
+      "failed": 0,
+      "suites": 116
+    },
+    "rust_python_crate_passed": 7,
+    "python_installed_wheel": {
+      "contracts": 8,
+      "product_graph": 7,
+      "pricing_task": 5,
+      "pricing_specification": 5,
+      "typed_pricing_sources": 10,
+      "wheel_runtime_contract": 5,
+      "multi_asset": 4
+    },
+    "python_total": 44,
+    "frozen_runtime_signatures": 368,
+    "curated_mutants_killed": 6,
+    "format": "passed",
+    "clippy_workspace_all_targets_all_features": "passed",
+    "default_workspace_all_targets_check": "passed",
+    "minimal_features_all_targets_check": "passed",
+    "rustdoc": "passed",
+    "current_and_legacy_json_schema_validation": "passed",
+    "source_archive": "passed",
+    "three_crate_dependency_direction": "passed",
+    "markdown_links": "passed",
+    "wheel_layout_metadata_record_sbom_abi_stub": "passed",
+    "python_example": "passed",
+    "wheel_contract_script_tests": 15,
+    "wheel_runner_script_tests": 15,
+    "remaining_shard_script_tests": 6,
+    "ci_failure_propagation_tests": 3
+  },
+  "remaining": [
+    "Hosted CI remains incomplete; snapshot only applies to its recorded commit SHAs.",
+    "Ignored release statistical/extended acceptance panels and other supported OS/Python builds await hosted CI.",
+    "Short MC timing variance and generic barrier payoff overhead require further performance acceptance review.",
+    "Future rate fixings and intraday mapping explicitly unsupported; multi-currency tasks remain explicit."
+  ],
+  "hosted_ci_snapshot": "ci-snapshot.json"
+}

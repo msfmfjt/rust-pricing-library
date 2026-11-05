@@ -204,3 +204,7 @@ payoff and complete MC timings. Reserved workspace bytes and capacity growth are
 measured explicitly; these are not process-wide allocation counts. Advanced
 register liveness compression and model-wide buffer reuse remain Phase 5 work;
 the existing engine owns simulated path storage.
+
+The [Phase 0–4 verification record](../../design/validation/contract-dsl/README.md)
+links the five draft PRs, local checks, raw benchmark/mutation evidence, hosted
+CI snapshot and explicit remaining capability/performance limits.

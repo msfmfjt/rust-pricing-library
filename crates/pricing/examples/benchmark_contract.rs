@@ -199,6 +199,7 @@ fn main() {
         let source = PricingSpecification::from_request(req.clone(), policy);
         let mut old_times = Vec::new();
         let mut new_times = Vec::new();
+        let mut native_task_times = Vec::new();
         let mut result = json!({});
         for iteration in 0..6 {
             let start = Instant::now();
@@ -207,6 +208,21 @@ fn main() {
                 .evaluate()
                 .unwrap();
             let old_ms = start.elapsed().as_secs_f64() * 1e3;
+            let start = Instant::now();
+            let native_task = pricing::PricingTask::new(
+                pricing::PricingSource::SingleAsset(source.clone()),
+                PricingOperation::Evaluate,
+            )
+            .unwrap()
+            .compile()
+            .unwrap()
+            .evaluate()
+            .unwrap();
+            let native_task_ms = start.elapsed().as_secs_f64() * 1e3;
+            assert_eq!(
+                native_task.report.value(),
+                old.pricing_result.value.value().get()
+            );
             let start = Instant::now();
             let new = contract
                 .compile_mc(r.valuation_date(), vec![u])
@@ -227,12 +243,15 @@ fn main() {
             if iteration > 0 {
                 old_times.push(old_ms);
                 new_times.push(new_ms);
+                native_task_times.push(native_task_ms);
             }
             result = json!({"pv":new.report.value(),"standard_error":new.report.standard_error(),"native_pv":old.pricing_result.value.value().get()});
         }
+        native_task_times.sort_by(f64::total_cmp);
         old_times.sort_by(f64::total_cmp);
         new_times.sort_by(f64::total_cmp);
         result["native_total_ms"] = json!(old_times[2]);
+        result["native_task_total_ms"] = json!(native_task_times[2]);
         result["contract_total_ms"] = json!(new_times[2]);
         result["timing_repetitions_after_warmup"] = json!(5);
         mc.insert(name.into(), result);

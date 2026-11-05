@@ -1,0 +1,587 @@
+{
+  "as_of": "2026-11-05 19:44:44 UTC",
+  "only_applies_to_recorded_shas": true,
+  "pull_requests": [
+    {
+      "pr": 207,
+      "sha": "9b8e7721fd8ed2caecb34aae278b102dc8427988",
+      "total": 2,
+      "runs": [
+        {
+          "id": 42082762462,
+          "name": "Backtesting",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42082762462"
+        },
+        {
+          "id": 42082762572,
+          "name": "CI",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42082762572"
+        }
+      ]
+    },
+    {
+      "pr": 208,
+      "sha": "c6af82a4d0b35fd097945ab29ccf15b912982e9f",
+      "total": 19,
+      "runs": [
+        {
+          "id": 42084379557,
+          "name": "Rough family finite-bump Gamma",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379557"
+        },
+        {
+          "id": 42084379331,
+          "name": "Rough volatility",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379331"
+        },
+        {
+          "id": 42084379664,
+          "name": "Heston Fourier Hurst risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379664"
+        },
+        {
+          "id": 42084379476,
+          "name": "Heston Fourier parameter risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379476"
+        },
+        {
+          "id": 42084379324,
+          "name": "Heston Black IV and SSVI calibration",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379324"
+        },
+        {
+          "id": 42084379166,
+          "name": "Lifted Heston factor prices",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379166"
+        },
+        {
+          "id": 42084379329,
+          "name": "Heston IV holdout validation",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379329"
+        },
+        {
+          "id": 42084379154,
+          "name": "Heston Fourier calibration",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379154"
+        },
+        {
+          "id": 42084379679,
+          "name": "Mixed rough Bergomi parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379679"
+        },
+        {
+          "id": 42084379296,
+          "name": "Rough family MC Delta and LSV AAD",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379296"
+        },
+        {
+          "id": 42084379667,
+          "name": "CI",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379667"
+        },
+        {
+          "id": 42084379428,
+          "name": "Heston MC parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379428"
+        },
+        {
+          "id": 42084379467,
+          "name": "Heston IV grid refinement",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379467"
+        },
+        {
+          "id": 42084379156,
+          "name": "Backtesting",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379156"
+        },
+        {
+          "id": 42084379483,
+          "name": "Quadratic rough Heston parameter reverse",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379483"
+        },
+        {
+          "id": 42084379379,
+          "name": "Heston LSV recalibrated parameter risk",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379379"
+        },
+        {
+          "id": 42084379235,
+          "name": "Rough family LSV Spot Delta",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379235"
+        },
+        {
+          "id": 42084379251,
+          "name": "Heston Fourier",
+          "status": "in_progress",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379251"
+        },
+        {
+          "id": 42084379594,
+          "name": "Heston Fourier forward Greeks",
+          "status": "in_progress",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42084379594"
+        }
+      ]
+    },
+    {
+      "pr": 209,
+      "sha": "fbdb972d8845445d0127b351a0db4db8884af9fc",
+      "total": 18,
+      "runs": [
+        {
+          "id": 42085257706,
+          "name": "Quadratic rough Heston parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257706"
+        },
+        {
+          "id": 42085257877,
+          "name": "CI",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257877"
+        },
+        {
+          "id": 42085257654,
+          "name": "Heston Fourier forward Greeks",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257654"
+        },
+        {
+          "id": 42085257770,
+          "name": "Heston Black IV and SSVI calibration",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257770"
+        },
+        {
+          "id": 42085257804,
+          "name": "Heston Fourier Hurst risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257804"
+        },
+        {
+          "id": 42085257852,
+          "name": "Heston MC parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257852"
+        },
+        {
+          "id": 42085257958,
+          "name": "Rough family finite-bump Gamma",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257958"
+        },
+        {
+          "id": 42085257708,
+          "name": "Backtesting",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257708"
+        },
+        {
+          "id": 42085257811,
+          "name": "Rough family LSV Spot Delta",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257811"
+        },
+        {
+          "id": 42085257785,
+          "name": "Mixed rough Bergomi parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257785"
+        },
+        {
+          "id": 42085257501,
+          "name": "Lifted Heston factor prices",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257501"
+        },
+        {
+          "id": 42085257818,
+          "name": "Heston IV holdout validation",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257818"
+        },
+        {
+          "id": 42085257568,
+          "name": "Heston Fourier calibration",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257568"
+        },
+        {
+          "id": 42085257611,
+          "name": "Heston LSV recalibrated parameter risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257611"
+        },
+        {
+          "id": 42085257955,
+          "name": "Heston Fourier parameter risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257955"
+        },
+        {
+          "id": 42085257629,
+          "name": "Heston Fourier",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257629"
+        },
+        {
+          "id": 42085257839,
+          "name": "Heston IV grid refinement",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257839"
+        },
+        {
+          "id": 42085257848,
+          "name": "Rough volatility",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42085257848"
+        }
+      ]
+    },
+    {
+      "pr": 210,
+      "sha": "574d28c853ecf3844318bdc0b637d74ad890b80e",
+      "total": 19,
+      "runs": [
+        {
+          "id": 42088832338,
+          "name": "CI",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832338"
+        },
+        {
+          "id": 42088832315,
+          "name": "Heston MC parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832315"
+        },
+        {
+          "id": 42088832450,
+          "name": "Heston Black IV and SSVI calibration",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832450"
+        },
+        {
+          "id": 42088832291,
+          "name": "Backtesting",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832291"
+        },
+        {
+          "id": 42088832389,
+          "name": "Heston Fourier forward Greeks",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832389"
+        },
+        {
+          "id": 42088832673,
+          "name": "Rough family LSV Spot Delta",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832673"
+        },
+        {
+          "id": 42088831975,
+          "name": "Rough family finite-bump Gamma",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088831975"
+        },
+        {
+          "id": 42088832020,
+          "name": "Heston IV grid refinement",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832020"
+        },
+        {
+          "id": 42088831944,
+          "name": "Heston IV holdout validation",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088831944"
+        },
+        {
+          "id": 42088832092,
+          "name": "Lifted Heston factor prices",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832092"
+        },
+        {
+          "id": 42088831897,
+          "name": "Heston Fourier",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088831897"
+        },
+        {
+          "id": 42088832107,
+          "name": "Heston LSV recalibrated parameter risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832107"
+        },
+        {
+          "id": 42088832053,
+          "name": "Heston Fourier Hurst risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832053"
+        },
+        {
+          "id": 42088832051,
+          "name": "Heston Fourier parameter risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832051"
+        },
+        {
+          "id": 42088832209,
+          "name": "Heston Fourier calibration",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832209"
+        },
+        {
+          "id": 42088832233,
+          "name": "Rough volatility",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832233"
+        },
+        {
+          "id": 42088831879,
+          "name": "Rough family MC Delta and LSV AAD",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088831879"
+        },
+        {
+          "id": 42088832004,
+          "name": "Quadratic rough Heston parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832004"
+        },
+        {
+          "id": 42088832080,
+          "name": "Mixed rough Bergomi parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42088832080"
+        }
+      ]
+    },
+    {
+      "pr": 211,
+      "sha": "a7f3d62debff606473a64e78a4fb0883c2942e98",
+      "total": 20,
+      "runs": [
+        {
+          "id": 42096620195,
+          "name": "CI",
+          "status": "pending",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620195"
+        },
+        {
+          "id": 42096620241,
+          "name": "Mixed rough Bergomi parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620241"
+        },
+        {
+          "id": 42096620278,
+          "name": "Contract DSL conformance",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620278"
+        },
+        {
+          "id": 42096620297,
+          "name": "Heston Fourier forward Greeks",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620297"
+        },
+        {
+          "id": 42096620523,
+          "name": "Heston Fourier",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620523"
+        },
+        {
+          "id": 42096621443,
+          "name": "Rough family MC Delta and LSV AAD",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096621443"
+        },
+        {
+          "id": 42096620280,
+          "name": "Heston Fourier Hurst risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620280"
+        },
+        {
+          "id": 42096620347,
+          "name": "Heston Fourier parameter risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620347"
+        },
+        {
+          "id": 42096620384,
+          "name": "Backtesting",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620384"
+        },
+        {
+          "id": 42096620396,
+          "name": "Heston Fourier calibration",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620396"
+        },
+        {
+          "id": 42096620491,
+          "name": "Heston LSV recalibrated parameter risk",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620491"
+        },
+        {
+          "id": 42096620414,
+          "name": "Heston IV holdout validation",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620414"
+        },
+        {
+          "id": 42096620201,
+          "name": "Heston Black IV and SSVI calibration",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620201"
+        },
+        {
+          "id": 42096620351,
+          "name": "Heston MC parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620351"
+        },
+        {
+          "id": 42096620735,
+          "name": "Lifted Heston factor prices",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620735"
+        },
+        {
+          "id": 42096620519,
+          "name": "Rough volatility",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620519"
+        },
+        {
+          "id": 42096620570,
+          "name": "Rough family finite-bump Gamma",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620570"
+        },
+        {
+          "id": 42096620226,
+          "name": "Heston IV grid refinement",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620226"
+        },
+        {
+          "id": 42096620208,
+          "name": "Quadratic rough Heston parameter reverse",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620208"
+        },
+        {
+          "id": 42096620238,
+          "name": "Rough family LSV Spot Delta",
+          "status": "queued",
+          "conclusion": null,
+          "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/42096620238"
+        }
+      ]
+    }
+  ]
+}
