@@ -30,6 +30,7 @@ pub use monte_carlo::{
 pub use plan::{
     PricingPlan, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, compile, evaluate,
 };
+pub mod contract;
 pub mod core;
 pub mod dual;
 pub mod market;

@@ -4196,7 +4196,7 @@ fn encode_value(value: &Value, output: &mut Vec<u8>) -> Result<(), WireError> {
     Ok(())
 }
 
-fn validate_and_decode(input: &[u8], limits: JsonLimits) -> Result<&str, WireError> {
+pub(crate) fn validate_and_decode(input: &[u8], limits: JsonLimits) -> Result<&str, WireError> {
     let limits = limits.checked()?;
     if input.starts_with(&[0xef, 0xbb, 0xbf]) {
         return Err(WireError::Utf8Bom);
