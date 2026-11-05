@@ -12,6 +12,8 @@ on:
           - custom-basis-row_hats-4-call-fixed_lookback
           - extension-all_rows-4
           - coupled-basis-coupled_row_hats-6
+          - coupled-basis-coupled_row_hats-4-call-arithmetic_asian
+          - custom-basis-weighted_time_hats-4-put-fixed_lookback
   pull_request:
     paths:
       - .github/workflows/native-memory-diagnostic.yml
