@@ -23,14 +23,26 @@ class VarianceBasisRuntimeTests(unittest.TestCase):
         self.historical = self.read_json(runtime.ROOT/runtime.ACCEPTANCE)
         self.binary = self.historical['native_binary_sha256']
         self.accepted = deepcopy(self.historical)
+        self.package_sources = {
+            path.relative_to(runtime.ROOT).as_posix()
+            for directory, pattern in (
+                ('crates', '*.rs'),
+                ('backtesting/rust_pricing_backtest', '*.py'),
+                ('backtesting/rust_pricing_backtest', '*.json'),
+            )
+            for path in (runtime.ROOT/directory).rglob(pattern)
+            if path.is_file()
+        }
+        # The synthetic acceptance covers today's source inventory, including
+        # extracted helpers; historical filenames and hashes stay untouched.
         self.accepted['source_sha256'] = {
             name: runtime.sha(runtime.ROOT/name)
-            for name in self.historical['source_sha256']
+            for name in sorted(self.package_sources | set(runtime.AUXILIARY))
         }
-        manifest = self.folder/'test-only-acceptance.json'
-        manifest.write_text(json.dumps(self.accepted))
+        self.manifest = self.folder/'test-only-acceptance.json'
+        self.manifest.write_text(json.dumps(self.accepted))
         reader = patch.object(runtime, 'read_json', side_effect=lambda path:
-            self.read_json(manifest if Path(path) == runtime.ROOT/runtime.ACCEPTANCE else path))
+            self.read_json(self.manifest if Path(path) == runtime.ROOT/runtime.ACCEPTANCE else path))
         reader.start(); self.addCleanup(reader.stop)
         self.fixture = runtime.ROOT/'fixtures/backtesting/raw-coupled-variance-basis-4-v0.1.json'
 
@@ -38,10 +50,11 @@ class VarianceBasisRuntimeTests(unittest.TestCase):
         names = {n for n in self.historical['source_sha256']
                  if n.startswith(('crates/', 'backtesting/rust_pricing_backtest/'))}
         names.update(runtime.AUXILIARY)
-        changed = [n for n in names if runtime.sha(runtime.ROOT/n) != self.historical['source_sha256'][n]]
+        changed = [n for n in names if not (runtime.ROOT/n).is_file()
+                   or runtime.sha(runtime.ROOT/n) != self.historical['source_sha256'][n]]
         with patch.object(runtime, 'read_json', self.read_json):
             if changed:
-                with self.assertRaisesRegex(BacktestError, 'accepted source changed'):
+                with self.assertRaisesRegex(BacktestError, 'accepted source (changed|unavailable)'):
                     runtime.current_provenance(self.binary)
             else:
                 runtime.current_provenance(self.binary)
@@ -50,19 +63,60 @@ class VarianceBasisRuntimeTests(unittest.TestCase):
         source, binary, accepted = runtime.current_provenance(self.binary)
         self.assertEqual(binary, self.binary)
         self.assertEqual(accepted, runtime.sha(runtime.ROOT/runtime.ACCEPTANCE))
-        self.assertEqual(len([n for n in source if n.startswith('crates/')]), 360)
-        self.assertEqual(len([n for n in source if n.startswith('backtesting/rust_pricing_backtest/')]), 64)
-        for n in (*runtime.AUXILIARY, *runtime.RUNTIME, runtime.ACCEPTANCE): self.assertIn(n, source)
+        self.assertEqual(set(source), self.package_sources | set(runtime.AUXILIARY)
+                         | set(runtime.RUNTIME) | {runtime.ACCEPTANCE})
 
     def test_changed_native_or_numerical_source_is_rejected(self):
         with self.assertRaisesRegex(BacktestError, 'basis_reference'):
             runtime.current_provenance('different_binary')
         original = runtime.sha
-        for name in ('backtesting/rust_pricing_backtest/multi_step_extension.py',
+        for name in ('crates/pricing/src/engine/risk/vegakt_three_step_growth.rs',
+                     'crates/pricing/src/engine/risk/vegakt_variance_gamma_quality.rs',
+                     'crates/pricing-python/src/lsv_config.rs',
+                     'backtesting/rust_pricing_backtest/multi_step_extension.py',
                      'backtesting/rust_pricing_backtest/quote_control.py', runtime.RUNNER,
                      'scripts/extension_put_reference.py', 'fixtures/backtesting/raw-variance-basis-policy-v0.1.json'):
             with self.subTest(name=name), patch.object(runtime, 'sha', side_effect=lambda p: 'changed' if Path(p)==runtime.ROOT/name else original(p)):
                 with self.assertRaisesRegex(BacktestError, 'basis_reference'): runtime.current_provenance(self.binary)
+
+    def test_missing_accepted_source_rejects_provenance_and_cli(self):
+        missing = 'crates/__missing_accepted_source__.rs'
+        self.assertFalse((runtime.ROOT/missing).exists())
+        self.accepted['source_sha256'][missing] = '0'*64
+        self.manifest.write_text(json.dumps(self.accepted))
+        with self.assertRaisesRegex(BacktestError, 'accepted source unavailable') as caught:
+            runtime.current_provenance(self.binary)
+        self.assertEqual(caught.exception.code, 'basis_reference')
+        self.assertIn(missing, str(caught.exception))
+        self.assertIsInstance(caught.exception.__cause__, FileNotFoundError)
+        for mode in ([], ['--preflight']):
+            output = self.folder/('preflight.json' if mode else 'native.json')
+            with self.subTest(mode=mode), \
+                 patch('check_current_variance_basis.preflight') as preflight, \
+                 patch('check_current_variance_basis.isolated_runner') as runner:
+                self.assertEqual(self.invoke('--intervals', '4', '--basis-file', str(self.fixture),
+                                             '--output', str(output), *mode), 1)
+                preflight.assert_not_called(); runner.assert_not_called()
+                report = runtime.read_json(output)
+                self.assertEqual(report['status'], 'rejected')
+                self.assertEqual(report['error']['code'], 'basis_reference')
+                self.assertIn(missing, report['error']['message'])
+                self.assertTrue(report['diagnostic_only'])
+                self.assertFalse(report['provider_promotion'])
+
+    def test_unreadable_accepted_source_keeps_provenance_error(self):
+        name = 'crates/pricing/src/engine/risk/vegakt_three_step_growth.rs'
+        original = runtime.sha
+        for error in (PermissionError('unreadable'), IsADirectoryError('replaced with directory')):
+            def digest(path):
+                if Path(path) == runtime.ROOT/name: raise error
+                return original(path)
+            with self.subTest(error=type(error).__name__), patch.object(runtime, 'sha', side_effect=digest):
+                with self.assertRaisesRegex(BacktestError, 'accepted source unavailable') as caught:
+                    runtime.current_provenance(self.binary)
+                self.assertEqual(caught.exception.code, 'basis_reference')
+                self.assertIn(name, str(caught.exception))
+                self.assertIs(caught.exception.__cause__, error)
 
     def test_numerical_runner_is_unchanged_and_historical_module_is_isolated(self):
         import check_raw_variance_basis as historical

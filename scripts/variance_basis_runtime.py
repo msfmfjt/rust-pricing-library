@@ -65,7 +65,11 @@ def current_provenance(binary_hash=None):
     names.update(AUXILIARY)
     require(names <= prior['source_sha256'].keys(), 'basis_reference', 'missing accepted source dependency')
     for name in sorted(names):
-        require(sha(ROOT/name) == prior['source_sha256'][name], 'basis_reference', 'accepted source changed: '+name)
+        try:
+            digest = sha(ROOT/name)
+        except OSError as error:
+            raise BacktestError('basis_reference', 'accepted source unavailable: '+name) from error
+        require(digest == prior['source_sha256'][name], 'basis_reference', 'accepted source changed: '+name)
     names.update((*RUNTIME, ACCEPTANCE))
     return {n: sha(ROOT/n) for n in sorted(names)}, binary, sha(ROOT/ACCEPTANCE)
 
