@@ -9,8 +9,30 @@ use crate::product::GraphError;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Instruction {
     Evaluate(u32),
-    Call { slot: u32, target: u32 },
-    BranchZero { condition: u32, target: u32 },
+    Copy {
+        input: u32,
+        output: u32,
+    },
+    ShortcutZero {
+        condition: u32,
+        value: u32,
+        output: u32,
+        target: u32,
+    },
+    ShortcutNonZero {
+        condition: u32,
+        value: u32,
+        output: u32,
+        target: u32,
+    },
+    Call {
+        slot: u32,
+        target: u32,
+    },
+    BranchZero {
+        condition: u32,
+        target: u32,
+    },
     Jump(u32),
     Return,
     Stop,
@@ -21,8 +43,19 @@ enum Build {
     Body(u32),
     Evaluate(u32),
     Choice(u32),
-    Else { slot: u32, branch: usize },
-    EndChoice { slot: u32, jump: usize },
+    Else {
+        slot: u32,
+        branch: usize,
+    },
+    EndChoice {
+        slot: u32,
+        jump: usize,
+    },
+    EndShortcut {
+        slot: u32,
+        input: u32,
+        branch: usize,
+    },
 }
 
 pub(super) fn compile(
@@ -113,12 +146,57 @@ impl Builder<'_> {
                     let CompiledOpcode::Select {
                         condition,
                         then_value,
+                        else_value,
                         ..
                     } = self.opcodes[slot as usize]
                     else {
                         unreachable!()
                     };
+                    let then_constant = matches!(
+                        self.opcodes[then_value as usize],
+                        CompiledOpcode::Literal { .. }
+                    );
+                    let else_constant = matches!(
+                        self.opcodes[else_value as usize],
+                        CompiledOpcode::Literal { .. }
+                    );
+                    if then_constant && else_constant {
+                        // Both alternatives are already prepared; no control-flow walk.
+                        self.code.push(Instruction::Evaluate(slot));
+                        continue;
+                    }
                     let branch = self.code.len();
+                    if then_constant || else_constant {
+                        // A constant arm can assign its value and skip the other arm
+                        // in one instruction, especially for short-circuit Booleans.
+                        self.code.push(if then_constant {
+                            Instruction::ShortcutNonZero {
+                                condition,
+                                value: then_value,
+                                output: slot,
+                                target: 0,
+                            }
+                        } else {
+                            Instruction::ShortcutZero {
+                                condition,
+                                value: else_value,
+                                output: slot,
+                                target: 0,
+                            }
+                        });
+                        let input = if then_constant {
+                            else_value
+                        } else {
+                            then_value
+                        };
+                        self.work.push(Build::EndShortcut {
+                            slot,
+                            input,
+                            branch,
+                        });
+                        self.work.push(Build::Ensure(input));
+                        continue;
+                    }
                     self.code.push(Instruction::BranchZero {
                         condition,
                         target: 0,
@@ -143,6 +221,22 @@ impl Builder<'_> {
                     };
                     self.work.push(Build::EndChoice { slot, jump });
                     self.work.push(Build::Ensure(else_value));
+                }
+                Build::EndShortcut {
+                    slot,
+                    input,
+                    branch,
+                } => {
+                    self.code.push(Instruction::Copy {
+                        input,
+                        output: slot,
+                    });
+                    let end = offset(self.code.len())?;
+                    match &mut self.code[branch] {
+                        Instruction::ShortcutZero { target, .. }
+                        | Instruction::ShortcutNonZero { target, .. } => *target = end,
+                        _ => unreachable!(),
+                    }
                 }
                 Build::EndChoice { slot, jump } => {
                     self.code[jump] = Instruction::Jump(offset(self.code.len())?);

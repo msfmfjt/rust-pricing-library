@@ -126,7 +126,7 @@ pub struct PayoffWorkspace {
 }
 
 // Legacy nonbranching paths remain allocation-compatible. New lazy tapes keep
-// only scratch state here, never source/model data. Reachability and call state
+// only evaluation arrays here, never source trees or model objects. Reachability and call state
 // reset on every path; finite constants are prepared once per tape identity.
 // Bound retained capacity per worker; reentrant observation callbacks fall back
 // to an owned workspace instead of borrowing this cell twice.
@@ -349,7 +349,8 @@ impl CompiledPayoff {
             }
             let mut pc = 0_usize;
             loop {
-                match self.program[pc] {
+                let instruction = self.program[pc];
+                match instruction {
                     Instruction::Evaluate(slot) => {
                         let opcode = self.opcodes[slot as usize];
                         let (_, value) = execute_opcode(
@@ -362,6 +363,33 @@ impl CompiledPayoff {
                         workspace.values[slot as usize] = value;
                         workspace.visited[slot as usize] = true;
                         pc += 1;
+                    }
+                    Instruction::Copy { input, output } => {
+                        workspace.values[output as usize] = workspace.values[input as usize];
+                        workspace.visited[output as usize] = true;
+                        pc += 1;
+                    }
+                    Instruction::ShortcutZero {
+                        condition,
+                        value,
+                        output,
+                        target,
+                    }
+                    | Instruction::ShortcutNonZero {
+                        condition,
+                        value,
+                        output,
+                        target,
+                    } => {
+                        let take_constant = (workspace.values[condition as usize] == 0.0)
+                            == matches!(instruction, Instruction::ShortcutZero { .. });
+                        if take_constant {
+                            workspace.values[output as usize] = workspace.values[value as usize];
+                            workspace.visited[output as usize] = true;
+                            pc = target as usize;
+                        } else {
+                            pc += 1;
+                        }
                     }
                     Instruction::Call { slot, target } => {
                         if workspace.visited[slot as usize] {

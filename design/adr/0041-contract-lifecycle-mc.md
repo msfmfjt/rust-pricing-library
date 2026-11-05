@@ -101,8 +101,9 @@ Their existing `evaluate` entrypoint now reuses thread-local scratch arrays,
 retaining at most 1 MiB per worker and resetting reachability/call state per path.
 Finite literal slots are prepared once per tape fingerprint. Switching tapes
 reinitializes constants; returning from a nonbranching tape invalidates the cache.
-Reentrant observation callbacks use an owned fallback. This cache contains no
-contract/model inputs, does not affect fingerprints, and is never serialized.
+Reentrant observation callbacks use an owned fallback. This cache retains only
+evaluation arrays and prepared literals, never source trees or model objects.
+It does not affect fingerprints and is never serialized.
 Legacy nonbranching evaluation and AAD keep their original allocation/order.
 Callers that own workspaces can use `evaluate_reusing` without allocating an
 owned output vector. Existing model simulation buffers are unchanged.
@@ -124,3 +125,10 @@ right operands are constants; reduction preserves ordered, lazy semantics.
 Potential payments carry enclosing Scale/Reverse effects. The existing source
 node budget also bounds derived expression expansion, checked before cloning
 large factors across many payments; deterministic factors are folded first.
+
+Prepared constant alternatives use a single conditional copy/jump instruction;
+two constant alternatives need no branch traversal. This preserves lazy
+observation/error behavior and signed-zero bits while removing repeated Select
+interpretation from Boolean reductions and rebate branches. The same visited
+slots drive native reverse-mode AAD. Native opcode/fingerprint identities remain
+unchanged; the control-flow schedule is private, derived data.

@@ -602,3 +602,63 @@ fn reused_workspace_reprepares_constants_when_switching_between_tapes() {
         [0.0]
     );
 }
+
+#[test]
+fn constant_branch_shortcuts_preserve_signed_zero_laziness_and_reverse() {
+    for constant_on_true in [false, true] {
+        let mut b = SourceGraphBuilder::new();
+        let condition = b
+            .push(Op::TerminalSpot {
+                underlying: UnderlyingId::new(1),
+                observation_date: d("2027-01-01"),
+            })
+            .unwrap();
+        let variable = b
+            .push(Op::TerminalSpot {
+                underlying: UnderlyingId::new(1),
+                observation_date: d("2027-02-01"),
+            })
+            .unwrap();
+        let constant = b.literal(-0.0).unwrap();
+        let output = b
+            .push(Op::Select {
+                condition,
+                then_value: if constant_on_true { constant } else { variable },
+                else_value: if constant_on_true { variable } else { constant },
+            })
+            .unwrap();
+        let payoff = b
+            .finish(vec![output])
+            .compile(GraphLimitPolicy::DEFAULT)
+            .unwrap();
+        let mut workspace = payoff.workspace();
+        for predicate in [0.0, 1.0, 0.0, -1.0] {
+            let take_constant = (predicate != 0.0) == constant_on_true;
+            let observe = |_, date| {
+                if date == d("2027-01-01") {
+                    Some(predicate)
+                } else if take_constant {
+                    None
+                } else {
+                    Some(7.0)
+                }
+            };
+            let expected: f64 = if take_constant { -0.0 } else { 7.0 };
+            let value = payoff
+                .evaluate_reusing(&mut workspace, observe, |_, _| None)
+                .unwrap()[0];
+            assert_eq!(value.to_bits(), expected.to_bits());
+            let reverse = payoff
+                .evaluate_single_with_terminal_adjoint(observe)
+                .unwrap();
+            assert_eq!(reverse.value.to_bits(), expected.to_bits());
+            let sensitivity: f64 = reverse
+                .terminal_adjoints
+                .iter()
+                .filter(|a| a.observation_date == d("2027-02-01"))
+                .map(|a| a.value)
+                .sum();
+            assert_eq!(sensitivity, if take_constant { 0.0 } else { 1.0 });
+        }
+    }
+}
