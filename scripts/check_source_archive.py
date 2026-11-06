@@ -1285,7 +1285,7 @@ REQUIRED_WHEEL_CI_JOB_SNIPPETS = {
         "if: always()",
     ),
     "rough-dividend-smoothing": (
-        "timeout-minutes: ${{ matrix.os == 'windows-2025' && 30 || 20 }}",
+        "timeout-minutes: ${{ matrix.os == 'macos-15' && 40 || (matrix.os == 'windows-2025' && 30 || 20) }}",
     ),
 }
 
