@@ -11,3 +11,5 @@ pub use source::{
 
 mod lifecycle;
 pub use lifecycle::{DeterminedCashflow, Event, LifecycleEvent, LifecycleResult, advance};
+
+pub use crate::engine::payoff::contract::{CompiledContract, CompiledCurrencyContract};

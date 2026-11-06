@@ -1,7 +1,9 @@
 //! Strict source-only graph documents; no executable state or callbacks.
 use super::*;
 use crate::core::{FiniteF64, NodeId};
-use crate::product::{CompactC2Smoothing, GraphProduct, SourceGraph, SourceNode, SourceOpcode};
+use crate::product::{
+    CompactC2Smoothing, GraphComparison, GraphProduct, SourceGraph, SourceNode, SourceOpcode,
+};
 const KIND: &str = "product_graph";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -27,6 +29,22 @@ struct CashflowV1 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum OperationV1 {
+    Select {
+        condition: u32,
+        then_value: u32,
+        else_value: u32,
+    },
+    Log {
+        input: u32,
+    },
+    Exp {
+        input: u32,
+    },
+    Compare {
+        left: u32,
+        right: u32,
+        operation: GraphComparison,
+    },
     Literal {
         value: f64,
     },
@@ -90,6 +108,26 @@ enum OperationV1 {
 impl From<SourceOpcode> for OperationV1 {
     fn from(op: SourceOpcode) -> Self {
         match op {
+            SourceOpcode::Select {
+                condition,
+                then_value,
+                else_value,
+            } => Self::Select {
+                condition: condition.get(),
+                then_value: then_value.get(),
+                else_value: else_value.get(),
+            },
+            SourceOpcode::Log { input } => Self::Log { input: input.get() },
+            SourceOpcode::Exp { input } => Self::Exp { input: input.get() },
+            SourceOpcode::Compare {
+                left,
+                right,
+                operation,
+            } => Self::Compare {
+                left: left.get(),
+                right: right.get(),
+                operation,
+            },
             SourceOpcode::Literal(value) => Self::Literal { value: value.get() },
             SourceOpcode::TerminalSpot {
                 underlying,
@@ -169,6 +207,30 @@ impl From<SourceOpcode> for OperationV1 {
 impl OperationV1 {
     fn into_domain(self, pointer: &str) -> Result<SourceOpcode, WireError> {
         Ok(match self {
+            Self::Select {
+                condition,
+                then_value,
+                else_value,
+            } => SourceOpcode::Select {
+                condition: NodeId::new(condition),
+                then_value: NodeId::new(then_value),
+                else_value: NodeId::new(else_value),
+            },
+            Self::Log { input } => SourceOpcode::Log {
+                input: NodeId::new(input),
+            },
+            Self::Exp { input } => SourceOpcode::Exp {
+                input: NodeId::new(input),
+            },
+            Self::Compare {
+                left,
+                right,
+                operation,
+            } => SourceOpcode::Compare {
+                left: NodeId::new(left),
+                right: NodeId::new(right),
+                operation,
+            },
             Self::Literal { value } => SourceOpcode::Literal(
                 FiniteF64::new(value, "graph literal").map_err(|e| domain_at(pointer, e))?,
             ),
@@ -290,6 +352,18 @@ impl From<&GraphProduct> for GraphProductV1 {
     }
 }
 impl GraphProductV1 {
+    pub(super) fn requires_v2(&self) -> bool {
+        self.nodes.iter().any(|n| {
+            matches!(
+                n.operation,
+                OperationV1::Select { .. }
+                    | OperationV1::Log { .. }
+                    | OperationV1::Exp { .. }
+                    | OperationV1::Compare { .. }
+            )
+        })
+    }
+
     pub(super) fn into_domain(self, pointer: &str) -> Result<GraphProduct, WireError> {
         let nodes = self
             .nodes
@@ -342,7 +416,7 @@ impl From<&GraphProduct> for DocumentV1 {
     fn from(product: &GraphProduct) -> Self {
         Self {
             document_kind: KIND.into(),
-            schema_version: 1,
+            schema_version: if product.requires_graph_v2() { 2 } else { 1 },
             product: product.into(),
         }
     }
@@ -359,10 +433,16 @@ pub fn parse_product_graph_json(
             actual: header.document_kind,
         });
     }
-    if header.schema_version != 1 {
+    if !matches!(header.schema_version, 1 | 2) {
         return Err(WireError::UnsupportedSchemaVersion(header.schema_version));
     }
     let document: DocumentV1 = serde_json::from_str(text).map_err(json)?;
+    if document.schema_version == 1 && document.product.requires_v2() {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "contract operations require product_graph v2",
+            schema_version: 1,
+        });
+    }
     document.product.into_domain("/product")
 }
 pub fn product_graph_to_json(product: &GraphProduct) -> Result<String, WireError> {
@@ -374,11 +454,18 @@ pub fn product_graph_to_pretty_json(product: &GraphProduct) -> Result<String, Wi
 pub fn fingerprint_product_graph(product: &GraphProduct) -> Result<Fingerprint, WireError> {
     let value = serde_json::to_value(DocumentV1::from(product)).map_err(json)?;
     let mut bytes = b"pricing/product_graph\0".to_vec();
-    bytes.extend_from_slice(&1_u32.to_be_bytes());
+    bytes.extend_from_slice(
+        &(if product.requires_graph_v2() {
+            2_u32
+        } else {
+            1_u32
+        })
+        .to_be_bytes(),
+    );
     encode_value(&value, &mut bytes)?;
     Ok(Fingerprint::from_bytes(*blake3::hash(&bytes).as_bytes()))
 }
 #[must_use]
 pub fn current_product_graph_schema() -> &'static str {
-    include_str!("../../../../schemas/product-graph-v1/product_graph.schema.json")
+    include_str!("../../../../schemas/product-graph-v2/product_graph.schema.json")
 }

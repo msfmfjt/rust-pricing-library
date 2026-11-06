@@ -153,9 +153,16 @@ impl NumericExpr {
         let mut refs = BTreeSet::new();
         self.refs(&mut refs, 0, &mut 0)?;
         let reduced = self.reduce(fixings)?;
-        reduced
-            .constant()
-            .ok_or_else(|| ContractError::MissingFixing("expression remains stochastic".into()))
+        if let Some(value) = reduced.constant() {
+            return Ok(value);
+        }
+        let mut remaining = BTreeSet::new();
+        reduced.refs(&mut remaining, 0, &mut 0)?;
+        Err(if remaining.is_empty() {
+            ContractError::Invalid("selected expression has invalid arithmetic".into())
+        } else {
+            ContractError::MissingFixing("expression remains stochastic".into())
+        })
     }
 
     pub fn observation(id: impl Into<String>) -> Self {
@@ -196,7 +203,10 @@ impl NumericExpr {
             let a = a.reduce(fixings)?;
             let b = b.reduce(fixings)?;
             if let (Some(x), Some(y)) = (a.constant(), b.constant()) {
-                finite(op(x, y)).map(Self::from)
+                match finite(op(x, y)) {
+                    Ok(value) => Ok(Self::from(value)),
+                    Err(_) => Ok(build(Box::new(a), Box::new(b))),
+                }
             } else {
                 Ok(build(Box::new(a), Box::new(b)))
             }
@@ -289,9 +299,10 @@ impl NumericExpr {
                         Aggregate::ArithmeticAverage => v.iter().map(|x| x / n).sum(),
                         Aggregate::GeometricAverage => {
                             if v.iter().any(|x| *x <= 0.0) {
-                                return Err(ContractError::Invalid(
-                                    "geometric average requires strictly positive values".into(),
-                                ));
+                                return Ok(Self::Aggregate {
+                                    operation: *operation,
+                                    values,
+                                });
                             }
                             v.iter().map(|x| x.ln() / n).sum::<f64>().exp()
                         }
@@ -302,7 +313,13 @@ impl NumericExpr {
                             v.iter().copied().fold(f64::NEG_INFINITY, f64::max)
                         }
                     };
-                    finite(result).map(Self::from)
+                    match finite(result) {
+                        Ok(v) => Ok(Self::from(v)),
+                        Err(_) => Ok(Self::Aggregate {
+                            operation: *operation,
+                            values,
+                        }),
+                    }
                 } else {
                     Ok(Self::Aggregate {
                         operation: *operation,
@@ -363,9 +380,16 @@ impl BooleanExpr {
         let mut refs = BTreeSet::new();
         self.refs(&mut refs, 0, &mut 0)?;
         let reduced = self.reduce(fixings)?;
-        reduced
-            .constant()
-            .ok_or_else(|| ContractError::MissingFixing("expression remains stochastic".into()))
+        if let Some(value) = reduced.constant() {
+            return Ok(value);
+        }
+        let mut remaining = BTreeSet::new();
+        reduced.refs(&mut remaining, 0, &mut 0)?;
+        Err(if remaining.is_empty() {
+            ContractError::Invalid("selected expression has invalid arithmetic".into())
+        } else {
+            ContractError::MissingFixing("expression remains stochastic".into())
+        })
     }
 
     pub fn and(self, right: Self) -> Self {
@@ -487,9 +511,16 @@ impl DateExpr {
         let mut refs = BTreeSet::new();
         self.refs(&mut refs, 0, &mut 0)?;
         let reduced = self.reduce(fixings)?;
-        reduced
-            .constant()
-            .ok_or_else(|| ContractError::MissingFixing("expression remains stochastic".into()))
+        if let Some(value) = reduced.constant() {
+            return Ok(value);
+        }
+        let mut remaining = BTreeSet::new();
+        reduced.refs(&mut remaining, 0, &mut 0)?;
+        Err(if remaining.is_empty() {
+            ContractError::Invalid("selected expression has invalid arithmetic".into())
+        } else {
+            ContractError::MissingFixing("expression remains stochastic".into())
+        })
     }
 
     pub(crate) fn constant(&self) -> Option<Date> {

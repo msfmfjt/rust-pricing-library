@@ -14,6 +14,12 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "crates/pricing/src/engine/payoff/contract.rs",
+    "crates/pricing/tests/contract_mc.rs",
+    "schemas/product-graph-v2/product_graph.schema.json",
+    "schemas/specification-v3/pricing_specification.schema.json",
+    "schemas/task-v2/pricing_task.schema.json",
+    "scripts/check_contract_mc_json_schema.py",
     "crates/pricing/src/contract/lifecycle.rs",
     "crates/pricing/tests/contract_lifecycle.rs",
     "crates/pricing/src/contract/mod.rs",

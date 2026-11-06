@@ -214,16 +214,38 @@ impl Term {
         level: f64,
         hit: bool,
     ) -> BooleanExpr {
-        observations.iter().fold(BooleanExpr::from(hit), |a, id| {
-            a.or(NumericExpr::observation(id).compare(
-                if direction == BarrierDirection::Up {
-                    Comparison::GreaterEqual
+        if hit {
+            return BooleanExpr::from(true);
+        }
+        let mut level_nodes: Vec<_> = observations
+            .iter()
+            .map(|id| {
+                NumericExpr::observation(id).compare(
+                    if direction == BarrierDirection::Up {
+                        Comparison::GreaterEqual
+                    } else {
+                        Comparison::LessEqual
+                    },
+                    level.into(),
+                )
+            })
+            .collect();
+        if level_nodes.is_empty() {
+            return BooleanExpr::from(false);
+        }
+        while level_nodes.len() > 1 {
+            let mut next = Vec::with_capacity(level_nodes.len().div_ceil(2));
+            let mut iter = level_nodes.into_iter();
+            while let Some(left) = iter.next() {
+                next.push(if let Some(right) = iter.next() {
+                    left.or(right)
                 } else {
-                    Comparison::LessEqual
-                },
-                level.into(),
-            ))
-        })
+                    left
+                });
+            }
+            level_nodes = next;
+        }
+        level_nodes.pop().unwrap()
     }
 }
 /// The only editable contractual source. All analysis, residuals and MC graphs

@@ -79,3 +79,16 @@ Python/JSON round trips, properties and mutations. Benchmark compilation,
 evaluation, memory and complete MC runtime against existing paths.
 Report hosted CI for submitted heads; pending checks never count as passes.
 No direct main push or merge is part of this work.
+
+## Implemented graph extension
+
+The native graph adds Select, Compare, Log and Exp with appended opcode tags;
+legacy opcode tags and nonbranching instruction order remain unchanged. Lazy
+selection uses reusable iterative traversal state, avoiding recursion in path
+loops and avoiding inactive branch arithmetic/observations. Contract lowering
+interns exact operations and drops known branches before native compilation.
+Graph v2 / specification v3 / task v2 are selected only when these operations
+occur. Legacy writers and fingerprint domains remain at v1 / v2 / v1. Current
+schemas include conditional version guards; old schema files remain frozen.
+Lifecycle partial evaluation retains arithmetic with an unresolved branch rather
+than raising its inactive error; selected invalid determined amounts still fail.

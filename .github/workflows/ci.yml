@@ -335,6 +335,7 @@ jobs:
           python scripts/check_specification_json_schema.py
           python scripts/check_product_graph_json_schema.py
           python scripts/check_contract_json_schema.py
+          python scripts/check_contract_mc_json_schema.py
           python scripts/check_task_json_schema.py
 
       - name: Check Bergomi diagnostic evidence parser

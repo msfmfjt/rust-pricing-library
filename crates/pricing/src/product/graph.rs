@@ -62,8 +62,48 @@ impl fmt::Display for GraphFingerprint {
     }
 }
 
+/// Exact comparison used by contractual predicates; no smoothing is implicit.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GraphComparison {
+    Less,
+    LessEqual,
+    Equal,
+    NotEqual,
+    GreaterEqual,
+    Greater,
+}
+impl GraphComparison {
+    pub(crate) fn test(self, a: f64, b: f64) -> bool {
+        match self {
+            Self::Less => a < b,
+            Self::LessEqual => a <= b,
+            Self::Equal => a == b,
+            Self::NotEqual => a != b,
+            Self::GreaterEqual => a >= b,
+            Self::Greater => a > b,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SourceOpcode {
+    Select {
+        condition: NodeId,
+        then_value: NodeId,
+        else_value: NodeId,
+    },
+    Log {
+        input: NodeId,
+    },
+    Exp {
+        input: NodeId,
+    },
+    Compare {
+        left: NodeId,
+        right: NodeId,
+        operation: GraphComparison,
+    },
     Literal(FiniteF64),
     TerminalSpot {
         underlying: UnderlyingId,
@@ -124,34 +164,46 @@ pub enum SourceOpcode {
 }
 
 impl SourceOpcode {
-    pub(crate) fn operands(self) -> ([NodeId; 2], usize) {
+    pub(crate) fn operands(self) -> ([NodeId; 3], usize) {
         match self {
+            Self::Select {
+                condition,
+                then_value,
+                else_value,
+            } => ([condition, then_value, else_value], 3),
             Self::Literal(_) | Self::TerminalSpot { .. } | Self::PreDividendSpot { .. } => {
-                ([NodeId::new(0); 2], 0)
+                ([NodeId::new(0); 3], 0)
             }
-            Self::Negate { input }
+            Self::Log { input }
+            | Self::Exp { input }
+            | Self::Negate { input }
             | Self::Indicator { input }
-            | Self::SmoothIndicator { input, .. } => ([input, NodeId::new(0)], 1),
-            Self::Add { left, right }
+            | Self::SmoothIndicator { input, .. } => ([input, NodeId::new(0), NodeId::new(0)], 1),
+            Self::Compare { left, right, .. }
+            | Self::Add { left, right }
             | Self::Subtract { left, right }
             | Self::Multiply { left, right }
             | Self::Minimum { left, right }
             | Self::Maximum { left, right }
             | Self::SmoothMinimum { left, right, .. }
-            | Self::SmoothMaximum { left, right, .. } => ([left, right], 2),
+            | Self::SmoothMaximum { left, right, .. } => ([left, right, NodeId::new(0)], 2),
             Self::BarrierHitState {
                 previous,
                 hit_weight,
-            } => ([previous, hit_weight], 2),
+            } => ([previous, hit_weight, NodeId::new(0)], 2),
             Self::Divide {
                 numerator,
                 denominator,
-            } => ([numerator, denominator], 2),
+            } => ([numerator, denominator, NodeId::new(0)], 2),
         }
     }
 
     pub(crate) const fn name(self) -> &'static str {
         match self {
+            Self::Select { .. } => "select",
+            Self::Log { .. } => "log",
+            Self::Exp { .. } => "exp",
+            Self::Compare { .. } => "compare",
             Self::Literal(_) => "literal",
             Self::TerminalSpot { .. } => "terminal_spot",
             Self::PreDividendSpot { .. } => "pre_dividend_spot",
