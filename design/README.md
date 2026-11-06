@@ -1,5 +1,7 @@
 # Design and development records
 
+- [Contract DSL and lifecycle MC integration](adr/0041-contract-lifecycle-mc.md)
+
 This directory contains requirements, architecture, decisions, implementation
 plans and acceptance evidence. The [library guide](../docs/library/README.md),
 [product reference](../docs/products/README.md) and
