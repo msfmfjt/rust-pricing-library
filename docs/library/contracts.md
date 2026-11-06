@@ -45,3 +45,35 @@ schema; future versions must retain v1 readers or publish an explicit migration.
 
 See [source conformance](../../crates/pricing/tests/contract_source.rs) for typed
 construction, semantic identities, strict JSON rejection and dependency checks.
+
+## Lifecycle replay
+
+`advance(&contract, events, as_of)` returns a residual contract, all determined
+cash flows (with settlement status), outstanding payments, remaining observations,
+applied event IDs and barrier states. The same operation is available as
+`Contract::advance` and `LifecycleResult::advance`. The latter combines retained
+history with new events and rejects moving the valuation date backwards.
+
+Fixing events carry the complete observation identity and publication date.
+Duplicate IDs with identical content are idempotent; reused IDs or inconsistent
+fixings fail. Future events remain in history but are not applied. On the same
+date, fixings precede determination confirmations, termination and settlement;
+stable event IDs break remaining ties. The date-only interface treats same-day
+fixings without an event as current observations, consistent with native MC;
+strictly earlier required observations must have a fixing. Intraday cutoffs
+require a separately supported simulation mapping.
+
+Determination confirmations check the signed amount/currency derived from the
+contract. Settlements require an already determined obligation and cannot precede
+the contractual settlement date. An overdue payment remains outstanding until an
+explicit settlement event; it is never silently deleted. Termination cancels
+cash flows determined strictly after its date and preserves existing obligations.
+These are explicit v1 termination semantics, not a closeout valuation model.
+
+A checkpoint saves only the original contract, unique event history and as-of
+date. `LifecycleResult::from_json` replays them through normal validation rather
+than trusting an independently editable residual or balance. Lifecycle barriers
+share inclusive comparison semantics with the source expressions; observing a
+hit removes remaining monitoring dependencies. See the
+[lifecycle tests](../../crates/pricing/tests/contract_lifecycle.rs) for replay,
+settlement, early redemption and original/residual future cash-flow equivalence.
