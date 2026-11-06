@@ -521,3 +521,144 @@ fn hard_contract_predicates_reject_pathwise_greeks() {
         Ok(task) => assert!(task.compile().is_err()),
     }
 }
+
+#[test]
+fn folded_select_keeps_invalid_inactive_nodes_unexecuted() {
+    let mut b = SourceGraphBuilder::new();
+    let one = b.literal(1.0).unwrap();
+    let zero = b.literal(0.0).unwrap();
+    let bad = b
+        .push(Op::Divide {
+            numerator: one,
+            denominator: zero,
+        })
+        .unwrap();
+    let selected = b
+        .push(Op::Select {
+            condition: one,
+            then_value: one,
+            else_value: bad,
+        })
+        .unwrap();
+    let p = b
+        .finish(vec![selected])
+        .compile(GraphLimitPolicy::DEFAULT)
+        .unwrap();
+    assert_eq!(p.evaluate(|_, _| None).unwrap(), [1.0]);
+    assert_eq!(
+        p.evaluate_single_with_terminal_adjoint(|_, _| None)
+            .unwrap()
+            .value,
+        1.0
+    );
+}
+
+#[test]
+fn reused_workspace_reprepares_constants_when_switching_between_tapes() {
+    fn payoff(payout: f64) -> pricing::product::CompiledPayoff {
+        let mut b = SourceGraphBuilder::new();
+        let observed = b
+            .push(Op::TerminalSpot {
+                underlying: UnderlyingId::new(1),
+                observation_date: d("2027-01-01"),
+            })
+            .unwrap();
+        let zero = b.literal(0.0).unwrap();
+        let cash = b.literal(payout).unwrap();
+        let output = b
+            .push(Op::Select {
+                condition: observed,
+                then_value: cash,
+                else_value: zero,
+            })
+            .unwrap();
+        b.finish(vec![output])
+            .compile(GraphLimitPolicy::DEFAULT)
+            .unwrap()
+    }
+    let a = payoff(3.0);
+    let b = payoff(-7.0);
+    let mut graph = SourceGraphBuilder::new();
+    let x = graph.literal(99.0).unwrap();
+    let plain = graph
+        .finish(vec![x])
+        .compile(GraphLimitPolicy::DEFAULT)
+        .unwrap();
+    let mut workspace = a.workspace();
+    for p in [&a, &b, &plain, &b, &a] {
+        assert_eq!(
+            p.evaluate_reusing(&mut workspace, |_, _| Some(1.0), |_, _| None)
+                .unwrap(),
+            p.evaluate(|_, _| Some(1.0)).unwrap()
+        );
+    }
+    assert!(
+        a.evaluate_reusing(&mut workspace, |_, _| None, |_, _| None)
+            .is_err()
+    );
+    assert_eq!(
+        a.evaluate_reusing(&mut workspace, |_, _| Some(0.0), |_, _| None)
+            .unwrap(),
+        [0.0]
+    );
+}
+
+#[test]
+fn constant_branch_shortcuts_preserve_signed_zero_laziness_and_reverse() {
+    for constant_on_true in [false, true] {
+        let mut b = SourceGraphBuilder::new();
+        let condition = b
+            .push(Op::TerminalSpot {
+                underlying: UnderlyingId::new(1),
+                observation_date: d("2027-01-01"),
+            })
+            .unwrap();
+        let variable = b
+            .push(Op::TerminalSpot {
+                underlying: UnderlyingId::new(1),
+                observation_date: d("2027-02-01"),
+            })
+            .unwrap();
+        let constant = b.literal(-0.0).unwrap();
+        let output = b
+            .push(Op::Select {
+                condition,
+                then_value: if constant_on_true { constant } else { variable },
+                else_value: if constant_on_true { variable } else { constant },
+            })
+            .unwrap();
+        let payoff = b
+            .finish(vec![output])
+            .compile(GraphLimitPolicy::DEFAULT)
+            .unwrap();
+        let mut workspace = payoff.workspace();
+        for predicate in [0.0, 1.0, 0.0, -1.0] {
+            let take_constant = (predicate != 0.0) == constant_on_true;
+            let observe = |_, date| {
+                if date == d("2027-01-01") {
+                    Some(predicate)
+                } else if take_constant {
+                    None
+                } else {
+                    Some(7.0)
+                }
+            };
+            let expected: f64 = if take_constant { -0.0 } else { 7.0 };
+            let value = payoff
+                .evaluate_reusing(&mut workspace, observe, |_, _| None)
+                .unwrap()[0];
+            assert_eq!(value.to_bits(), expected.to_bits());
+            let reverse = payoff
+                .evaluate_single_with_terminal_adjoint(observe)
+                .unwrap();
+            assert_eq!(reverse.value.to_bits(), expected.to_bits());
+            let sensitivity: f64 = reverse
+                .terminal_adjoints
+                .iter()
+                .filter(|a| a.observation_date == d("2027-02-01"))
+                .map(|a| a.value)
+                .sum();
+            assert_eq!(sensitivity, if take_constant { 0.0 } else { 1.0 });
+        }
+    }
+}

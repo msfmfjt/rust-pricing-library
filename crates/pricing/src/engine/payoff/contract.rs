@@ -57,6 +57,11 @@ impl CompiledContract {
         currency: CurrencyId,
         underlyings: Vec<UnderlyingId>,
     ) -> Result<GraphProduct, ContractError> {
+        if self.groups.len() > 1 {
+            return Err(ContractError::Unsupported(
+                "multiple currencies require separate native tasks from groups()".into(),
+            ));
+        }
         if self.groups.is_empty() {
             let mut b = SourceGraphBuilder::new();
             let zero = b.literal(0.0)?;
@@ -106,6 +111,27 @@ impl CompiledContract {
         PricingTask::new(PricingSource::SingleAsset(source), operation)
             .map_err(|e| ContractError::Unsupported(e.to_string()))
     }
+    pub fn stochastic_dividend_task(
+        &self,
+        template: &crate::StochasticDividendSpecification,
+        operation: PricingOperation,
+    ) -> Result<PricingTask, ContractError> {
+        let task = self.pricing_task(template.equity(), PricingOperation::Evaluate)?;
+        let PricingSource::SingleAsset(equity) = task.source() else {
+            unreachable!()
+        };
+        let source = crate::StochasticDividendSpecification::new(
+            equity.clone(),
+            template.dividends(),
+            template.volatility_correlations().to_vec(),
+            template.rate_correlation(),
+            template.maximum_step(),
+        )
+        .map_err(|e| ContractError::Unsupported(e.to_string()))?;
+        PricingTask::new(PricingSource::StochasticDividend(source), operation)
+            .map_err(|e| ContractError::Unsupported(e.to_string()))
+    }
+
     pub fn multi_asset_task(
         &self,
         template: &MultiAssetSpecification,

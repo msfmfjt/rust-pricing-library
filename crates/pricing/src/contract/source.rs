@@ -336,16 +336,33 @@ impl Contract {
             registry,
             used: BTreeSet::new(),
             ids: BTreeSet::new(),
+            barrier_ids: BTreeSet::new(),
             barriers: BTreeSet::new(),
             flows: Vec::new(),
             count: 0,
+            prune_constants: false,
+            analysis_nodes: 0,
         };
         state.walk(&self.root, &BTreeSet::new(), 0)?;
-        let required_observations: Vec<_> = state
+        // Validate the complete source, including inactive branches. Extract
+        // actual requirements separately after deterministic simplification.
+        state.analysis_nodes = state.count;
+        state.used.clear();
+        state.ids.clear();
+        state.barrier_ids.clear();
+        state.barriers.clear();
+        state.flows.clear();
+        state.count = 0;
+        state.prune_constants = true;
+        state.walk(&self.root, &BTreeSet::new(), 0)?;
+        let mut required_observations: Vec<_> = state
             .used
             .iter()
             .map(|id| state.registry[id].clone())
             .collect();
+        required_observations.sort_by(|a, b| {
+            (a.date, &a.time, a.underlying, &a.id).cmp(&(b.date, &b.time, b.underlying, &b.id))
+        });
         let underlying_dependencies = required_observations
             .iter()
             .map(|o| o.underlying)
@@ -366,7 +383,7 @@ impl Contract {
             .chain(required_observations.iter().map(|o| o.date))
             .max();
         // A constant amount behind an unresolved predicate is potential, not determined.
-        let determined_cashflows = unconditional_constants(&self.root);
+        let determined_cashflows = unconditional_constants(&self.root)?;
         for cashflow in &determined_cashflows {
             if let Some(value) = cashflow.amount.constant() {
                 super::expression::finite(value)?;
@@ -396,9 +413,12 @@ struct AnalysisState<'a> {
     registry: BTreeMap<String, &'a Observation>,
     used: BTreeSet<String>,
     ids: BTreeSet<String>,
+    barrier_ids: BTreeSet<String>,
     barriers: BTreeSet<Date>,
     flows: Vec<Cashflow>,
     count: usize,
+    prune_constants: bool,
+    analysis_nodes: usize,
 }
 impl AnalysisState<'_> {
     fn check_refs(&mut self, refs: &BTreeSet<String>) -> Result<(), ContractError> {
@@ -434,7 +454,15 @@ impl AnalysisState<'_> {
                     )));
                 }
                 let mut refs = guards.clone();
-                c.amount.refs(&mut refs, depth + 1, &mut self.count)?;
+                if self.prune_constants {
+                    c.amount.reduce(&BTreeMap::new())?.refs(
+                        &mut refs,
+                        depth + 1,
+                        &mut self.count,
+                    )?;
+                } else {
+                    c.amount.refs(&mut refs, depth + 1, &mut self.count)?;
+                }
                 self.check_refs(&refs)?;
                 if refs
                     .iter()
@@ -457,29 +485,80 @@ impl AnalysisState<'_> {
                 then_contract,
                 else_contract,
             } => {
+                let reduced = self
+                    .prune_constants
+                    .then(|| condition.reduce(&BTreeMap::new()))
+                    .transpose()?;
+                let condition = reduced.as_ref().unwrap_or(condition);
+                if self.prune_constants
+                    && let Some(value) = condition.constant()
+                {
+                    return self.walk(
+                        if value { then_contract } else { else_contract },
+                        guards,
+                        depth + 1,
+                    );
+                }
                 let mut refs = guards.clone();
                 condition.refs(&mut refs, depth + 1, &mut self.count)?;
                 self.check_refs(&refs)?;
                 self.walk(then_contract, &refs, depth + 1)?;
                 self.walk(else_contract, &refs, depth + 1)?;
             }
-            Term::Reverse { contract } => self.walk(contract, guards, depth + 1)?,
+            Term::Reverse { contract } => {
+                let start = self.flows.len();
+                self.walk(contract, guards, depth + 1)?;
+                if self.prune_constants {
+                    for c in &mut self.flows[start..] {
+                        c.direction = if c.direction == PaymentDirection::Pay {
+                            PaymentDirection::Receive
+                        } else {
+                            PaymentDirection::Pay
+                        };
+                    }
+                }
+            }
             Term::Scale { factor, contract } => {
+                let start = self.flows.len();
                 let mut refs = guards.clone();
+                let reduced = self
+                    .prune_constants
+                    .then(|| factor.reduce(&BTreeMap::new()))
+                    .transpose()?;
+                let factor = reduced.as_ref().unwrap_or(factor);
                 factor.refs(&mut refs, depth + 1, &mut self.count)?;
                 self.check_refs(&refs)?;
                 self.walk(contract, &refs, depth + 1)?;
+                if self.prune_constants {
+                    // Bound amplification before cloning a factor into many payments.
+                    let mut factor_nodes = 0;
+                    factor.refs(&mut BTreeSet::new(), 0, &mut factor_nodes)?;
+                    self.analysis_nodes = (self.flows.len() - start)
+                        .checked_mul(factor_nodes + 1)
+                        .and_then(|extra| self.analysis_nodes.checked_add(extra))
+                        .ok_or_else(|| ContractError::Invalid("analysis size overflow".into()))?;
+                    super::expression::budget(0, &mut self.analysis_nodes)?;
+                    for c in &mut self.flows[start..] {
+                        c.amount = c.amount.clone().times(factor.clone());
+                    }
+                }
             }
             Term::Barrier {
                 id,
                 observations,
                 direction: _,
                 level,
-                hit: _,
+                hit,
                 on_hit,
                 on_no_hit,
             } => {
+                if self.prune_constants && *hit {
+                    return self.walk(on_hit, guards, depth + 1);
+                }
                 identifier(id)?;
+                if !self.barrier_ids.insert(id.clone()) {
+                    return Err(ContractError::Invalid(format!("duplicate barrier {id}")));
+                }
                 super::expression::finite(*level)?;
                 if observations.is_empty() {
                     return Err(ContractError::Invalid(
@@ -522,18 +601,40 @@ impl AnalysisState<'_> {
         Ok(())
     }
 }
-fn unconditional_constants(t: &Term) -> Vec<Cashflow> {
-    match t {
-        Term::Cashflow { cashflow } if cashflow.amount.constant().is_some() => {
-            vec![cashflow.clone()]
+fn unconditional_constants(t: &Term) -> Result<Vec<Cashflow>, ContractError> {
+    let empty = BTreeMap::new();
+    Ok(match t {
+        Term::Cashflow { cashflow } => {
+            if let Some(value) = cashflow.amount.reduce(&empty)?.constant() {
+                let mut c = cashflow.clone();
+                c.amount = value.into();
+                vec![c]
+            } else {
+                vec![]
+            }
         }
-        Term::Bundle { contracts } => contracts.iter().flat_map(unconditional_constants).collect(),
+        Term::Bundle { contracts } => {
+            let mut flows = Vec::new();
+            for term in contracts {
+                flows.extend(unconditional_constants(term)?);
+            }
+            flows
+        }
         Term::Conditional {
-            condition: BooleanExpr::Constant { value },
+            condition,
             then_contract,
             else_contract,
-        } => unconditional_constants(if *value { then_contract } else { else_contract }),
-        Term::Reverse { contract } => unconditional_constants(contract)
+        } => {
+            if let Some(value) = condition.reduce(&empty)?.constant() {
+                unconditional_constants(if value { then_contract } else { else_contract })?
+            } else {
+                vec![]
+            }
+        }
+        Term::Barrier {
+            hit: true, on_hit, ..
+        } => unconditional_constants(on_hit)?,
+        Term::Reverse { contract } => unconditional_constants(contract)?
             .into_iter()
             .map(|mut c| {
                 c.direction = if c.direction == PaymentDirection::Pay {
@@ -544,16 +645,19 @@ fn unconditional_constants(t: &Term) -> Vec<Cashflow> {
                 c
             })
             .collect(),
-        Term::Scale {
-            factor: NumericExpr::Constant { value },
-            contract,
-        } => unconditional_constants(contract)
-            .into_iter()
-            .map(|mut c| {
-                c.amount = NumericExpr::from(c.amount.constant().unwrap() * value);
-                c
-            })
-            .collect(),
+        Term::Scale { factor, contract } => {
+            if let Some(value) = factor.reduce(&empty)?.constant() {
+                unconditional_constants(contract)?
+                    .into_iter()
+                    .map(|mut c| {
+                        c.amount = NumericExpr::from(c.amount.constant().unwrap() * value);
+                        c
+                    })
+                    .collect()
+            } else {
+                vec![]
+            }
+        }
         _ => vec![],
-    }
+    })
 }

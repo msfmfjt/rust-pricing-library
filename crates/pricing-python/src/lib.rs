@@ -4,6 +4,7 @@
 
 mod bass_lv;
 mod builders;
+mod contract;
 mod diagnostics;
 mod dual;
 mod errors;
@@ -1613,6 +1614,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     pricing_source::register(module)?;
     pricing_task::register(module)?;
     product_graph::register(module)?;
+    contract::register(module)?;
     module.add_class::<bass_lv::PyBassMarginal>()?;
     module.add_class::<bass_lv::PyBassLvConfig>()?;
     module.add_class::<bass_lv::PyBassLvModel>()?;

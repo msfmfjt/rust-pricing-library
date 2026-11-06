@@ -643,6 +643,28 @@ fn compile_graph_cashflows(
     if source.outputs().len() == 1 {
         return Ok(source.clone());
     }
+    // Complementary payments on one date form one lazy choice. Keep source
+    // cashflow identities intact, but avoid traversing both zero-masked outputs
+    // in the native aggregate. Legacy graphs have no Select and are unchanged.
+    if source.outputs().len() == 2
+        && !product.has_multiple_payment_dates()
+        && let Some((condition, then_value, else_value)) = complementary_cashflows(source)
+    {
+        let mut builder = SourceGraphBuilder::from_graph(source);
+        let selected = builder.push(SourceOpcode::Select {
+            condition,
+            then_value,
+            else_value,
+        })?;
+        // The original sum includes a positive zero on either side; preserve
+        // its signed-zero behavior as well as ordinary finite values.
+        let zero = builder.literal(0.0)?;
+        let output = builder.push(SourceOpcode::Add {
+            left: selected,
+            right: zero,
+        })?;
+        return Ok(builder.finish(vec![output]));
+    }
     let curve = request.market().equity().forward().discount_curve();
     let fraction = |date| DayCountConvention::Act365F.year_fraction(request.valuation_date(), date);
     let final_discount = curve
@@ -667,4 +689,149 @@ fn compile_graph_cashflows(
         });
     }
     Ok(builder.finish(vec![sum.expect("validated nonempty cash flows")]))
+}
+
+/// Recognize only exact positive-zero masks with the same predicate. This is a
+/// graph optimization, independent of instrument type and model dynamics.
+fn complementary_cashflows(
+    source: &crate::product::SourceGraph,
+) -> Option<(
+    crate::core::NodeId,
+    crate::core::NodeId,
+    crate::core::NodeId,
+)> {
+    use crate::product::SourceOpcode as Op;
+    let nodes: std::collections::BTreeMap<_, _> = source
+        .nodes()
+        .iter()
+        .map(|n| (n.id(), n.opcode()))
+        .collect();
+    let literal = |id, value: f64| matches!(nodes.get(&id), Some(Op::Literal(v)) if v.get().to_bits() == value.to_bits());
+    let gate = |id| {
+        let Op::Select {
+            mut condition,
+            then_value,
+            else_value,
+        } = *nodes.get(&id)?
+        else {
+            return None;
+        };
+        let (amount, mut on_true) = if literal(else_value, 0.0) {
+            (then_value, true)
+        } else if literal(then_value, 0.0) {
+            (else_value, false)
+        } else {
+            return None;
+        };
+        if let Some(Op::Select {
+            condition: inner,
+            then_value: yes,
+            else_value: no,
+        }) = nodes.get(&condition)
+            && literal(*yes, 0.0)
+            && literal(*no, 1.0)
+        {
+            condition = *inner;
+            on_true = !on_true;
+        }
+        Some((condition, amount, on_true))
+    };
+    let (ca, a, ta) = gate(source.outputs()[0])?;
+    let (cb, b, tb) = gate(source.outputs()[1])?;
+    (ca == cb && ta != tb).then_some(if ta { (ca, a, b) } else { (ca, b, a) })
+}
+
+#[cfg(test)]
+mod contract_aggregation_tests {
+    use super::compile_graph_cashflows;
+    use crate::core::{CurrencyId, UnderlyingId};
+    use crate::product::{
+        GraphComparison, GraphLimitPolicy, GraphProduct, SourceGraphBuilder, SourceOpcode as Op,
+    };
+
+    #[test]
+    fn complementary_cashflow_aggregation_preserves_bits_and_inactive_observations() {
+        let request = crate::parse_request_json(
+            include_bytes!("../../../../../fixtures/v3/pricing_request.golden.json"),
+            crate::JsonLimits::DEFAULT,
+        )
+        .unwrap();
+        let first = "2027-03-04".parse().unwrap();
+        let last = "2027-09-04".parse().unwrap();
+        for amount in [-0.0, 0.0, -7.5, 23.0] {
+            let mut b = SourceGraphBuilder::new();
+            let zero = b.literal(0.0).unwrap();
+            let one = b.literal(1.0).unwrap();
+            let spot = b
+                .push(Op::TerminalSpot {
+                    underlying: UnderlyingId::new(1),
+                    observation_date: first,
+                })
+                .unwrap();
+            let condition = b
+                .push(Op::Compare {
+                    left: spot,
+                    right: zero,
+                    operation: GraphComparison::Greater,
+                })
+                .unwrap();
+            let inverted = b
+                .push(Op::Select {
+                    condition,
+                    then_value: zero,
+                    else_value: one,
+                })
+                .unwrap();
+            let fixed = b.literal(amount).unwrap();
+            let future = b
+                .push(Op::TerminalSpot {
+                    underlying: UnderlyingId::new(1),
+                    observation_date: last,
+                })
+                .unwrap();
+            let a = b
+                .push(Op::Select {
+                    condition,
+                    then_value: fixed,
+                    else_value: zero,
+                })
+                .unwrap();
+            let c = b
+                .push(Op::Select {
+                    condition: inverted,
+                    then_value: future,
+                    else_value: zero,
+                })
+                .unwrap();
+            let product = GraphProduct::new(
+                CurrencyId::new(2),
+                vec![UnderlyingId::new(1)],
+                b.finish(vec![a, c]),
+                vec![last, last],
+            )
+            .unwrap();
+            let original = product
+                .source_graph()
+                .compile(GraphLimitPolicy::DEFAULT)
+                .unwrap();
+            let aggregate = compile_graph_cashflows(&product, &request)
+                .unwrap()
+                .compile(GraphLimitPolicy::DEFAULT)
+                .unwrap();
+            for positive in [true, false] {
+                let observe = |_, date| {
+                    if date == first {
+                        Some(if positive { 1.0 } else { -1.0 })
+                    } else if positive {
+                        None
+                    } else {
+                        Some(-3.0)
+                    }
+                };
+                let values = original.evaluate(observe).unwrap();
+                let actual = aggregate.evaluate(observe).unwrap()[0];
+                assert_eq!(actual.to_bits(), (values[0] + values[1]).to_bits());
+            }
+        }
+    }
 }

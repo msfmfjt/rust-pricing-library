@@ -5,7 +5,7 @@ use pricing::{
     PricingTaskOutput, ReportedCalibration, ReportedRisk, ValuationReport,
 };
 
-fn operation(name: &str, bump: Option<f64>) -> PyResult<PricingOperation> {
+pub(crate) fn operation(name: &str, bump: Option<f64>) -> PyResult<PricingOperation> {
     match (name, bump) {
         ("evaluate", None) => Ok(PricingOperation::Evaluate),
         ("aad", gamma_relative_bump) => Ok(PricingOperation::Aad {
@@ -70,7 +70,7 @@ impl PyPricingCapability {
 #[pyclass(frozen, name = "PricingTask")]
 #[derive(Clone, Debug)]
 pub struct PyPricingTask {
-    inner: PricingTask,
+    pub(crate) inner: PricingTask,
 }
 #[pymethods]
 impl PyPricingTask {
