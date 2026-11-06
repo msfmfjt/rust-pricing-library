@@ -100,3 +100,5 @@ Required contributor checks are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 Use [product graphs](product-graphs.md) to build custom cash flows with the same
 Rust, Python and JSON source representation.
+
+- [Contract sources and lifecycle](contracts.md)

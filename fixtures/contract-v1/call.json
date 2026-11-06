@@ -1,0 +1,43 @@
+{
+  "document_kind": "contract",
+  "schema_version": 1,
+  "id": "european-call",
+  "observations": [
+    {
+      "id": "close",
+      "underlying": 1,
+      "kind": "spot",
+      "date": "2027-01-01",
+      "fixing_source": "exchange.close"
+    }
+  ],
+  "root": {
+    "type": "cashflow",
+    "cashflow": {
+      "id": "payment",
+      "currency": 2,
+      "amount": {
+        "type": "maximum",
+        "left": {
+          "type": "subtract",
+          "left": {
+            "type": "observation",
+            "id": "close"
+          },
+          "right": {
+            "type": "constant",
+            "value": 100.0
+          }
+        },
+        "right": {
+          "type": "constant",
+          "value": 0.0
+        }
+      },
+      "direction": "receive",
+      "determination_date": "2027-01-01",
+      "payment_date": "2027-01-03",
+      "settlement_date": "2027-01-03"
+    }
+  }
+}

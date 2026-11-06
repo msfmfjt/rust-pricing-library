@@ -14,6 +14,14 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    "crates/pricing/src/contract/mod.rs",
+    "crates/pricing/src/contract/expression.rs",
+    "crates/pricing/src/contract/source.rs",
+    "crates/pricing/src/contract/wire.rs",
+    "crates/pricing/tests/contract_source.rs",
+    "schemas/contract-v1/contract.schema.json",
+    "docs/library/contracts.md",
+    "design/adr/0041-contract-lifecycle-mc.md",
     ".github/workflows/native-memory-diagnostic.yml",
     "scripts/native_memory_diagnostic.py",
     "scripts/test_native_memory_diagnostic.py",
