@@ -1,613 +1,2478 @@
 {
-  "measured_at_utc": "2026-11-05T19:44:26.886835+00:00",
-  "pricing_implementation_commit": "a7f3d62",
-  "environment": {
-    "os": "Darwin 27.0.0 arm64",
-    "rust": "1.98.1",
-    "python": "3.14.2"
+  "implementation_commit": "aafdcf2c2169ed007aedbb66d930ec9ec6049d1b",
+  "protocol": {
+    "scope": "Representative European, arithmetic Asian and discrete barrier native-versus-contract paths; autocall measured without a legacy native comparator.",
+    "status": "protocol fixed after exploratory measurements, before retained five-invocation validation",
+    "observation_periods": [
+      2,
+      12
+    ],
+    "invocations_per_schedule": 5,
+    "path_evaluations_per_invocation": 1000000,
+    "mc_sampling_units": 262144,
+    "warmup_repetitions": 1,
+    "measured_repetitions_per_invocation": 7,
+    "mc_execution_order": "Alternating native plan/native task/contract task and reverse order",
+    "worker_threads": 2,
+    "seed": 7,
+    "acceptance": {
+      "median_across_invocations_of_paired_mc_ratio_max": 1.15,
+      "median_across_invocations_of_reused_payoff_ratio_max": 1.15,
+      "contract_compilation_median_microseconds_max": 1000,
+      "warmed_workspace_capacity_growth": 0,
+      "contract_workspace_bytes_max_relative_to_native": 1.0,
+      "pv_and_standard_error_absolute_difference_max": 1e-11
+    },
+    "limits": [
+      "Machine-specific timings; raw samples retained, not a universal SLA.",
+      "Compilation includes Contract validation/lowering, unlike the native graph-only baseline.",
+      "Workspace capacity measures path allocations; process-wide allocator interception is unavailable under the workspace unsafe-code prohibition.",
+      "Immutable control-flow storage reported separately; path simulation buffers remain owned by existing engines."
+    ]
   },
-  "independent_invocations": 5,
-  "summary_mc_medians": {
-    "european": {
-      "native_total_ms": 3.139125,
-      "native_task_total_ms": 3.528083,
-      "contract_total_ms": 2.358917,
-      "contract_to_native_task_ratio": 0.6686115377671104,
-      "pv": 9.248537405001318,
-      "standard_error": 0.057104986249763
+  "summary": [
+    {
+      "periods": 2,
+      "product": "european",
+      "median_paired_mc_ratio": 1.0023533821421555,
+      "median_reused_payoff_ratio": 1.0048526978375796,
+      "median_compilation_us": 10.012915,
+      "workspace_growth": 0,
+      "workspace_ratio": 1.0,
+      "passed": true
     },
-    "asian": {
-      "native_total_ms": 5.6460420000000004,
-      "native_task_total_ms": 4.23675,
-      "contract_total_ms": 4.23925,
-      "contract_to_native_task_ratio": 1.0005900749395173,
-      "pv": 7.2206851353072805,
-      "standard_error": 0.043384345482141734
+    {
+      "periods": 2,
+      "product": "asian",
+      "median_paired_mc_ratio": 0.9778743746236586,
+      "median_reused_payoff_ratio": 0.8180583844025063,
+      "median_compilation_us": 14.827289999999998,
+      "workspace_growth": 0,
+      "workspace_ratio": 0.8125,
+      "passed": true
     },
-    "barrier": {
-      "native_total_ms": 5.671,
-      "native_task_total_ms": 6.019125,
-      "contract_total_ms": 5.971375,
-      "contract_to_native_task_ratio": 0.9920669532531722,
-      "pv": 3.1657641033320405,
-      "standard_error": 0.01899216547016486
+    {
+      "periods": 2,
+      "product": "barrier",
+      "median_paired_mc_ratio": 0.9469633286485339,
+      "median_reused_payoff_ratio": 0.6759019057881654,
+      "median_compilation_us": 21.878539999999997,
+      "workspace_growth": 0,
+      "workspace_ratio": 0.88,
+      "passed": true
+    },
+    {
+      "periods": 12,
+      "product": "european",
+      "median_paired_mc_ratio": 1.0029993401971433,
+      "median_reused_payoff_ratio": 1.004498945234576,
+      "median_compilation_us": 10.05625,
+      "workspace_growth": 0,
+      "workspace_ratio": 1.0,
+      "passed": true
+    },
+    {
+      "periods": 12,
+      "product": "asian",
+      "median_paired_mc_ratio": 0.9467622426859285,
+      "median_reused_payoff_ratio": 0.7672990595973741,
+      "median_compilation_us": 48.419585,
+      "workspace_growth": 0,
+      "workspace_ratio": 0.7678571428571429,
+      "passed": true
+    },
+    {
+      "periods": 12,
+      "product": "barrier",
+      "median_paired_mc_ratio": 0.9223781524135267,
+      "median_reused_payoff_ratio": 0.636882337330477,
+      "median_compilation_us": 65.26854,
+      "workspace_growth": 0,
+      "workspace_ratio": 0.8576923076923076,
+      "passed": true
     }
-  },
-  "samples": [
+  ],
+  "runs": [
     {
-      "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
-      "asian": {
-        "contract": {
-          "checksum": 1811700.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 55.98,
-          "reused_ns_per_path": 38.69416,
-          "state_value_slots": 12,
-          "workspace_bytes": 104,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 14.595414999999997,
-        "native": {
-          "checksum": 1811700.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 66.14041,
-          "reused_ns_per_path": 41.8075,
-          "state_value_slots": 15,
-          "workspace_bytes": 128,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 3.8614550000000003
-      },
-      "autocall": {
-        "contract": {
-          "checksum": 10148145.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 172.97875,
-          "reused_ns_per_path": 158.95791,
-          "state_value_slots": 26,
-          "workspace_bytes": 290,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 36.666455
-      },
-      "barrier": {
-        "contract": {
-          "checksum": 309870.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 127.02125,
-          "reused_ns_per_path": 111.76458,
-          "state_value_slots": 16,
-          "workspace_bytes": 192,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 20.05771,
-        "native": {
-          "checksum": 309870.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 75.09917,
-          "reused_ns_per_path": 66.9625,
-          "state_value_slots": 24,
-          "workspace_bytes": 200,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 6.443125
-      },
-      "european": {
-        "contract": {
-          "checksum": 1811700.0,
-          "observation_slots": 1,
-          "owned_output_ns_per_path": 45.81208,
-          "reused_ns_per_path": 21.05708,
-          "state_value_slots": 7,
-          "workspace_bytes": 64,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 9.344375,
-        "native": {
-          "checksum": 1811700.0,
-          "observation_slots": 1,
-          "owned_output_ns_per_path": 46.94708,
-          "reused_ns_per_path": 24.19708,
-          "state_value_slots": 7,
-          "workspace_bytes": 64,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 1.9208349999999998
-      },
-      "mc": {
+      "periods": 2,
+      "invocation": 1,
+      "report": {
+        "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
         "asian": {
-          "contract_total_ms": 7.848792,
-          "native_pv": 7.2206851353072805,
-          "native_task_total_ms": 7.595,
-          "native_total_ms": 7.740375,
-          "pv": 7.2206851353072805,
-          "standard_error": 0.043384345482141734,
-          "timing_repetitions_after_warmup": 5
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 50.495042,
+            "reused_ns_per_path": 32.908916000000005,
+            "state_value_slots": 12,
+            "workspace_bytes": 104,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 15.09271,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 55.773666,
+            "reused_ns_per_path": 40.245584,
+            "state_value_slots": 15,
+            "workspace_bytes": 128,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 3.659375
+        },
+        "autocall": {
+          "contract": {
+            "checksum": 101485145.0,
+            "evaluation_program_bytes": 880,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 84.947667,
+            "reused_ns_per_path": 74.68225,
+            "state_value_slots": 26,
+            "workspace_bytes": 290,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 40.60917
         },
         "barrier": {
-          "contract_total_ms": 4.813292000000001,
-          "native_pv": 3.1657641033320405,
-          "native_task_total_ms": 6.467333,
-          "native_total_ms": 7.7794170000000005,
-          "pv": 3.1657641033320405,
-          "standard_error": 0.01899216547016486,
-          "timing_repetitions_after_warmup": 5
+          "contract": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 400,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 56.893125,
+            "reused_ns_per_path": 43.023333,
+            "state_value_slots": 16,
+            "workspace_bytes": 176,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 22.09875,
+          "native": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 69.729875,
+            "reused_ns_per_path": 64.252167,
+            "state_value_slots": 24,
+            "workspace_bytes": 200,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 5.894795
         },
         "european": {
-          "contract_total_ms": 6.109583,
-          "native_pv": 9.248537405001318,
-          "native_task_total_ms": 6.175042,
-          "native_total_ms": 4.832000000000001,
-          "pv": 9.248537405001318,
-          "standard_error": 0.057104986249763,
-          "timing_repetitions_after_warmup": 5
-        }
-      },
-      "mc_sampling_units": 16384,
-      "paths": 100000,
-      "schema_version": 1,
-      "seed": 7,
-      "worker_threads": 2
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 44.230458,
+            "reused_ns_per_path": 19.764042,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 9.745835,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 43.573833,
+            "reused_ns_per_path": 19.645583,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 1.87375
+        },
+        "mc": {
+          "asian": {
+            "contract_samples_ms": [
+              37.681916,
+              37.560583,
+              37.38325,
+              37.324957999999995,
+              37.36375,
+              37.353416,
+              37.319625
+            ],
+            "contract_total_ms": 37.36375,
+            "median_paired_ratio": 0.9811782823611206,
+            "native_plan_samples_ms": [
+              38.432708000000005,
+              38.414790999999994,
+              38.945875,
+              38.039958,
+              38.050541,
+              38.012833,
+              40.708124999999995
+            ],
+            "native_pv": 7.219170995501149,
+            "native_task_samples_ms": [
+              38.942707999999996,
+              38.018875,
+              38.970959,
+              38.03,
+              38.619042,
+              38.069958,
+              37.98175
+            ],
+            "native_task_total_ms": 38.069958,
+            "native_total_ms": 38.414790999999994,
+            "paired_contract_native_ratios": [
+              0.9676244394714411,
+              0.9879456717222695,
+              0.9592591755311948,
+              0.981460899290034,
+              0.9674955168489162,
+              0.9811782823611206,
+              0.9825672856042705
+            ],
+            "pv": 7.219170995501149,
+            "standard_error": 0.010718647972898362,
+            "timing_repetitions_after_warmup": 7
+          },
+          "barrier": {
+            "contract_samples_ms": [
+              41.392375,
+              40.094291,
+              40.121916,
+              44.323708,
+              40.317209,
+              44.081250000000004,
+              40.090166
+            ],
+            "contract_total_ms": 40.317209,
+            "median_paired_ratio": 0.9469633286485339,
+            "native_plan_samples_ms": [
+              42.792625,
+              43.747208,
+              43.61475,
+              43.010625,
+              43.126375,
+              42.938458,
+              42.894666
+            ],
+            "native_pv": 3.152073489303607,
+            "native_task_samples_ms": [
+              43.039,
+              42.927125,
+              43.12775,
+              44.116541000000005,
+              42.596000000000004,
+              42.698375,
+              42.335499999999996
+            ],
+            "native_task_total_ms": 42.927125,
+            "native_total_ms": 43.010625,
+            "paired_contract_native_ratios": [
+              0.9617410952856711,
+              0.9340082989485087,
+              0.930303945835338,
+              1.0046959030627536,
+              0.9465022302563619,
+              1.032387063910512,
+              0.9469633286485339
+            ],
+            "pv": 3.152073489303607,
+            "standard_error": 0.004718468419882755,
+            "timing_repetitions_after_warmup": 7
+          },
+          "european": {
+            "contract_samples_ms": [
+              79.01237499999999,
+              59.576792000000005,
+              58.82675,
+              30.198916,
+              30.55925,
+              30.465083,
+              30.576583
+            ],
+            "contract_total_ms": 30.576583,
+            "median_paired_ratio": 0.997629959900395,
+            "native_plan_samples_ms": [
+              60.931709,
+              59.051584,
+              62.716375000000006,
+              64.29162500000001,
+              36.673041000000005,
+              30.444542000000002,
+              34.065
+            ],
+            "native_pv": 9.264736557093679,
+            "native_task_samples_ms": [
+              63.068709,
+              59.774333999999996,
+              59.03,
+              50.52425,
+              29.770959,
+              30.537458,
+              29.748583
+            ],
+            "native_task_total_ms": 50.52425,
+            "native_total_ms": 59.051584,
+            "paired_contract_native_ratios": [
+              1.2527983567889425,
+              0.9966952036638336,
+              0.9965568355073691,
+              0.5977113168429021,
+              1.0264785222404156,
+              0.997629959900395,
+              1.0278332584782273
+            ],
+            "pv": 9.264736557093679,
+            "standard_error": 0.014223569111534017,
+            "timing_repetitions_after_warmup": 7
+          }
+        },
+        "mc_sampling_units": 262144,
+        "paths": 1000000,
+        "periods": 2,
+        "schema_version": 1,
+        "seed": 7,
+        "worker_threads": 2
+      }
     },
     {
-      "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
-      "asian": {
-        "contract": {
-          "checksum": 1811700.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 54.09875,
-          "reused_ns_per_path": 33.925,
-          "state_value_slots": 12,
-          "workspace_bytes": 104,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 13.657085,
-        "native": {
-          "checksum": 1811700.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 56.04583,
-          "reused_ns_per_path": 41.787079999999996,
-          "state_value_slots": 15,
-          "workspace_bytes": 128,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 3.92625
-      },
-      "autocall": {
-        "contract": {
-          "checksum": 10148145.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 170.00917,
-          "reused_ns_per_path": 157.53708000000003,
-          "state_value_slots": 26,
-          "workspace_bytes": 290,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 35.77458
-      },
-      "barrier": {
-        "contract": {
-          "checksum": 309870.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 124.93959,
-          "reused_ns_per_path": 109.19458,
-          "state_value_slots": 16,
-          "workspace_bytes": 192,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 19.692085,
-        "native": {
-          "checksum": 309870.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 70.90209,
-          "reused_ns_per_path": 67.74584,
-          "state_value_slots": 24,
-          "workspace_bytes": 200,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 6.311045
-      },
-      "european": {
-        "contract": {
-          "checksum": 1811700.0,
-          "observation_slots": 1,
-          "owned_output_ns_per_path": 46.03541,
-          "reused_ns_per_path": 20.53583,
-          "state_value_slots": 7,
-          "workspace_bytes": 64,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 9.14354,
-        "native": {
-          "checksum": 1811700.0,
-          "observation_slots": 1,
-          "owned_output_ns_per_path": 43.79792,
-          "reused_ns_per_path": 20.77625,
-          "state_value_slots": 7,
-          "workspace_bytes": 64,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 1.9595799999999999
-      },
-      "mc": {
+      "periods": 2,
+      "invocation": 2,
+      "report": {
+        "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
         "asian": {
-          "contract_total_ms": 3.3265000000000002,
-          "native_pv": 7.2206851353072805,
-          "native_task_total_ms": 3.024792,
-          "native_total_ms": 6.6475409999999995,
-          "pv": 7.2206851353072805,
-          "standard_error": 0.043384345482141734,
-          "timing_repetitions_after_warmup": 5
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 49.572667,
+            "reused_ns_per_path": 33.458707999999994,
+            "state_value_slots": 12,
+            "workspace_bytes": 104,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 15.377914999999998,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 55.2455,
+            "reused_ns_per_path": 40.190791,
+            "state_value_slots": 15,
+            "workspace_bytes": 128,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 3.6104149999999997
+        },
+        "autocall": {
+          "contract": {
+            "checksum": 101485145.0,
+            "evaluation_program_bytes": 880,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 86.957541,
+            "reused_ns_per_path": 74.882667,
+            "state_value_slots": 26,
+            "workspace_bytes": 290,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 41.048539999999996
         },
         "barrier": {
-          "contract_total_ms": 5.971375,
-          "native_pv": 3.1657641033320405,
-          "native_task_total_ms": 6.962333,
-          "native_total_ms": 6.919167000000001,
-          "pv": 3.1657641033320405,
-          "standard_error": 0.01899216547016486,
-          "timing_repetitions_after_warmup": 5
+          "contract": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 400,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 56.100584,
+            "reused_ns_per_path": 43.895084,
+            "state_value_slots": 16,
+            "workspace_bytes": 176,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 22.105415000000004,
+          "native": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 68.5035,
+            "reused_ns_per_path": 63.51770900000001,
+            "state_value_slots": 24,
+            "workspace_bytes": 200,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 5.898955
         },
         "european": {
-          "contract_total_ms": 2.3582910000000004,
-          "native_pv": 9.248537405001318,
-          "native_task_total_ms": 2.744291,
-          "native_total_ms": 2.328208,
-          "pv": 9.248537405001318,
-          "standard_error": 0.057104986249763,
-          "timing_repetitions_after_warmup": 5
-        }
-      },
-      "mc_sampling_units": 16384,
-      "paths": 100000,
-      "schema_version": 1,
-      "seed": 7,
-      "worker_threads": 2
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 40.118209,
+            "reused_ns_per_path": 19.666583,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 9.96729,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 40.206375,
+            "reused_ns_per_path": 19.605042,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 1.7804149999999999
+        },
+        "mc": {
+          "asian": {
+            "contract_samples_ms": [
+              78.83520800000001,
+              78.847334,
+              78.88575,
+              78.677417,
+              78.603958,
+              37.608458999999996,
+              37.444625
+            ],
+            "contract_total_ms": 78.677417,
+            "median_paired_ratio": 1.2600119903500127,
+            "native_plan_samples_ms": [
+              61.189750000000004,
+              55.452041,
+              62.570584,
+              62.516000000000005,
+              61.991541999999995,
+              43.114584,
+              38.903292
+            ],
+            "native_pv": 7.219170995501149,
+            "native_task_samples_ms": [
+              63.072708000000006,
+              62.465417,
+              62.266792,
+              62.345791999999996,
+              62.3835,
+              38.852084000000005,
+              44.925125
+            ],
+            "native_task_total_ms": 62.345791999999996,
+            "native_total_ms": 61.189750000000004,
+            "paired_contract_native_ratios": [
+              1.2499099927658093,
+              1.2622557854692622,
+              1.2668992165197783,
+              1.2619523222994746,
+              1.2600119903500127,
+              0.9679907775346103,
+              0.8334896118819926
+            ],
+            "pv": 7.219170995501149,
+            "standard_error": 0.010718647972898362,
+            "timing_repetitions_after_warmup": 7
+          },
+          "barrier": {
+            "contract_samples_ms": [
+              40.527083,
+              42.173167,
+              40.369792000000004,
+              41.030542000000004,
+              46.738542,
+              47.13675,
+              45.541458
+            ],
+            "contract_total_ms": 42.173167,
+            "median_paired_ratio": 0.9994855299369887,
+            "native_plan_samples_ms": [
+              42.783583,
+              42.242875,
+              43.613416,
+              43.173625,
+              43.138584,
+              43.311375,
+              44.620416000000006
+            ],
+            "native_pv": 3.152073489303607,
+            "native_task_samples_ms": [
+              42.327875,
+              42.194875,
+              43.195042,
+              42.83608400000001,
+              43.035375,
+              42.504917000000006,
+              44.019792
+            ],
+            "native_task_total_ms": 42.83608400000001,
+            "native_total_ms": 43.173625,
+            "paired_contract_native_ratios": [
+              0.9574561208187276,
+              0.9994855299369887,
+              0.9345931878015075,
+              0.9578499752685142,
+              1.0860493721734736,
+              1.1089716984978466,
+              1.0345677689708301
+            ],
+            "pv": 3.152073489303607,
+            "standard_error": 0.004718468419882755,
+            "timing_repetitions_after_warmup": 7
+          },
+          "european": {
+            "contract_samples_ms": [
+              36.4255,
+              30.201249999999998,
+              30.324125,
+              29.459208,
+              29.718541000000002,
+              29.846999999999998,
+              30.65675
+            ],
+            "contract_total_ms": 30.201249999999998,
+            "median_paired_ratio": 1.0023533821421555,
+            "native_plan_samples_ms": [
+              31.153457999999997,
+              31.621707999999998,
+              29.401333,
+              29.6025,
+              31.689166999999998,
+              29.265959000000002,
+              29.502166
+            ],
+            "native_pv": 9.264736557093679,
+            "native_task_samples_ms": [
+              30.260958000000002,
+              34.018416,
+              33.61075,
+              29.390042,
+              29.115959,
+              31.673292,
+              30.238375
+            ],
+            "native_task_total_ms": 30.260958000000002,
+            "native_total_ms": 29.6025,
+            "paired_contract_native_ratios": [
+              1.203712717885534,
+              0.8877911893369755,
+              0.9022150651205343,
+              1.0023533821421555,
+              1.020695935174246,
+              0.9423396848044718,
+              1.0138358956127766
+            ],
+            "pv": 9.264736557093679,
+            "standard_error": 0.014223569111534017,
+            "timing_repetitions_after_warmup": 7
+          }
+        },
+        "mc_sampling_units": 262144,
+        "paths": 1000000,
+        "periods": 2,
+        "schema_version": 1,
+        "seed": 7,
+        "worker_threads": 2
+      }
     },
     {
-      "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
-      "asian": {
-        "contract": {
-          "checksum": 1811700.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 57.23208,
-          "reused_ns_per_path": 35.89084,
-          "state_value_slots": 12,
-          "workspace_bytes": 104,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 14.532295000000001,
-        "native": {
-          "checksum": 1811700.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 60.34917,
-          "reused_ns_per_path": 40.336670000000005,
-          "state_value_slots": 15,
-          "workspace_bytes": 128,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 3.6425
-      },
-      "autocall": {
-        "contract": {
-          "checksum": 10148145.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 174.39541,
-          "reused_ns_per_path": 156.11417,
-          "state_value_slots": 26,
-          "workspace_bytes": 290,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 36.083335000000005
-      },
-      "barrier": {
-        "contract": {
-          "checksum": 309870.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 122.575,
-          "reused_ns_per_path": 112.59583,
-          "state_value_slots": 16,
-          "workspace_bytes": 192,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 20.993544999999997,
-        "native": {
-          "checksum": 309870.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 72.635,
-          "reused_ns_per_path": 67.12375,
-          "state_value_slots": 24,
-          "workspace_bytes": 200,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 6.736045000000001
-      },
-      "european": {
-        "contract": {
-          "checksum": 1811700.0,
-          "observation_slots": 1,
-          "owned_output_ns_per_path": 46.00375,
-          "reused_ns_per_path": 22.78958,
-          "state_value_slots": 7,
-          "workspace_bytes": 64,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 9.791455,
-        "native": {
-          "checksum": 1811700.0,
-          "observation_slots": 1,
-          "owned_output_ns_per_path": 46.71958,
-          "reused_ns_per_path": 22.65375,
-          "state_value_slots": 7,
-          "workspace_bytes": 64,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 2.3979150000000002
-      },
-      "mc": {
+      "periods": 2,
+      "invocation": 3,
+      "report": {
+        "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
         "asian": {
-          "contract_total_ms": 4.23925,
-          "native_pv": 7.2206851353072805,
-          "native_task_total_ms": 4.23675,
-          "native_total_ms": 4.1595,
-          "pv": 7.2206851353072805,
-          "standard_error": 0.043384345482141734,
-          "timing_repetitions_after_warmup": 5
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 51.247209,
+            "reused_ns_per_path": 32.855541,
+            "state_value_slots": 12,
+            "workspace_bytes": 104,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 14.827289999999998,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 56.035667,
+            "reused_ns_per_path": 40.044667,
+            "state_value_slots": 15,
+            "workspace_bytes": 128,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 3.5927049999999996
+        },
+        "autocall": {
+          "contract": {
+            "checksum": 101485145.0,
+            "evaluation_program_bytes": 880,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 87.259667,
+            "reused_ns_per_path": 74.541416,
+            "state_value_slots": 26,
+            "workspace_bytes": 290,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 40.663545
         },
         "barrier": {
-          "contract_total_ms": 6.012,
-          "native_pv": 3.1657641033320405,
-          "native_task_total_ms": 4.423667,
-          "native_total_ms": 4.321083,
-          "pv": 3.1657641033320405,
-          "standard_error": 0.01899216547016486,
-          "timing_repetitions_after_warmup": 5
+          "contract": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 400,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 55.345792,
+            "reused_ns_per_path": 43.262708,
+            "state_value_slots": 16,
+            "workspace_bytes": 176,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 21.810835,
+          "native": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 69.060333,
+            "reused_ns_per_path": 64.237167,
+            "state_value_slots": 24,
+            "workspace_bytes": 200,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 5.724375
         },
         "european": {
-          "contract_total_ms": 2.22825,
-          "native_pv": 9.248537405001318,
-          "native_task_total_ms": 2.30375,
-          "native_total_ms": 2.2447909999999998,
-          "pv": 9.248537405001318,
-          "standard_error": 0.057104986249763,
-          "timing_repetitions_after_warmup": 5
-        }
-      },
-      "mc_sampling_units": 16384,
-      "paths": 100000,
-      "schema_version": 1,
-      "seed": 7,
-      "worker_threads": 2
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 41.304667,
+            "reused_ns_per_path": 19.676334,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 10.046460000000002,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 41.944667,
+            "reused_ns_per_path": 20.029375,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 1.78125
+        },
+        "mc": {
+          "asian": {
+            "contract_samples_ms": [
+              53.094833,
+              38.205584,
+              38.444958,
+              38.431,
+              38.3285,
+              38.002292,
+              38.259375
+            ],
+            "contract_total_ms": 38.3285,
+            "median_paired_ratio": 0.9778743746236586,
+            "native_plan_samples_ms": [
+              40.998667000000005,
+              39.875292,
+              38.827417000000004,
+              38.832416,
+              40.183458,
+              39.984583,
+              38.726499999999994
+            ],
+            "native_pv": 7.219170995501149,
+            "native_task_samples_ms": [
+              42.984916999999996,
+              39.563709,
+              39.30025,
+              39.3035,
+              38.819666000000005,
+              41.497333999999995,
+              39.125040999999996
+            ],
+            "native_task_total_ms": 39.3035,
+            "native_total_ms": 39.875292,
+            "paired_contract_native_ratios": [
+              1.235196824970024,
+              0.9656724550269036,
+              0.9782369832252976,
+              0.9778009592021066,
+              0.9873474954678897,
+              0.9157767098965924,
+              0.9778743746236586
+            ],
+            "pv": 7.219170995501149,
+            "standard_error": 0.010718647972898362,
+            "timing_repetitions_after_warmup": 7
+          },
+          "barrier": {
+            "contract_samples_ms": [
+              40.78625,
+              46.333375000000004,
+              41.660999999999994,
+              45.012457999999995,
+              45.210375,
+              40.518499999999996,
+              43.647083
+            ],
+            "contract_total_ms": 43.647083,
+            "median_paired_ratio": 1.0191172043139702,
+            "native_plan_samples_ms": [
+              44.463415999999995,
+              43.525083,
+              43.309208000000005,
+              44.247917,
+              43.080082999999995,
+              43.473083,
+              43.51075
+            ],
+            "native_pv": 3.152073489303607,
+            "native_task_samples_ms": [
+              42.938209,
+              43.994583,
+              44.224958,
+              43.340291,
+              44.362292,
+              43.226084,
+              42.641332999999996
+            ],
+            "native_task_total_ms": 43.340291,
+            "native_total_ms": 43.51075,
+            "paired_contract_native_ratios": [
+              0.9498824229021756,
+              1.0531609084691178,
+              0.9420246368577669,
+              1.038582274401434,
+              1.0191172043139702,
+              0.9373622648769201,
+              1.0235862701571736
+            ],
+            "pv": 3.152073489303607,
+            "standard_error": 0.004718468419882755,
+            "timing_repetitions_after_warmup": 7
+          },
+          "european": {
+            "contract_samples_ms": [
+              72.159292,
+              30.493375,
+              30.599874999999997,
+              30.489417,
+              30.373041999999998,
+              30.304333999999997,
+              30.427542
+            ],
+            "contract_total_ms": 30.489417,
+            "median_paired_ratio": 1.0102061902648918,
+            "native_plan_samples_ms": [
+              30.392833,
+              30.114792,
+              30.233583000000003,
+              30.026417,
+              30.056583,
+              29.946832999999998,
+              30.089208
+            ],
+            "native_pv": 9.264736557093679,
+            "native_task_samples_ms": [
+              48.424,
+              30.338708999999998,
+              30.000125,
+              30.937666,
+              30.029166999999998,
+              29.998167,
+              30.246916
+            ],
+            "native_task_total_ms": 30.246916,
+            "native_total_ms": 30.089208,
+            "paired_contract_native_ratios": [
+              1.490155542706096,
+              1.0050979756587535,
+              1.0199915833684026,
+              0.9855112211761546,
+              1.0114513665996796,
+              1.0102061902648918,
+              1.0059717162569566
+            ],
+            "pv": 9.264736557093679,
+            "standard_error": 0.014223569111534017,
+            "timing_repetitions_after_warmup": 7
+          }
+        },
+        "mc_sampling_units": 262144,
+        "paths": 1000000,
+        "periods": 2,
+        "schema_version": 1,
+        "seed": 7,
+        "worker_threads": 2
+      }
     },
     {
-      "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
-      "asian": {
-        "contract": {
-          "checksum": 1811700.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 55.28083,
-          "reused_ns_per_path": 33.69791,
-          "state_value_slots": 12,
-          "workspace_bytes": 104,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 13.608545000000001,
-        "native": {
-          "checksum": 1811700.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 56.99125,
-          "reused_ns_per_path": 44.86209,
-          "state_value_slots": 15,
-          "workspace_bytes": 128,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 3.9989600000000003
-      },
-      "autocall": {
-        "contract": {
-          "checksum": 10148145.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 171.43292,
-          "reused_ns_per_path": 159.00583,
-          "state_value_slots": 26,
-          "workspace_bytes": 290,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 36.2025
-      },
-      "barrier": {
-        "contract": {
-          "checksum": 309870.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 124.05917,
-          "reused_ns_per_path": 112.50625,
-          "state_value_slots": 16,
-          "workspace_bytes": 192,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 19.419375,
-        "native": {
-          "checksum": 309870.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 71.93333,
-          "reused_ns_per_path": 68.72375,
-          "state_value_slots": 24,
-          "workspace_bytes": 200,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 6.304165
-      },
-      "european": {
-        "contract": {
-          "checksum": 1811700.0,
-          "observation_slots": 1,
-          "owned_output_ns_per_path": 45.47625,
-          "reused_ns_per_path": 22.42459,
-          "state_value_slots": 7,
-          "workspace_bytes": 64,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 9.53875,
-        "native": {
-          "checksum": 1811700.0,
-          "observation_slots": 1,
-          "owned_output_ns_per_path": 41.440419999999996,
-          "reused_ns_per_path": 23.40458,
-          "state_value_slots": 7,
-          "workspace_bytes": 64,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 1.918545
-      },
-      "mc": {
+      "periods": 2,
+      "invocation": 4,
+      "report": {
+        "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
         "asian": {
-          "contract_total_ms": 2.722292,
-          "native_pv": 7.2206851353072805,
-          "native_task_total_ms": 2.721584,
-          "native_total_ms": 2.783334,
-          "pv": 7.2206851353072805,
-          "standard_error": 0.043384345482141734,
-          "timing_repetitions_after_warmup": 5
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 50.745208,
+            "reused_ns_per_path": 32.738083,
+            "state_value_slots": 12,
+            "workspace_bytes": 104,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 14.802290000000001,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 55.321334,
+            "reused_ns_per_path": 40.01925,
+            "state_value_slots": 15,
+            "workspace_bytes": 128,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 3.6122900000000002
+        },
+        "autocall": {
+          "contract": {
+            "checksum": 101485145.0,
+            "evaluation_program_bytes": 880,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 89.179958,
+            "reused_ns_per_path": 75.008167,
+            "state_value_slots": 26,
+            "workspace_bytes": 290,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 40.83500000000001
         },
         "barrier": {
-          "contract_total_ms": 4.177833,
-          "native_pv": 3.1657641033320405,
-          "native_task_total_ms": 2.951833,
-          "native_total_ms": 2.9100829999999998,
-          "pv": 3.1657641033320405,
-          "standard_error": 0.01899216547016486,
-          "timing_repetitions_after_warmup": 5
+          "contract": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 400,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 55.689459,
+            "reused_ns_per_path": 44.247041,
+            "state_value_slots": 16,
+            "workspace_bytes": 176,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 21.878539999999997,
+          "native": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 68.750458,
+            "reused_ns_per_path": 63.612,
+            "state_value_slots": 24,
+            "workspace_bytes": 200,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 5.819585
         },
         "european": {
-          "contract_total_ms": 2.358917,
-          "native_pv": 9.248537405001318,
-          "native_task_total_ms": 3.528083,
-          "native_total_ms": 3.139125,
-          "pv": 9.248537405001318,
-          "standard_error": 0.057104986249763,
-          "timing_repetitions_after_warmup": 5
-        }
-      },
-      "mc_sampling_units": 16384,
-      "paths": 100000,
-      "schema_version": 1,
-      "seed": 7,
-      "worker_threads": 2
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 40.823292,
+            "reused_ns_per_path": 19.744,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 10.037295,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 39.874584,
+            "reused_ns_per_path": 19.629791,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 1.7697899999999998
+        },
+        "mc": {
+          "asian": {
+            "contract_samples_ms": [
+              37.719,
+              38.491666,
+              37.325667,
+              39.906042,
+              38.351333000000004,
+              37.092332999999996,
+              38.259665999999996
+            ],
+            "contract_total_ms": 38.259665999999996,
+            "median_paired_ratio": 0.9155379403543196,
+            "native_plan_samples_ms": [
+              43.080124999999995,
+              42.775541,
+              42.479458,
+              41.455375000000004,
+              43.354416,
+              42.996334,
+              43.444625
+            ],
+            "native_pv": 7.219170995501149,
+            "native_task_samples_ms": [
+              41.131665999999996,
+              41.490667,
+              41.53425,
+              40.507334,
+              42.3315,
+              40.514250000000004,
+              43.536625
+            ],
+            "native_task_total_ms": 41.490667,
+            "native_total_ms": 42.996334,
+            "paired_contract_native_ratios": [
+              0.9170306887155995,
+              0.927718660198931,
+              0.8986719875765182,
+              0.985155972002502,
+              0.9059762351912879,
+              0.9155379403543196,
+              0.8787926487181769
+            ],
+            "pv": 7.219170995501149,
+            "standard_error": 0.010718647972898362,
+            "timing_repetitions_after_warmup": 7
+          },
+          "barrier": {
+            "contract_samples_ms": [
+              43.111875,
+              42.765041,
+              40.010999999999996,
+              40.224708,
+              43.073083,
+              40.365667,
+              44.268792000000005
+            ],
+            "contract_total_ms": 42.765041,
+            "median_paired_ratio": 0.9370678394568086,
+            "native_plan_samples_ms": [
+              44.380250000000004,
+              44.907500000000006,
+              43.060333,
+              42.33725,
+              44.421041,
+              41.99125,
+              44.607375
+            ],
+            "native_pv": 3.152073489303607,
+            "native_task_samples_ms": [
+              46.007208,
+              43.345625,
+              43.67625,
+              46.289041000000005,
+              42.762708,
+              43.750709,
+              42.056708
+            ],
+            "native_task_total_ms": 43.67625,
+            "native_total_ms": 44.380250000000004,
+            "paired_contract_native_ratios": [
+              0.9370678394568086,
+              0.9866057070350237,
+              0.9160813943504763,
+              0.8689898760270276,
+              1.0072580763594297,
+              0.9226288652830746,
+              1.0525976498208087
+            ],
+            "pv": 3.152073489303607,
+            "standard_error": 0.004718468419882755,
+            "timing_repetitions_after_warmup": 7
+          },
+          "european": {
+            "contract_samples_ms": [
+              47.338875,
+              32.418124999999996,
+              32.537583000000005,
+              32.592000000000006,
+              32.333458,
+              32.55225,
+              31.790167
+            ],
+            "contract_total_ms": 32.537583000000005,
+            "median_paired_ratio": 1.0506887465375014,
+            "native_plan_samples_ms": [
+              32.790082999999996,
+              33.414458,
+              35.880500000000005,
+              32.29225,
+              32.641417,
+              31.847416000000003,
+              31.937
+            ],
+            "native_pv": 9.264736557093679,
+            "native_task_samples_ms": [
+              33.552333,
+              30.854166,
+              31.340082999999996,
+              30.965166999999997,
+              31.980291,
+              30.124792,
+              31.623416000000002
+            ],
+            "native_task_total_ms": 31.340082999999996,
+            "native_total_ms": 32.641417,
+            "paired_contract_native_ratios": [
+              1.41089667296757,
+              1.0506887465375014,
+              1.0382098541347198,
+              1.0525375173981786,
+              1.011043270369241,
+              1.0805800750425099,
+              1.0052730230029545
+            ],
+            "pv": 9.264736557093679,
+            "standard_error": 0.014223569111534017,
+            "timing_repetitions_after_warmup": 7
+          }
+        },
+        "mc_sampling_units": 262144,
+        "paths": 1000000,
+        "periods": 2,
+        "schema_version": 1,
+        "seed": 7,
+        "worker_threads": 2
+      }
     },
     {
-      "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
-      "asian": {
-        "contract": {
-          "checksum": 1811700.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 53.20958,
-          "reused_ns_per_path": 34.39666,
-          "state_value_slots": 12,
-          "workspace_bytes": 104,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 13.740625,
-        "native": {
-          "checksum": 1811700.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 57.03625,
-          "reused_ns_per_path": 42.6025,
-          "state_value_slots": 15,
-          "workspace_bytes": 128,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 3.923335
-      },
-      "autocall": {
-        "contract": {
-          "checksum": 10148145.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 171.73541,
-          "reused_ns_per_path": 157.89917,
-          "state_value_slots": 26,
-          "workspace_bytes": 290,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 35.156665
-      },
-      "barrier": {
-        "contract": {
-          "checksum": 309870.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 126.08125,
-          "reused_ns_per_path": 110.86167,
-          "state_value_slots": 16,
-          "workspace_bytes": 192,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 19.28396,
-        "native": {
-          "checksum": 309870.0,
-          "observation_slots": 2,
-          "owned_output_ns_per_path": 71.01667,
-          "reused_ns_per_path": 67.00708,
-          "state_value_slots": 24,
-          "workspace_bytes": 200,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 6.267710000000001
-      },
-      "european": {
-        "contract": {
-          "checksum": 1811700.0,
-          "observation_slots": 1,
-          "owned_output_ns_per_path": 44.28291,
-          "reused_ns_per_path": 20.70709,
-          "state_value_slots": 7,
-          "workspace_bytes": 64,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "contract_compile_us": 8.991670000000001,
-        "native": {
-          "checksum": 1811700.0,
-          "observation_slots": 1,
-          "owned_output_ns_per_path": 43.07834,
-          "reused_ns_per_path": 20.79375,
-          "state_value_slots": 7,
-          "workspace_bytes": 64,
-          "workspace_capacity_growth_after_warmup": 0
-        },
-        "native_compile_us": 1.90625
-      },
-      "mc": {
+      "periods": 2,
+      "invocation": 5,
+      "report": {
+        "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
         "asian": {
-          "contract_total_ms": 7.501333,
-          "native_pv": 7.2206851353072805,
-          "native_task_total_ms": 5.797333,
-          "native_total_ms": 5.6460420000000004,
-          "pv": 7.2206851353072805,
-          "standard_error": 0.043384345482141734,
-          "timing_repetitions_after_warmup": 5
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 48.811208,
+            "reused_ns_per_path": 32.85275,
+            "state_value_slots": 12,
+            "workspace_bytes": 104,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 14.74167,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 54.067208,
+            "reused_ns_per_path": 40.226708,
+            "state_value_slots": 15,
+            "workspace_bytes": 128,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 3.72667
+        },
+        "autocall": {
+          "contract": {
+            "checksum": 101485145.0,
+            "evaluation_program_bytes": 880,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 87.522958,
+            "reused_ns_per_path": 74.358958,
+            "state_value_slots": 26,
+            "workspace_bytes": 290,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 40.52375000000001
         },
         "barrier": {
-          "contract_total_ms": 7.077584,
-          "native_pv": 3.1657641033320405,
-          "native_task_total_ms": 6.019125,
-          "native_total_ms": 5.671,
-          "pv": 3.1657641033320405,
-          "standard_error": 0.01899216547016486,
-          "timing_repetitions_after_warmup": 5
+          "contract": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 400,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 57.914625,
+            "reused_ns_per_path": 43.436667,
+            "state_value_slots": 16,
+            "workspace_bytes": 176,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 21.763955,
+          "native": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 2,
+            "owned_output_ns_per_path": 67.286292,
+            "reused_ns_per_path": 64.26474999999999,
+            "state_value_slots": 24,
+            "workspace_bytes": 200,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 5.7177050000000005
         },
         "european": {
-          "contract_total_ms": 4.246584,
-          "native_pv": 9.248537405001318,
-          "native_task_total_ms": 4.4590000000000005,
-          "native_total_ms": 4.0805,
-          "pv": 9.248537405001318,
-          "standard_error": 0.057104986249763,
-          "timing_repetitions_after_warmup": 5
-        }
-      },
-      "mc_sampling_units": 16384,
-      "paths": 100000,
-      "schema_version": 1,
-      "seed": 7,
-      "worker_threads": 2
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 40.271333,
+            "reused_ns_per_path": 19.697416,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 10.012915,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 39.429541,
+            "reused_ns_per_path": 19.602292,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 1.731875
+        },
+        "mc": {
+          "asian": {
+            "contract_samples_ms": [
+              60.581,
+              41.767916,
+              40.06625,
+              39.882,
+              40.861791000000004,
+              40.29225,
+              40.8745
+            ],
+            "contract_total_ms": 40.861791000000004,
+            "median_paired_ratio": 0.9763532355691017,
+            "native_plan_samples_ms": [
+              48.622459,
+              44.197374999999994,
+              46.1265,
+              45.251583,
+              45.39375,
+              45.215291,
+              45.474417
+            ],
+            "native_pv": 7.219170995501149,
+            "native_task_samples_ms": [
+              61.225333,
+              41.541957999999994,
+              42.3275,
+              42.68125,
+              41.659083,
+              41.749458000000004,
+              41.864459
+            ],
+            "native_task_total_ms": 41.864459,
+            "native_total_ms": 45.39375,
+            "paired_contract_native_ratios": [
+              0.9894760392728286,
+              1.0054392717839638,
+              0.9465772842714546,
+              0.9344149948747986,
+              0.9808615086414648,
+              0.9650963612509652,
+              0.9763532355691017
+            ],
+            "pv": 7.219170995501149,
+            "standard_error": 0.010718647972898362,
+            "timing_repetitions_after_warmup": 7
+          },
+          "barrier": {
+            "contract_samples_ms": [
+              41.321208,
+              39.940334,
+              41.676959,
+              39.850958999999996,
+              44.842082999999995,
+              42.797667,
+              42.957042
+            ],
+            "contract_total_ms": 41.676959,
+            "median_paired_ratio": 0.9397457507142553,
+            "native_plan_samples_ms": [
+              42.590084,
+              42.631665999999996,
+              45.321332999999996,
+              42.882334,
+              43.781625,
+              46.273292,
+              42.215958
+            ],
+            "native_pv": 3.152073489303607,
+            "native_task_samples_ms": [
+              43.970625,
+              45.054917,
+              45.103542000000004,
+              43.450584,
+              45.616542,
+              44.9675,
+              44.026208
+            ],
+            "native_task_total_ms": 44.9675,
+            "native_total_ms": 42.882334,
+            "paired_contract_native_ratios": [
+              0.9397457507142553,
+              0.8864811358991073,
+              0.9240285164300398,
+              0.9171558890900062,
+              0.9830224088445808,
+              0.9517466392394506,
+              0.9757152376148317
+            ],
+            "pv": 3.152073489303607,
+            "standard_error": 0.004718468419882755,
+            "timing_repetitions_after_warmup": 7
+          },
+          "european": {
+            "contract_samples_ms": [
+              60.889832999999996,
+              61.404208000000004,
+              61.35975,
+              31.127583,
+              29.934667,
+              31.167291,
+              29.703625000000002
+            ],
+            "contract_total_ms": 31.167291,
+            "median_paired_ratio": 0.9662151604414275,
+            "native_plan_samples_ms": [
+              63.686584,
+              63.953250000000004,
+              63.84566699999999,
+              45.878707999999996,
+              32.24075,
+              33.407332999999994,
+              31.917666999999998
+            ],
+            "native_pv": 9.264736557093679,
+            "native_task_samples_ms": [
+              63.018916999999995,
+              63.757124999999995,
+              67.111167,
+              31.572457999999997,
+              30.652041,
+              30.044458,
+              31.142166999999997
+            ],
+            "native_task_total_ms": 31.572457999999997,
+            "native_total_ms": 45.878707999999996,
+            "paired_contract_native_ratios": [
+              0.9662151604414275,
+              0.9630956226460966,
+              0.9143001491838162,
+              0.9859093960945329,
+              0.9765962077370313,
+              1.0373723832861288,
+              0.9538072607471408
+            ],
+            "pv": 9.264736557093679,
+            "standard_error": 0.014223569111534017,
+            "timing_repetitions_after_warmup": 7
+          }
+        },
+        "mc_sampling_units": 262144,
+        "paths": 1000000,
+        "periods": 2,
+        "schema_version": 1,
+        "seed": 7,
+        "worker_threads": 2
+      }
+    },
+    {
+      "periods": 12,
+      "invocation": 1,
+      "report": {
+        "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
+        "asian": {
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 96.100583,
+            "reused_ns_per_path": 119.738833,
+            "state_value_slots": 42,
+            "workspace_bytes": 344,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 47.841454999999996,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 129.310958,
+            "reused_ns_per_path": 154.017708,
+            "state_value_slots": 55,
+            "workspace_bytes": 448,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 13.184165
+        },
+        "autocall": {
+          "contract": {
+            "checksum": 111386145.0,
+            "evaluation_program_bytes": 5280,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 356.026875,
+            "reused_ns_per_path": 354.572875,
+            "state_value_slots": 116,
+            "workspace_bytes": 1260,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 270.755205
+        },
+        "barrier": {
+          "contract": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 1200,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 114.484,
+            "reused_ns_per_path": 109.73975,
+            "state_value_slots": 46,
+            "workspace_bytes": 446,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 64.602915,
+          "native": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 144.600041,
+            "reused_ns_per_path": 173.607042,
+            "state_value_slots": 64,
+            "workspace_bytes": 520,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 15.872295000000001
+        },
+        "european": {
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 40.3305,
+            "reused_ns_per_path": 19.651833,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 9.889585,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 39.313958,
+            "reused_ns_per_path": 19.644584,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 1.745
+        },
+        "mc": {
+          "asian": {
+            "contract_samples_ms": [
+              169.20820799999998,
+              169.231709,
+              168.886167,
+              166.42950000000002,
+              166.47925,
+              165.737583,
+              166.479625
+            ],
+            "contract_total_ms": 166.479625,
+            "median_paired_ratio": 0.9698864021394693,
+            "native_plan_samples_ms": [
+              172.56295799999998,
+              172.953833,
+              179.74300000000002,
+              177.398833,
+              179.756542,
+              178.212875,
+              177.258209
+            ],
+            "native_pv": 5.540268198262023,
+            "native_task_samples_ms": [
+              170.878208,
+              173.268125,
+              176.5665,
+              176.014917,
+              173.567625,
+              170.8835,
+              170.12470900000002
+            ],
+            "native_task_total_ms": 173.268125,
+            "native_total_ms": 177.398833,
+            "paired_contract_native_ratios": [
+              0.9902269574362577,
+              0.9767042206984118,
+              0.9565017542965398,
+              0.9455420190323984,
+              0.9591607305797957,
+              0.9698864021394693,
+              0.9785740471126977
+            ],
+            "pv": 5.540268198262026,
+            "standard_error": 0.008106908243681626,
+            "timing_repetitions_after_warmup": 7
+          },
+          "barrier": {
+            "contract_samples_ms": [
+              151.054458,
+              150.580625,
+              150.21170899999998,
+              151.66191700000002,
+              151.720834,
+              150.91712500000003,
+              150.95149999999998
+            ],
+            "contract_total_ms": 150.95149999999998,
+            "median_paired_ratio": 0.875109274525214,
+            "native_plan_samples_ms": [
+              173.88416700000002,
+              174.575542,
+              171.52520900000002,
+              174.42729200000002,
+              172.070583,
+              173.101209,
+              171.171083
+            ],
+            "native_pv": 2.6382941999255176,
+            "native_task_samples_ms": [
+              174.189292,
+              174.63804199999998,
+              173.51070900000002,
+              171.40337499999998,
+              172.041958,
+              171.040584,
+              172.49445799999998
+            ],
+            "native_task_total_ms": 172.49445799999998,
+            "native_total_ms": 173.101209,
+            "paired_contract_native_ratios": [
+              0.8671856706323832,
+              0.862244120900073,
+              0.8657201037660446,
+              0.8848245666107801,
+              0.8818827439757457,
+              0.8823468762244172,
+              0.875109274525214
+            ],
+            "pv": 2.6382941999255176,
+            "standard_error": 0.00405924278195231,
+            "timing_repetitions_after_warmup": 7
+          },
+          "european": {
+            "contract_samples_ms": [
+              62.358875,
+              63.686375000000005,
+              62.472542,
+              62.896207999999994,
+              63.591625,
+              62.063709,
+              63.172583
+            ],
+            "contract_total_ms": 62.896207999999994,
+            "median_paired_ratio": 1.0029993401971433,
+            "native_plan_samples_ms": [
+              62.422916,
+              63.63379199999999,
+              62.699625,
+              55.576375,
+              64.491958,
+              63.150208,
+              62.119
+            ],
+            "native_pv": 9.264736557093679,
+            "native_task_samples_ms": [
+              62.74766699999999,
+              63.237500000000004,
+              63.072167,
+              62.708125,
+              62.559124999999995,
+              62.628375,
+              60.120083
+            ],
+            "native_task_total_ms": 62.708125,
+            "native_total_ms": 62.699625,
+            "paired_contract_native_ratios": [
+              0.9938038811865308,
+              1.0070982407590432,
+              0.9904930331631066,
+              1.0029993401971433,
+              1.0165043868500399,
+              0.9909838631451,
+              1.050773382997492
+            ],
+            "pv": 9.264736557093679,
+            "standard_error": 0.014223569111534017,
+            "timing_repetitions_after_warmup": 7
+          }
+        },
+        "mc_sampling_units": 262144,
+        "paths": 1000000,
+        "periods": 12,
+        "schema_version": 1,
+        "seed": 7,
+        "worker_threads": 2
+      }
+    },
+    {
+      "periods": 12,
+      "invocation": 2,
+      "report": {
+        "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
+        "asian": {
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 94.790875,
+            "reused_ns_per_path": 115.040166,
+            "state_value_slots": 42,
+            "workspace_bytes": 344,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 47.703959999999995,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 128.299709,
+            "reused_ns_per_path": 153.96125,
+            "state_value_slots": 55,
+            "workspace_bytes": 448,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 13.162289999999999
+        },
+        "autocall": {
+          "contract": {
+            "checksum": 111386145.0,
+            "evaluation_program_bytes": 5280,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 345.916417,
+            "reused_ns_per_path": 358.66825,
+            "state_value_slots": 116,
+            "workspace_bytes": 1260,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 278.63458
+        },
+        "barrier": {
+          "contract": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 1200,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 114.751625,
+            "reused_ns_per_path": 111.007125,
+            "state_value_slots": 46,
+            "workspace_bytes": 446,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 63.966454999999996,
+          "native": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 145.585709,
+            "reused_ns_per_path": 176.857667,
+            "state_value_slots": 64,
+            "workspace_bytes": 520,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 15.886875
+        },
+        "european": {
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 40.915292,
+            "reused_ns_per_path": 19.616417,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 9.833545,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 40.413166,
+            "reused_ns_per_path": 19.6285,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 1.77292
+        },
+        "mc": {
+          "asian": {
+            "contract_samples_ms": [
+              168.685583,
+              169.081375,
+              168.328417,
+              168.05025,
+              166.42950000000002,
+              162.42100000000002,
+              163.841916
+            ],
+            "contract_total_ms": 168.05025,
+            "median_paired_ratio": 0.9760694291219654,
+            "native_plan_samples_ms": [
+              173.019333,
+              171.77995800000002,
+              172.548917,
+              171.013833,
+              169.760625,
+              169.246542,
+              171.782708
+            ],
+            "native_pv": 5.540268198262023,
+            "native_task_samples_ms": [
+              173.540958,
+              173.226791,
+              169.264667,
+              170.859917,
+              170.45458299999999,
+              168.73833299999998,
+              170.2555
+            ],
+            "native_task_total_ms": 170.45458299999999,
+            "native_total_ms": 171.77995800000002,
+            "paired_contract_native_ratios": [
+              0.9720217344887541,
+              0.9760694291219654,
+              0.9944687215790877,
+              0.9835557277017758,
+              0.9763861849346699,
+              0.9625613641685083,
+              0.9623296516118421
+            ],
+            "pv": 5.540268198262026,
+            "standard_error": 0.008106908243681626,
+            "timing_repetitions_after_warmup": 7
+          },
+          "barrier": {
+            "contract_samples_ms": [
+              153.230959,
+              152.852083,
+              152.402458,
+              151.898291,
+              153.594458,
+              151.489917,
+              151.898334
+            ],
+            "contract_total_ms": 152.402458,
+            "median_paired_ratio": 0.8677699291110083,
+            "native_plan_samples_ms": [
+              175.790708,
+              175.415041,
+              176.017209,
+              174.558625,
+              175.39491600000002,
+              173.76308300000002,
+              174.506375
+            ],
+            "native_pv": 2.6382941999255176,
+            "native_task_samples_ms": [
+              176.58016700000002,
+              177.747042,
+              176.39866600000002,
+              174.437041,
+              175.333708,
+              174.25987500000002,
+              175.496667
+            ],
+            "native_task_total_ms": 175.496667,
+            "native_total_ms": 175.39491600000002,
+            "paired_contract_native_ratios": [
+              0.8677699291110083,
+              0.8599416411104045,
+              0.8639660460924347,
+              0.870791490896707,
+              0.8760121470767047,
+              0.8693333275947774,
+              0.8655340103980437
+            ],
+            "pv": 2.6382941999255176,
+            "standard_error": 0.00405924278195231,
+            "timing_repetitions_after_warmup": 7
+          },
+          "european": {
+            "contract_samples_ms": [
+              63.92804100000001,
+              62.408084,
+              64.100459,
+              60.604709,
+              60.152499999999996,
+              62.173625,
+              62.92250000000001
+            ],
+            "contract_total_ms": 62.408084,
+            "median_paired_ratio": 1.0105662339920607,
+            "native_plan_samples_ms": [
+              64.319709,
+              64.45066700000001,
+              62.777625,
+              60.996292000000004,
+              62.808791,
+              62.643584000000004,
+              61.937875000000005
+            ],
+            "native_pv": 9.264736557093679,
+            "native_task_samples_ms": [
+              63.259625,
+              61.220209,
+              62.94266699999999,
+              63.873292,
+              62.078875,
+              63.26800000000001,
+              61.851167
+            ],
+            "native_task_total_ms": 62.94266699999999,
+            "native_total_ms": 62.777625,
+            "paired_contract_native_ratios": [
+              1.0105662339920607,
+              1.0194033150066508,
+              1.0183943905649884,
+              0.9488270778340343,
+              0.9689689125326449,
+              0.9827025510526648,
+              1.0173211444822052
+            ],
+            "pv": 9.264736557093679,
+            "standard_error": 0.014223569111534017,
+            "timing_repetitions_after_warmup": 7
+          }
+        },
+        "mc_sampling_units": 262144,
+        "paths": 1000000,
+        "periods": 12,
+        "schema_version": 1,
+        "seed": 7,
+        "worker_threads": 2
+      }
+    },
+    {
+      "periods": 12,
+      "invocation": 3,
+      "report": {
+        "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
+        "asian": {
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 100.210209,
+            "reused_ns_per_path": 119.625125,
+            "state_value_slots": 42,
+            "workspace_bytes": 344,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 49.066665,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 135.785417,
+            "reused_ns_per_path": 156.385084,
+            "state_value_slots": 55,
+            "workspace_bytes": 448,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 13.1225
+        },
+        "autocall": {
+          "contract": {
+            "checksum": 111386145.0,
+            "evaluation_program_bytes": 5280,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 380.651958,
+            "reused_ns_per_path": 381.681458,
+            "state_value_slots": 116,
+            "workspace_bytes": 1260,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 302.180415
+        },
+        "barrier": {
+          "contract": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 1200,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 122.3135,
+            "reused_ns_per_path": 116.39375,
+            "state_value_slots": 46,
+            "workspace_bytes": 446,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 67.12375,
+          "native": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 155.086291,
+            "reused_ns_per_path": 182.7555,
+            "state_value_slots": 64,
+            "workspace_bytes": 520,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 16.95396
+        },
+        "european": {
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 45.179084,
+            "reused_ns_per_path": 20.246334,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 10.05625,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 44.077292,
+            "reused_ns_per_path": 19.914375,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 1.82917
+        },
+        "mc": {
+          "asian": {
+            "contract_samples_ms": [
+              141.124417,
+              133.472542,
+              131.886625,
+              152.146209,
+              133.650041,
+              134.356,
+              130.348792
+            ],
+            "contract_total_ms": 133.650041,
+            "median_paired_ratio": 0.8673722442268889,
+            "native_plan_samples_ms": [
+              152.755291,
+              155.227125,
+              147.798708,
+              142.868625,
+              161.62099999999998,
+              160.008042,
+              164.012459
+            ],
+            "native_pv": 5.540268198262023,
+            "native_task_samples_ms": [
+              156.69074999999998,
+              153.88150000000002,
+              141.909333,
+              155.816,
+              156.578792,
+              161.043792,
+              161.264209
+            ],
+            "native_task_total_ms": 156.578792,
+            "native_total_ms": 155.227125,
+            "paired_contract_native_ratios": [
+              0.9006556992036863,
+              0.8673722442268889,
+              0.9293724536074031,
+              0.9764479193407609,
+              0.8535641340239742,
+              0.8342823919595733,
+              0.8082933764924863
+            ],
+            "pv": 5.540268198262026,
+            "standard_error": 0.008106908243681626,
+            "timing_repetitions_after_warmup": 7
+          },
+          "barrier": {
+            "contract_samples_ms": [
+              122.73100000000001,
+              126.92058300000001,
+              125.928167,
+              128.712458,
+              126.975917,
+              127.947417,
+              124.931583
+            ],
+            "contract_total_ms": 126.92058300000001,
+            "median_paired_ratio": 0.9223781524135267,
+            "native_plan_samples_ms": [
+              169.231292,
+              135.588125,
+              135.6975,
+              137.096625,
+              136.42816599999998,
+              138.377334,
+              135.657625
+            ],
+            "native_pv": 2.6382941999255176,
+            "native_task_samples_ms": [
+              134.882667,
+              133.174792,
+              135.88066600000002,
+              135.41825,
+              138.18949999999998,
+              138.714709,
+              139.77275
+            ],
+            "native_task_total_ms": 135.88066600000002,
+            "native_total_ms": 136.42816599999998,
+            "paired_contract_native_ratios": [
+              0.9099093510658416,
+              0.9530375913784045,
+              0.9267555915570799,
+              0.9504808842235075,
+              0.9188535814949762,
+              0.9223781524135267,
+              0.8938193102732829
+            ],
+            "pv": 2.6382941999255176,
+            "standard_error": 0.00405924278195231,
+            "timing_repetitions_after_warmup": 7
+          },
+          "european": {
+            "contract_samples_ms": [
+              60.786125000000006,
+              30.661542,
+              30.1125,
+              30.152915999999998,
+              30.16925,
+              30.486666,
+              30.227875
+            ],
+            "contract_total_ms": 30.227875,
+            "median_paired_ratio": 1.0154861992606157,
+            "native_plan_samples_ms": [
+              43.869666,
+              31.264874999999996,
+              32.578042,
+              29.900875,
+              33.234375,
+              30.781125,
+              32.535834
+            ],
+            "native_pv": 9.264736557093679,
+            "native_task_samples_ms": [
+              57.156833,
+              29.783125000000002,
+              30.048125,
+              29.693082999999998,
+              30.668708,
+              29.734333000000003,
+              29.813375
+            ],
+            "native_task_total_ms": 29.813375,
+            "native_total_ms": 32.535834,
+            "paired_contract_native_ratios": [
+              1.063497080042906,
+              1.029493782133339,
+              1.0021423965721656,
+              1.0154861992606157,
+              0.983714410140786,
+              1.0253018286974858,
+              1.0139031558822174
+            ],
+            "pv": 9.264736557093679,
+            "standard_error": 0.014223569111534017,
+            "timing_repetitions_after_warmup": 7
+          }
+        },
+        "mc_sampling_units": 262144,
+        "paths": 1000000,
+        "periods": 12,
+        "schema_version": 1,
+        "seed": 7,
+        "worker_threads": 2
+      }
+    },
+    {
+      "periods": 12,
+      "invocation": 4,
+      "report": {
+        "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
+        "asian": {
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 96.1925,
+            "reused_ns_per_path": 119.451583,
+            "state_value_slots": 42,
+            "workspace_bytes": 344,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 49.568335,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 129.053833,
+            "reused_ns_per_path": 155.678,
+            "state_value_slots": 55,
+            "workspace_bytes": 448,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 13.11146
+        },
+        "autocall": {
+          "contract": {
+            "checksum": 111386145.0,
+            "evaluation_program_bytes": 5280,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 374.233833,
+            "reused_ns_per_path": 384.95575,
+            "state_value_slots": 116,
+            "workspace_bytes": 1260,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 286.05208
+        },
+        "barrier": {
+          "contract": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 1200,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 121.312917,
+            "reused_ns_per_path": 113.760125,
+            "state_value_slots": 46,
+            "workspace_bytes": 446,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 67.271455,
+          "native": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 145.190833,
+            "reused_ns_per_path": 176.671375,
+            "state_value_slots": 64,
+            "workspace_bytes": 520,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 16.153125
+        },
+        "european": {
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 41.146709,
+            "reused_ns_per_path": 19.936834,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 10.27646,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 41.390542,
+            "reused_ns_per_path": 19.847541,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 1.7954150000000002
+        },
+        "mc": {
+          "asian": {
+            "contract_samples_ms": [
+              134.810834,
+              138.00791700000002,
+              139.24937500000001,
+              145.186584,
+              134.702666,
+              146.539625,
+              147.52795799999998
+            ],
+            "contract_total_ms": 139.24937500000001,
+            "median_paired_ratio": 0.9145842338552925,
+            "native_plan_samples_ms": [
+              150.617333,
+              151.125083,
+              144.716584,
+              152.99183299999999,
+              153.50862500000002,
+              151.3565,
+              153.756917
+            ],
+            "native_pv": 5.540268198262023,
+            "native_task_samples_ms": [
+              154.49795799999998,
+              153.233333,
+              152.25429200000002,
+              153.47566700000002,
+              153.867708,
+              155.478791,
+              153.01024999999998
+            ],
+            "native_task_total_ms": 153.47566700000002,
+            "native_total_ms": 151.3565,
+            "paired_contract_native_ratios": [
+              0.8725735650176037,
+              0.9006390078325845,
+              0.9145842338552925,
+              0.9459908976971574,
+              0.8754446774497999,
+              0.9425055601313493,
+              0.9641704264910357
+            ],
+            "pv": 5.540268198262026,
+            "standard_error": 0.008106908243681626,
+            "timing_repetitions_after_warmup": 7
+          },
+          "barrier": {
+            "contract_samples_ms": [
+              125.337333,
+              123.413416,
+              125.51200000000001,
+              125.10499999999999,
+              123.389583,
+              127.50025000000001,
+              124.490292
+            ],
+            "contract_total_ms": 125.10499999999999,
+            "median_paired_ratio": 0.9319513977643281,
+            "native_plan_samples_ms": [
+              134.236875,
+              135.923292,
+              133.77841700000002,
+              135.760084,
+              134.658625,
+              134.095708,
+              133.94441700000002
+            ],
+            "native_pv": 2.6382941999255176,
+            "native_task_samples_ms": [
+              134.15275,
+              134.48487500000002,
+              135.998334,
+              134.239833,
+              133.783833,
+              133.419625,
+              132.998709
+            ],
+            "native_task_total_ms": 134.15275,
+            "native_total_ms": 134.236875,
+            "paired_contract_native_ratios": [
+              0.9342882125040299,
+              0.9176750619725823,
+              0.9228936583884918,
+              0.9319513977643281,
+              0.9223056346427151,
+              0.9556334010082851,
+              0.9360263188720126
+            ],
+            "pv": 2.6382941999255176,
+            "standard_error": 0.00405924278195231,
+            "timing_repetitions_after_warmup": 7
+          },
+          "european": {
+            "contract_samples_ms": [
+              48.855333,
+              35.301583,
+              38.475750000000005,
+              36.502832999999995,
+              38.281208,
+              34.964625,
+              34.763667
+            ],
+            "contract_total_ms": 36.502832999999995,
+            "median_paired_ratio": 0.9614920727587966,
+            "native_plan_samples_ms": [
+              47.59,
+              36.679209,
+              51.923292000000004,
+              33.528583,
+              42.341416,
+              39.672167,
+              48.500791
+            ],
+            "native_pv": 9.264736557093679,
+            "native_task_samples_ms": [
+              51.596167,
+              34.420832999999995,
+              31.080707999999998,
+              36.865958,
+              49.05225,
+              39.364125,
+              36.155958000000005
+            ],
+            "native_task_total_ms": 36.865958,
+            "native_total_ms": 42.341416,
+            "paired_contract_native_ratios": [
+              0.9468791160397632,
+              1.0255877014946153,
+              1.2379302942519845,
+              0.9901501271172716,
+              0.780416963543976,
+              0.8882357984586218,
+              0.9614920727587966
+            ],
+            "pv": 9.264736557093679,
+            "standard_error": 0.014223569111534017,
+            "timing_repetitions_after_warmup": 7
+          }
+        },
+        "mc_sampling_units": 262144,
+        "paths": 1000000,
+        "periods": 12,
+        "schema_version": 1,
+        "seed": 7,
+        "worker_threads": 2
+      }
+    },
+    {
+      "periods": 12,
+      "invocation": 5,
+      "report": {
+        "allocation_metric": "Reserved workspace bytes and observed capacity growth; not process-global allocator counts. Model path buffers are owned by existing engines.",
+        "asian": {
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 100.799542,
+            "reused_ns_per_path": 119.958375,
+            "state_value_slots": 42,
+            "workspace_bytes": 344,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 48.419585,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 135.398459,
+            "reused_ns_per_path": 154.270416,
+            "state_value_slots": 55,
+            "workspace_bytes": 448,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 13.052705000000001
+        },
+        "autocall": {
+          "contract": {
+            "checksum": 111386145.0,
+            "evaluation_program_bytes": 5280,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 381.876541,
+            "reused_ns_per_path": 363.829792,
+            "state_value_slots": 116,
+            "workspace_bytes": 1260,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 275.651875
+        },
+        "barrier": {
+          "contract": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 1200,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 116.504917,
+            "reused_ns_per_path": 112.102666,
+            "state_value_slots": 46,
+            "workspace_bytes": 446,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 65.26854,
+          "native": {
+            "checksum": 3099010.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 12,
+            "owned_output_ns_per_path": 147.554584,
+            "reused_ns_per_path": 174.569666,
+            "state_value_slots": 64,
+            "workspace_bytes": 520,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 16.034375
+        },
+        "european": {
+          "contract": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 42.668458,
+            "reused_ns_per_path": 24.4365,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "contract_compile_us": 10.226040000000001,
+          "native": {
+            "checksum": 18118770.0,
+            "evaluation_program_bytes": 0,
+            "observation_slots": 1,
+            "owned_output_ns_per_path": 41.703708,
+            "reused_ns_per_path": 19.7635,
+            "state_value_slots": 7,
+            "workspace_bytes": 64,
+            "workspace_capacity_growth_after_warmup": 0
+          },
+          "native_compile_us": 1.7897900000000002
+        },
+        "mc": {
+          "asian": {
+            "contract_samples_ms": [
+              147.068334,
+              147.238209,
+              144.887958,
+              145.49854200000001,
+              145.700125,
+              145.0665,
+              147.301209
+            ],
+            "contract_total_ms": 145.700125,
+            "median_paired_ratio": 0.9467622426859285,
+            "native_plan_samples_ms": [
+              153.156083,
+              150.39512499999998,
+              157.096667,
+              154.563708,
+              156.077375,
+              157.957292,
+              149.362583
+            ],
+            "native_pv": 5.540268198262023,
+            "native_task_samples_ms": [
+              154.410834,
+              152.47608400000001,
+              153.92275,
+              154.514875,
+              154.01891600000002,
+              153.223791,
+              154.55041599999998
+            ],
+            "native_task_total_ms": 154.01891600000002,
+            "native_total_ms": 154.563708,
+            "paired_contract_native_ratios": [
+              0.9524482848140047,
+              0.9656478913768536,
+              0.9413030757311703,
+              0.9416474756880205,
+              0.9459885109177109,
+              0.9467622426859285,
+              0.9530948722907353
+            ],
+            "pv": 5.540268198262026,
+            "standard_error": 0.008106908243681626,
+            "timing_repetitions_after_warmup": 7
+          },
+          "barrier": {
+            "contract_samples_ms": [
+              123.184917,
+              122.27225,
+              122.839416,
+              122.565333,
+              122.719333,
+              123.706416,
+              123.35262499999999
+            ],
+            "contract_total_ms": 122.839416,
+            "median_paired_ratio": 0.9246575039543165,
+            "native_plan_samples_ms": [
+              130.258667,
+              132.293833,
+              131.892208,
+              132.305875,
+              133.006916,
+              133.252542,
+              131.509667
+            ],
+            "native_pv": 2.6382941999255176,
+            "native_task_samples_ms": [
+              131.800084,
+              132.709833,
+              133.364959,
+              133.59425,
+              132.516875,
+              130.30187500000002,
+              133.403584
+            ],
+            "native_task_total_ms": 132.709833,
+            "native_total_ms": 132.293833,
+            "paired_contract_native_ratios": [
+              0.9346345864240876,
+              0.9213503418394023,
+              0.9210771474087133,
+              0.91744467295561,
+              0.9260657029529259,
+              0.9493832379618481,
+              0.9246575039543165
+            ],
+            "pv": 2.6382941999255176,
+            "standard_error": 0.00405924278195231,
+            "timing_repetitions_after_warmup": 7
+          },
+          "european": {
+            "contract_samples_ms": [
+              31.138042000000002,
+              31.177334000000002,
+              30.433084,
+              30.675042,
+              31.08475,
+              33.217083,
+              31.500791
+            ],
+            "contract_total_ms": 31.138042000000002,
+            "median_paired_ratio": 0.9944945478001563,
+            "native_plan_samples_ms": [
+              37.612874999999995,
+              33.469375,
+              32.32475,
+              32.232625,
+              32.212375,
+              30.812915999999998,
+              33.60425
+            ],
+            "native_pv": 9.264736557093679,
+            "native_task_samples_ms": [
+              30.582458,
+              35.436041,
+              35.991125,
+              39.038999999999994,
+              31.256832999999997,
+              30.208375,
+              30.931
+            ],
+            "native_task_total_ms": 31.256832999999997,
+            "native_total_ms": 32.32475,
+            "paired_contract_native_ratios": [
+              1.0181667542877033,
+              0.8798198986167783,
+              0.8455719014062496,
+              0.7857537846768617,
+              0.9944945478001563,
+              1.0995984722779693,
+              1.018421357214445
+            ],
+            "pv": 9.264736557093679,
+            "standard_error": 0.014223569111534017,
+            "timing_repetitions_after_warmup": 7
+          }
+        },
+        "mc_sampling_units": 262144,
+        "paths": 1000000,
+        "periods": 12,
+        "schema_version": 1,
+        "seed": 7,
+        "worker_threads": 2
+      }
     }
-  ]
+  ],
+  "passed": true
 }

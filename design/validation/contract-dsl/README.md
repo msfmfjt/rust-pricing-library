@@ -1,12 +1,11 @@
 # Contract DSL Phase 0–4 verification
 
 Implementation baseline: main `75902772ea615b7cf551f8f849db7cb7636ef87c`.
-Earlier retained implementation: `a7f3d62`. The current Phase 4 follow-up adds
-a precompiled lazy schedule and completes deterministic analysis. Its final
-regression and five-invocation performance evidence is being collected under
-[the fixed protocol](performance-protocol.json); the counts below describe the
-earlier retained run until replaced by commit-specific completion evidence.
-Validation date: 2026-11-05. Local environment: Darwin 27.0.0 arm64,
+Pricing implementation: `aafdcf2c2169ed007aedbb66d930ec9ec6049d1b`.
+The compiled lazy schedule, constant branch shortcuts and deterministic analysis
+are part of Phase 4. Performance acceptance follows the retained
+[fixed protocol](performance-protocol.json).
+Validation dates: 2026-11-05–06 UTC. Local environment: Darwin 27.0.0 arm64,
 Rust 1.98.1, CPython 3.14.2, release wheel built with maturin 1.16.0.
 
 ## Review sequence
@@ -36,7 +35,9 @@ successor only after its predecessor lands.
 | NFR-01–05 | Recorded compilation/path/MC timing and workspace size; stable seeds, source/plan identity, explicit cashflow IDs, mutation/property/regression tests |
 | FR-20–21 | Explicitly unsupported in Contract v1; Phase 5 was excluded from this request |
 
-The source property suite uses 1,000 deterministic generated cases. The mutation
+The source property suite uses 1,000 deterministic generated cases. Native
+program tests additionally compare 100 generated shared DAGs on 20 scenarios
+each and verify a 5,000-level shared dependency chain without recursive traversal. The mutation
 suite injects six targeted semantic faults: inclusive comparison, payment sign,
 event idempotency, future look-ahead, nested redemption gating and coupon
 notional. All must cause actual Rust test failures; compiler failures and zero
@@ -46,9 +47,10 @@ not exhaustive mutation coverage. Raw results are in [mutations.json](mutations.
 ## Local checks
 
 Final counts and hosted status are retained in [results.json](results.json).
-Rust: **1,155 passed, 91 ignored** plus **7 pricing-python crate tests**.
+Rust: **1,164 passed, 91 ignored** plus **7 pricing-python crate tests**.
 Installed Python: **44 passed**, including eight Contract integration tests.
-All six curated mutants were killed. CI is recorded separately in the
+The final implementation also passes the deterministic analysis check through
+the installed Python wheel. All six curated mutants were killed. CI is recorded separately in the
 [dated commit-specific snapshot](ci-snapshot.json); it is still incomplete.
 The following commands are reproducible from the repository root:
 
@@ -80,48 +82,81 @@ must not be used to relabel queued hosted checks as successful.
 
 ## Performance
 
-[benchmark.json](benchmark.json) records the retained release measurements.
-The executable compares the existing named products with generated contracts on
-the same paths, and checks exact PV/standard-error agreement within 1e-11 under
-seed 7, 16,384 antithetic sampling units and two workers. Timing uses one warmup
-and five repetitions per native/contract MC pair. Five complete invocations are
-retained. Native PricingPlan and native PricingTask are both reported so API
-reporting overhead is visible. Path evaluation uses 100,000
-paths; compilation uses 200 repetitions. The retained sample reports are
-machine-specific measurements, not universal performance thresholds.
+[benchmark.json](benchmark.json) retains all ten complete release invocations:
+five with two observation dates and five with twelve. Each uses 1,000,000
+payoff paths, 262,144 antithetic MC sampling units, seed 7 and two workers.
+The benchmark uses the frozen Black-Scholes request (volatility 0.2); the
+European remains a one-date control in both schedule settings.
+One warmup precedes seven measured repetitions. Native PricingPlan, native
+PricingTask and Contract PricingTask run in alternating order, with raw paired
+timing samples retained. Every repetition checks PV and standard error agreement
+within 1e-11; compilation timings average 200 compilations.
 
-The raw Contract payoff retains individual potential cashflow outputs; the
-native named barrier has one net output. Their path timings therefore include
-different reporting work. Native deterministic aggregation folds complementary
-same-date Contract outputs into one lazy choice while preserving source IDs and
-signed-zero behavior. Existing legacy graph evaluation order is unchanged.
+The protocol was fixed before these retained measurements: the median across
+five invocations must be at most 1.15 times native runtime for both complete MC
+and reused payoff evaluation. Contract compilation must remain below 1 ms,
+with zero warmed workspace capacity growth and no more path workspace bytes
+than the native comparator. All representative cases pass unchanged criteria.
+These are machine-specific acceptance measurements, not a universal SLA.
 
-Explicit reusable workspaces show no capacity growth after the exercised branch
-shapes are warmed. Values occupy one slot per surviving native opcode;
-CSE removes duplicate observation/subexpression state. The byte metric includes
-value/visited/traversal/output vector capacities, not model path storage or
-process-global allocator counts. Native lazy calls also retain at most 1 MiB of
-scratch capacity per thread and allocate an owned result vector; explicit
-`evaluate_reusing` avoids that output allocation. No AST is evaluated per path.
+| Dates | Product | MC / native task | Reused payoff / native | Contract compile, µs | Workspace / native |
+|---:|---|---:|---:|---:|---:|
+| 2 | European | 1.002 | 1.005 | 10.01 | 1.000 |
+| 2 | Asian | 0.978 | 0.818 | 14.83 | 0.813 |
+| 2 | Discrete barrier | 0.947 | 0.676 | 21.88 | 0.880 |
+| 12 | European | 1.003 | 1.004 | 10.06 | 1.000 |
+| 12 | Asian | 0.947 | 0.767 | 48.42 | 0.768 |
+| 12 | Discrete barrier | 0.922 | 0.637 | 65.27 | 0.858 |
 
-The generic lazy barrier's isolated payoff remains slower than the specialized
-legacy barrier. Short MC timings vary substantially across invocations, so the
-aggregate median alone does not establish a performance pass. Broader portfolios,
-longer schedules and larger sample counts require further benchmarking before
-setting an acceptance threshold. Advanced register liveness compression is Phase 5.
+Autocall has no legacy named-product comparator in this API. Its two/twelve-date
+median compilation times are 40.66/278.64 µs, reused payoff times 74.68/363.83 ns,
+and workspace sizes 290/1,260 bytes. Both show zero warmed capacity growth.
+The twelve-date barrier uses 446 workspace bytes and 1,200 immutable program
+bytes; Autocall uses 5,280 immutable program bytes. Program storage is shared
+across paths and reported separately from path state.
 
-Retained MC totals (median across five invocations, milliseconds):
+Contract compilation includes semantic validation, analysis and lowering,
+whereas native compilation begins with an existing graph. This extra fixed
+cost is outside the path loop. The raw Contract barrier preserves individual
+potential cashflow outputs; native named barriers have one net output. The
+native deterministic aggregation combines complementary same-date payments
+into one lazy choice while preserving source identities and signed-zero bits.
 
-| Product | Native plan | Native task | Contract task | Contract/native task range by invocation |
-|---|---:|---:|---:|---:|
-| European | 3.139 | 3.528 | 2.359 | 0.67–0.99× |
-| Asian | 5.646 | 4.237 | 4.239 | 1.00–1.29× |
-| Discrete barrier | 5.671 | 6.019 | 5.971 | 0.74–1.42× |
+Unique dependencies are inlined into a bounded execution schedule; shared
+expressions use memoized calls. Literal slots are prepared once per tape and
+workspace. Constant branches use conditional copy/jump shortcuts, avoiding
+repeated Select interpretation while preserving inactive observations/errors.
+A prior larger-schedule run before these shortcuts failed the 1.15 MC criterion
+for twelve-date barriers at 1.199. Its complete
+[pre-shortcut evidence](benchmark-before-shortcuts.json) is retained; the
+threshold and workload were not loosened to obtain the final pass.
+
+Values occupy one slot per surviving native opcode; CSE deduplicates observation
+and expression state. Workspace bytes include value, visited, call-stack and
+output capacities. They exclude model path storage and process-wide allocator
+counts; unsafe allocator interception is prohibited by workspace policy.
+The explicit reuse API makes no capacity-growing allocations after branch shapes
+are warmed. Native lazy calls retain at most 1 MiB of scratch capacity per thread
+and allocate an owned output vector; `evaluate_reusing` avoids that output
+allocation. No Contract AST is evaluated per path. Advanced register liveness
+compression and model-wide buffer redesign remain Phase 5.
+
+Reproduce the measurement inputs after building the release example:
+
+```sh
+cargo build --locked --release -p pricing --example benchmark_contract
+for periods in 2 12; do
+  for invocation in 1 2 3 4 5; do
+    CONTRACT_BENCH_PERIODS=$periods target/release/examples/benchmark_contract > "benchmark-$periods-$invocation.json"
+  done
+done
+```
 
 ## Explicit limits and remaining work
 
 * Hosted CI results remain pending until the submitted heads actually complete.
-  Keep all PRs draft while those gates or performance acceptance remain unresolved.
+  Keep all PRs draft until required hosted checks actually complete. The local
+  performance acceptance is complete.
 * Contract v1 preserves but cannot simulate intraday/timezone observations or
   future rate fixings. Swap floating legs can be reduced from published rate
   fixings; future floating-rate pricing fails explicitly.
