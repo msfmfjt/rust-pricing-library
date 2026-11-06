@@ -19,6 +19,8 @@ on:
       - .github/workflows/native-memory-diagnostic.yml
       - scripts/native_memory_diagnostic.py
       - scripts/test_native_memory_diagnostic.py
+      - scripts/native_memory_watchdog.py
+      - scripts/test_native_memory_watchdog.py
       - scripts/system_allocator_diagnostic.py
       - scripts/test_system_allocator_diagnostic.py
       - scripts/diagnostics/system_allocator_probe.c
@@ -48,7 +50,7 @@ jobs:
       - name: Install the failed run's numerical dependencies without native pricing
         run: python -m pip install numpy==2.5.4 scipy==1.18.1 jsonschema==4.26.0
       - name: Check diagnostic failure handling
-        run: python -m unittest discover -s scripts -p test_native_memory_diagnostic.py -v
+        run: python -m unittest discover -s scripts -p 'test_native_memory_*.py' -v
       - name: Exercise calibration without importing Rust
         run: python -X faulthandler scripts/native_memory_diagnostic.py --calibration-only --report-directory native-memory-reports 2>&1 | tee native-memory-calibration.log
       - name: Preserve isolation evidence
@@ -109,6 +111,21 @@ jobs:
         run: python -m maturin build --locked --release --target aarch64-apple-darwin --interpreter python --out dist/asan 2>&1 | tee native-memory-build.log
       - name: Install the diagnostic wheel
         run: python -m pip install dist/asan/*.whl
+      - name: Verify detector controls before the long workload
+        if: ${{ inputs.selection && inputs.selection != 'preflight-only' }}
+        run: python -X faulthandler scripts/native_memory_diagnostic.py --preflight-only --report-directory native-memory-preflight 2>&1 | tee native-memory-preflight.log
+      - name: Preserve detector controls before the long workload
+        if: ${{ always() && inputs.selection && inputs.selection != 'preflight-only' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-memory-asan-${{ inputs.selection }}-preflight
+          path: |
+            native-memory-preflight/
+            native-memory-preflight.log
+            native-memory-build.log
+            dist/asan/*.whl
+          if-no-files-found: error
+          retention-days: 14
       - name: Verify the detector and run the requested diagnostic once
         env:
           NATIVE_SELECTION: ${{ inputs.selection || 'preflight-only' }}
@@ -118,7 +135,13 @@ jobs:
           else
             selection=(--shard "$NATIVE_SELECTION")
           fi
-          python -X faulthandler scripts/native_memory_diagnostic.py "${selection[@]}" --report-directory native-memory-reports 2>&1 | tee native-memory-run.log
+          command=(python -X faulthandler scripts/native_memory_diagnostic.py "${selection[@]}" --report-directory native-memory-reports)
+          if [ "$NATIVE_SELECTION" != preflight-only ]; then
+            # Keep the complete selection unchanged, with time left to save
+            # evidence if it cannot finish. A deadline exits 124, never success.
+            command=(python scripts/native_memory_watchdog.py --report-directory native-memory-reports/watchdog --timeout-seconds 16800 -- "${command[@]}")
+          fi
+          "${command[@]}" 2>&1 | tee native-memory-run.log
       - name: Preserve diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v7

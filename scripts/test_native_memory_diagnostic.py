@@ -67,6 +67,10 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
                               else ["--shard", selection])
                     expected = ["-X", "faulthandler", "scripts/native_memory_diagnostic.py",
                                 *choice, "--report-directory", "native-memory-reports"]
+                    if selection != "preflight-only":
+                        expected = ["scripts/native_memory_watchdog.py", "--report-directory",
+                                    "native-memory-reports/watchdog", "--timeout-seconds", "16800",
+                                    "--", "python", *expected]
                     self.assertEqual(result.stdout.splitlines(),
                                      expected + (["continued"] if exit_code == 0 else []))
                     self.assertEqual((Path(temporary) / "native-memory-run.log").read_text().splitlines(),
