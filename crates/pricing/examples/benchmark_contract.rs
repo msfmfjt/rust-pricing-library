@@ -60,7 +60,7 @@ fn path_benchmark(p: &CompiledPayoff) -> Value {
     let allocated = start.elapsed().as_secs_f64() * 1e9 / paths as f64;
     json!({"reused_ns_per_path":reused, "owned_output_ns_per_path":allocated,
         "workspace_bytes":bytes,"workspace_capacity_growth_after_warmup":growth,
-        "state_value_slots":p.opcodes().len(),"evaluation_program_bytes":p.evaluation_program_bytes(),"observation_slots":p.terminal_observations().len(),
+        "state_value_slots":p.forward_value_slots(),"ssa_slots":p.opcodes().len(),"evaluation_program_bytes":p.evaluation_program_bytes(),"observation_slots":p.terminal_observations().len(),
         "checksum":checksum})
 }
 fn bench(c: &Contract, old: Option<SourceGraph>) -> Value {

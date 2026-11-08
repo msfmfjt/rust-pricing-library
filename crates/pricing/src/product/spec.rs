@@ -3,7 +3,8 @@ use crate::core::{
     PositiveF64, UnderlyingId,
 };
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum OptionSide {
     Call,
     Put,
@@ -56,7 +57,8 @@ pub enum BarrierDirection {
     Down,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BarrierStyle {
     KnockIn,
     KnockOut,

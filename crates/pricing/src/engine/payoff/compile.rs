@@ -620,10 +620,10 @@ pub(in crate::engine) fn compile(
     let mapping = source_to_slot.into_iter().collect::<Vec<_>>();
     let source_fingerprint = fingerprint_source(&nodes, &graph.outputs);
     let tape_fingerprint = fingerprint_tape(&opcodes, &output_slots, &mapping);
-    let program = if branching {
+    let (program, memo_count) = if branching {
         super::program::compile(&opcodes, &output_slots)?
     } else {
-        Box::default()
+        (Box::default(), 0)
     };
     let program_bytes = program
         .len()
@@ -636,8 +636,19 @@ pub(in crate::engine) fn compile(
             .ok_or(GraphError::SizeOverflow)?,
         limits.estimated_bytes,
     )?;
+    let linear = if branching {
+        None
+    } else {
+        super::registers::RegisterProgram::compile(
+            &opcodes,
+            &output_slots,
+            limits.estimated_bytes - estimated_bytes,
+        )
+    };
     Ok(CompiledPayoff {
+        linear,
         branching,
+        memo_count,
         program,
         opcodes: opcodes.into_boxed_slice(),
         output_slots: output_slots.into_boxed_slice(),

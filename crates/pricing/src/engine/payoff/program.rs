@@ -34,7 +34,7 @@ pub(super) enum Instruction {
         target: u32,
     },
     Jump(u32),
-    Return,
+    Return(u32),
     Stop,
 }
 
@@ -61,7 +61,7 @@ enum Build {
 pub(super) fn compile(
     opcodes: &[CompiledOpcode],
     outputs: &[u32],
-) -> Result<Box<[Instruction]>, GraphError> {
+) -> Result<(Box<[Instruction]>, usize), GraphError> {
     let mut uses = vec![0_usize; opcodes.len()];
     for &output in outputs {
         uses[output as usize] += 1;
@@ -83,22 +83,23 @@ pub(super) fn compile(
         builder.emit(Build::Ensure(output))?;
     }
     builder.code.push(Instruction::Stop);
-    let mut functions = vec![0; opcodes.len()];
+    let mut functions = vec![(0, 0); opcodes.len()];
+    let mut memo_count = 0;
     for (i, target) in functions.iter_mut().enumerate() {
         if builder.uses[i] > 1 && !matches!(opcodes[i], CompiledOpcode::Literal { .. }) {
-            *target = offset(builder.code.len())?;
+            let memo = offset(memo_count)?;
+            *target = (memo, offset(builder.code.len())?);
+            memo_count += 1;
             builder.emit(Build::Body(i as u32))?;
-            builder.code.push(Instruction::Return);
+            builder.code.push(Instruction::Return(memo));
         }
     }
     for (index, slot) in builder.calls {
-        builder.code[index] = Instruction::Call {
-            slot,
-            target: functions[slot as usize],
-        };
+        let (memo, target) = functions[slot as usize];
+        builder.code[index] = Instruction::Call { slot: memo, target };
     }
     offset(builder.code.len())?;
-    Ok(builder.code.into_boxed_slice())
+    Ok((builder.code.into_boxed_slice(), memo_count))
 }
 fn offset(value: usize) -> Result<u32, GraphError> {
     u32::try_from(value).map_err(|_| GraphError::HardCapacity {

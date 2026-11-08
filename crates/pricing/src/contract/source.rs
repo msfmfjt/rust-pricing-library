@@ -143,6 +143,9 @@ pub enum BarrierDirection {
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Term {
     Empty,
+    VanillaOption {
+        option: super::VanillaOption,
+    },
     Cashflow {
         cashflow: Cashflow,
     },
@@ -180,6 +183,34 @@ pub enum Term {
         id: String,
         contract: Box<Self>,
     },
+}
+impl Term {
+    pub(super) fn visit_options<'a>(&'a self, output: &mut Vec<&'a super::VanillaOption>) {
+        match self {
+            Self::VanillaOption { option } => output.push(option),
+            Self::Bundle { contracts } => contracts
+                .iter()
+                .for_each(|child| child.visit_options(output)),
+            Self::Conditional {
+                then_contract,
+                else_contract,
+                ..
+            } => {
+                then_contract.visit_options(output);
+                else_contract.visit_options(output);
+            }
+            Self::Barrier {
+                on_hit, on_no_hit, ..
+            } => {
+                on_hit.visit_options(output);
+                on_no_hit.visit_options(output);
+            }
+            Self::Scale { contract, .. } | Self::Reverse { contract } => {
+                contract.visit_options(output)
+            }
+            _ => {}
+        }
+    }
 }
 impl From<Cashflow> for Term {
     fn from(cashflow: Cashflow) -> Self {
@@ -264,6 +295,8 @@ pub struct ContractAnalysis {
     pub underlying_dependencies: Vec<UnderlyingId>,
     pub currencies: Vec<CurrencyId>,
     pub barrier_monitoring_dates: Vec<Date>,
+    /// Exercise dates or the legal American window, independent of the MC grid.
+    pub option_features: Vec<super::OptionSchedule>,
     pub horizon: Option<Date>,
 }
 impl Contract {
@@ -338,6 +371,7 @@ impl Contract {
             ids: BTreeSet::new(),
             barrier_ids: BTreeSet::new(),
             barriers: BTreeSet::new(),
+            options: Vec::new(),
             flows: Vec::new(),
             count: 0,
             prune_constants: false,
@@ -351,6 +385,7 @@ impl Contract {
         state.ids.clear();
         state.barrier_ids.clear();
         state.barriers.clear();
+        state.options.clear();
         state.flows.clear();
         state.count = 0;
         state.prune_constants = true;
@@ -396,6 +431,7 @@ impl Contract {
             underlying_dependencies,
             currencies,
             barrier_monitoring_dates: state.barriers.into_iter().collect(),
+            option_features: state.options,
             horizon,
         })
     }
@@ -415,6 +451,7 @@ struct AnalysisState<'a> {
     ids: BTreeSet<String>,
     barrier_ids: BTreeSet<String>,
     barriers: BTreeSet<Date>,
+    options: Vec<super::OptionSchedule>,
     flows: Vec<Cashflow>,
     count: usize,
     prune_constants: bool,
@@ -587,14 +624,101 @@ impl AnalysisState<'_> {
                 self.walk(on_hit, &refs, depth + 1)?;
                 self.walk(on_no_hit, &refs, depth + 1)?;
             }
+            Term::VanillaOption { option } => {
+                let expiry = *self
+                    .registry
+                    .get(&option.expiry_observation)
+                    .ok_or_else(|| {
+                        ContractError::Invalid("unknown option expiry observation".into())
+                    })?;
+                option.validate(expiry)?;
+                let (first, payment) = match &option.feature {
+                    super::OptionFeature::Bermudan { dates } => {
+                        for &date in dates {
+                            super::expression::budget(depth + 1, &mut self.count)?;
+                            let obs = option.observation_on(expiry, date);
+                            if self.registry.get(&obs.id).copied() != Some(&obs) {
+                                return Err(ContractError::Invalid(format!(
+                                    "missing or inconsistent exercise observation {}",
+                                    obs.id
+                                )));
+                            }
+                            self.used.insert(obs.id);
+                        }
+                        (dates[0], expiry.date)
+                    }
+                    super::OptionFeature::American { start } => {
+                        let prefix = format!("{}/spot/", option.id);
+                        identifier(&format!("{prefix}{start}"))?;
+                        for (key, &registered) in self
+                            .registry
+                            .range(prefix.clone()..)
+                            .take_while(|(key, _)| key.starts_with(&prefix))
+                        {
+                            if let Ok(date) = key[prefix.len()..].parse::<Date>()
+                                && option.permits_exercise(date, expiry.date)
+                                && option.observation_on(expiry, date) != *registered
+                            {
+                                return Err(ContractError::Invalid(format!(
+                                    "exercise fixing identity collision for {key}"
+                                )));
+                            }
+                        }
+                        (*start, expiry.date)
+                    }
+                    super::OptionFeature::ContinuousBarrier(b) => {
+                        self.barriers.extend([b.start, b.end]);
+                        (expiry.date, b.payment_date)
+                    }
+                };
+                if guards.iter().any(|id| self.registry[id].date > first) {
+                    return Err(ContractError::Invalid(
+                        "option depends on a guard observed after its first decision".into(),
+                    ));
+                }
+                self.options.push(super::OptionSchedule {
+                    option_id: option.id.clone(),
+                    expiry_observation: expiry.id.clone(),
+                    expiry: expiry.date,
+                    feature: option.feature.clone(),
+                });
+                if self.prune_constants {
+                    match &option.feature {
+                        super::OptionFeature::Bermudan { dates } => {
+                            // All alternatives settle the same right; at most one pays.
+                            for &date in dates.iter().take(dates.len() - 1) {
+                                self.flows.push(
+                                    option.cashflow(&option.observation_on(expiry, date), date),
+                                );
+                            }
+                        }
+                        super::OptionFeature::ContinuousBarrier(b) => {
+                            self.flows.push(Cashflow::new(
+                                &option.id,
+                                option.currency,
+                                b.rebate.into(),
+                                b.end,
+                                b.payment_date,
+                            ));
+                        }
+                        super::OptionFeature::American { .. } => {}
+                    }
+                }
+                self.walk(
+                    &Term::from(option.cashflow(expiry, payment)),
+                    guards,
+                    depth + 1,
+                )?;
+            }
             Term::Exercise { .. } => {
                 return Err(ContractError::Unsupported(
-                    "exercise requires an explicit MC stopping policy (Phase 5)".into(),
+                    "untyped exercise placeholder: specify a holder option and its legal schedule"
+                        .into(),
                 ));
             }
             Term::ContinuousBarrier { .. } => {
                 return Err(ContractError::Unsupported(
-                    "continuous barrier correction (Phase 5)".into(),
+                    "untyped continuous barrier placeholder: specify a monitoring window, level and knock style".into(),
                 ));
             }
         }

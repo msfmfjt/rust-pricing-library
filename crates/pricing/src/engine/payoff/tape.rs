@@ -105,6 +105,8 @@ pub enum CompiledOpcode {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CompiledPayoff {
     pub(in crate::engine) branching: bool,
+    pub(super) linear: Option<super::registers::RegisterProgram>,
+    pub(super) memo_count: usize,
     pub(super) program: Box<[super::program::Instruction]>,
     pub(in crate::engine) opcodes: Box<[CompiledOpcode]>,
     pub(in crate::engine) output_slots: Box<[u32]>,
@@ -171,10 +173,26 @@ pub struct PayoffEvaluation {
 }
 
 impl CompiledPayoff {
+    /// Per-path floating-point registers for forward payoff evaluation.
+    pub fn forward_value_slots(&self) -> usize {
+        self.linear
+            .as_ref()
+            .map_or(self.opcodes.len(), |program| program.registers)
+    }
+    fn forward_ops(&self) -> &[CompiledOpcode] {
+        self.linear.as_ref().map_or(&self.opcodes, |p| &p.ops)
+    }
+    fn forward_outputs(&self) -> &[u32] {
+        self.linear
+            .as_ref()
+            .map_or(&self.output_slots, |p| &p.outputs)
+    }
+
     /// Immutable control-flow storage, separate from reusable path workspace.
     #[must_use]
     pub fn evaluation_program_bytes(&self) -> usize {
         self.program.len() * std::mem::size_of::<super::program::Instruction>()
+            + self.linear.as_ref().map_or(0, |p| p.bytes())
     }
 
     #[must_use]
@@ -263,8 +281,8 @@ impl CompiledPayoff {
     {
         if !self.branching {
             // Preserve the legacy allocation count and instruction order.
-            let mut values = vec![0.0; self.opcodes.len()];
-            for &opcode in &self.opcodes {
+            let mut values = vec![0.0; self.forward_value_slots()];
+            for &opcode in self.forward_ops() {
                 let (output, value) = execute_opcode(
                     opcode,
                     &values,
@@ -275,7 +293,7 @@ impl CompiledPayoff {
                 values[output as usize] = value;
             }
             return Ok(self
-                .output_slots
+                .forward_outputs()
                 .iter()
                 .map(|slot| values[*slot as usize])
                 .collect());
@@ -309,12 +327,8 @@ impl CompiledPayoff {
     pub fn workspace(&self) -> PayoffWorkspace {
         PayoffWorkspace {
             prepared: None,
-            values: vec![0.0; self.opcodes.len()],
-            visited: if self.branching {
-                vec![false; self.opcodes.len()]
-            } else {
-                vec![]
-            },
+            values: vec![0.0; self.forward_value_slots()],
+            visited: vec![false; self.memo_count],
             pending: Vec::new(),
             outputs: vec![0.0; self.output_slots.len()],
         }
@@ -325,18 +339,32 @@ impl CompiledPayoff {
     pub fn evaluate_reusing<'a, F, G>(
         &self,
         workspace: &'a mut PayoffWorkspace,
-        mut observation: F,
-        mut pre_dividend_observation: G,
+        observation: F,
+        pre_dividend_observation: G,
     ) -> Result<&'a [f64], GraphError>
     where
         F: FnMut(UnderlyingId, Date) -> Option<f64>,
         G: FnMut(UnderlyingId, Date) -> Option<f64>,
     {
-        workspace.values.resize(self.opcodes.len(), 0.0);
+        self.evaluate_path::<false, _, _>(workspace, observation, pre_dividend_observation, &mut [])
+    }
+
+    fn evaluate_path<'a, const TRACE: bool, F, G>(
+        &self,
+        workspace: &'a mut PayoffWorkspace,
+        mut observation: F,
+        mut pre_dividend_observation: G,
+        trace: &mut [bool],
+    ) -> Result<&'a [f64], GraphError>
+    where
+        F: FnMut(UnderlyingId, Date) -> Option<f64>,
+        G: FnMut(UnderlyingId, Date) -> Option<f64>,
+    {
+        workspace.values.resize(self.forward_value_slots(), 0.0);
         workspace.outputs.resize(self.output_slots.len(), 0.0);
         if self.branching {
             use super::program::Instruction;
-            workspace.visited.resize(self.opcodes.len(), false);
+            workspace.visited.resize(self.memo_count, false);
             workspace.visited.fill(false);
             workspace.pending.clear();
             if workspace.prepared != Some(self.tape_fingerprint) {
@@ -361,12 +389,16 @@ impl CompiledPayoff {
                         )?;
                         check_value(opcode, value)?;
                         workspace.values[slot as usize] = value;
-                        workspace.visited[slot as usize] = true;
+                        if TRACE {
+                            trace[slot as usize] = true;
+                        }
                         pc += 1;
                     }
                     Instruction::Copy { input, output } => {
                         workspace.values[output as usize] = workspace.values[input as usize];
-                        workspace.visited[output as usize] = true;
+                        if TRACE {
+                            trace[output as usize] = true;
+                        }
                         pc += 1;
                     }
                     Instruction::ShortcutZero {
@@ -385,7 +417,9 @@ impl CompiledPayoff {
                             == matches!(instruction, Instruction::ShortcutZero { .. });
                         if take_constant {
                             workspace.values[output as usize] = workspace.values[value as usize];
-                            workspace.visited[output as usize] = true;
+                            if TRACE {
+                                trace[output as usize] = true;
+                            }
                             pc = target as usize;
                         } else {
                             pc += 1;
@@ -407,7 +441,8 @@ impl CompiledPayoff {
                         };
                     }
                     Instruction::Jump(target) => pc = target as usize,
-                    Instruction::Return => {
+                    Instruction::Return(memo) => {
+                        workspace.visited[memo as usize] = true;
                         pc = workspace
                             .pending
                             .pop()
@@ -419,7 +454,7 @@ impl CompiledPayoff {
             }
         } else {
             workspace.prepared = None;
-            for &opcode in &self.opcodes {
+            for &opcode in self.forward_ops() {
                 let (output, value) = execute_opcode(
                     opcode,
                     &workspace.values,
@@ -430,7 +465,7 @@ impl CompiledPayoff {
                 workspace.values[output as usize] = value;
             }
         }
-        for (value, &slot) in workspace.outputs.iter_mut().zip(&self.output_slots) {
+        for (value, &slot) in workspace.outputs.iter_mut().zip(self.forward_outputs()) {
             *value = workspace.values[slot as usize];
         }
         Ok(&workspace.outputs)
@@ -505,12 +540,14 @@ impl CompiledPayoff {
                 })?;
         let (values, visited) = if self.branching {
             let mut workspace = self.workspace();
-            self.evaluate_reusing(
+            let mut trace = vec![false; self.opcodes.len()];
+            self.evaluate_path::<true, _, _>(
                 &mut workspace,
                 &mut observation,
                 &mut pre_dividend_observation,
+                &mut trace,
             )?;
-            (workspace.values, workspace.visited)
+            (workspace.values, trace)
         } else {
             let mut values = vec![0.0; self.opcodes.len()];
             for &opcode in &self.opcodes {

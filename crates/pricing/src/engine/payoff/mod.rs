@@ -10,3 +10,7 @@ pub(crate) mod tape;
 pub(crate) mod valuation;
 
 pub(crate) mod contract;
+
+mod registers;
+
+mod option_task;

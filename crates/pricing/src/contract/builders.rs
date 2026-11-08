@@ -118,6 +118,37 @@ impl InstrumentBuilder {
         let amount = vanilla(NumericExpr::observation(&o.id), side, strike, notional);
         self.finish(vec![o], self.cash("option", amount, expiry, payment_date))
     }
+    pub fn vanilla_option(
+        &self,
+        side: OptionSide,
+        strike: f64,
+        notional: f64,
+        expiry: Date,
+        feature: super::OptionFeature,
+    ) -> Result<Contract, ContractError> {
+        let terminal = self.obs(0, expiry);
+        let option = super::VanillaOption {
+            id: format!("{}/option", self.id),
+            currency: self.currency,
+            expiry_observation: terminal.id.clone(),
+            side,
+            strike,
+            notional,
+            feature,
+        };
+        let mut observations = vec![terminal.clone()];
+        if let super::OptionFeature::Bermudan { dates } = &option.feature {
+            option.validate(&terminal)?;
+            observations.extend(
+                dates
+                    .iter()
+                    .filter(|&&d| d != expiry)
+                    .map(|&date| option.observation_on(&terminal, date)),
+            );
+        }
+        self.finish(observations, Term::VanillaOption { option })
+    }
+
     pub fn digital(
         &self,
         side: OptionSide,
@@ -373,7 +404,12 @@ impl InstrumentBuilder {
         self.finish(observations, tail)
     }
 }
-fn vanilla(spot: NumericExpr, side: OptionSide, strike: f64, notional: f64) -> NumericExpr {
+pub(super) fn vanilla(
+    spot: NumericExpr,
+    side: OptionSide,
+    strike: f64,
+    notional: f64,
+) -> NumericExpr {
     let intrinsic = if side == OptionSide::Call {
         spot.minus(strike.into())
     } else {
@@ -387,7 +423,7 @@ fn finite(values: &[f64]) -> Result<(), ContractError> {
     }
     Ok(())
 }
-fn schedule(dates: &[Date]) -> Result<(), ContractError> {
+pub(super) fn schedule(dates: &[Date]) -> Result<(), ContractError> {
     if dates.is_empty() || dates.windows(2).any(|w| w[0] >= w[1]) {
         Err(ContractError::Invalid(
             "observation schedule must be nonempty, strictly increasing and unique".into(),

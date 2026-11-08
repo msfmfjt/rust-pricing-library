@@ -1,4 +1,4 @@
-"""Run six focused semantic mutants in an isolated source copy.
+"""Run focused semantic mutants in an isolated source copy.
 
 This complements deterministic property tests; it is not exhaustive cargo-mutants
 coverage. Exit 101 only counts as killed when Rust tests actually report failure.
@@ -14,6 +14,10 @@ import tempfile
 import time
 ROOT = Path(__file__).resolve().parents[1]
 MUTANTS = [
+    ('american_window', 'crates/pricing/src/contract/advanced.rs',
+     '(*start..=expiry).contains(&date)', 'date == expiry', 'contract_advanced', 'exercise_replay_uses'),
+    ('bridge_touch', 'crates/pricing/src/contract/option_history.rs',
+     'BarrierDirection::Down => spot <= b.level', 'BarrierDirection::Down => spot < b.level', 'contract_advanced', 'continuous_monitoring_requires'),
     ('inclusive_comparison', 'crates/pricing/src/contract/expression.rs',
      'Self::GreaterEqual => a >= b,', 'Self::GreaterEqual => a > b,', 'contract_mc', 'contract_condition_comparisons'),
     ('payment_direction', 'crates/pricing/src/contract/source.rs',
@@ -52,7 +56,7 @@ def main():
             proc = subprocess.run(['cargo', 'test', '--offline', '--locked', '-p', 'pricing', *arguments], cwd=copy, env=environment, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=600)
             (report / f'{label}.log').write_text(proc.stdout)
             return proc, round(time.monotonic() - start, 3)
-        base, elapsed = run('baseline', ['--test', 'contract_builders', '--test', 'contract_lifecycle', '--test', 'contract_mc'])
+        base, elapsed = run('baseline', ['--test', 'contract_builders', '--test', 'contract_lifecycle', '--test', 'contract_mc', '--test', 'contract_advanced'])
         if base.returncode:
             raise RuntimeError('Mutation baseline failed; see baseline.log')
         print(f'baseline passed ({elapsed}s)', flush=True)
@@ -72,7 +76,7 @@ def main():
                 print(json.dumps(result), flush=True)
             finally:
                 source.write_text(original)
-    (report / 'results.json').write_text(json.dumps({'scope':'six curated semantic mutants; not exhaustive', 'results':results}, indent=2) + '\n')
+    (report / 'results.json').write_text(json.dumps({'scope':'curated semantic mutants', 'results':results}, indent=2) + '\n')
     if any(r['status'] != 'killed' for r in results):
         raise SystemExit(1)
 

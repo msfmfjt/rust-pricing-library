@@ -22,8 +22,8 @@ A `Cashflow` carries stable ID, currency, amount, receive/pay direction,
 determination, payment and expected settlement dates. Amounts may be signed;
 direction multiplies their sign. `Term` provides empty, bundle, conditional,
 reverse, scale and discrete barrier composition. Barriers use inclusive up/down
-boundaries. Exercise and continuous barriers are explicitly rejected in this
-version. Cash-flow IDs must be unique across the complete source, including
+boundaries. Contract v2 adds holder exercise rights and continuously monitored
+vanilla options. Cash-flow IDs must be unique across the complete source, including
 mutually exclusive branches. Unknown references, duplicate observation IDs,
 nonfinite constants, dates before dependencies and excessive depth/size fail
 at construction. The owned tree has no reference cycles.
@@ -43,8 +43,9 @@ from frozen pricing request/result and graph formats. Decoding uses the existing
 bounded duplicate-rejecting parser and then Rust semantic validation. Unknown
 fields and versions fail. Observation declaration order is canonicalized by ID;
 term and cash-flow order remain contractual. Fingerprints identify source data,
-not algebraic equivalence. There is no migration from an earlier Contract
-schema; future versions must retain v1 readers or publish an explicit migration.
+not algebraic equivalence. Ordinary terms keep v1 encoding and fingerprints. Contracts containing a v2
+option term use [Contract schema v2](../../schemas/contract-v2/contract.schema.json).
+Lifecycle checkpoint versions follow the original contract.
 
 See [source conformance](../../crates/pricing/tests/contract_source.rs) for typed
 construction, semantic identities, strict JSON rejection and dependency checks.
@@ -60,7 +61,7 @@ history with new events and rejects moving the valuation date backwards.
 Fixing events carry the complete observation identity and publication date.
 Duplicate IDs with identical content are idempotent; reused IDs or inconsistent
 fixings fail. Future events remain in history but are not applied. On the same
-date, fixings precede determination confirmations, termination and settlement;
+date, fixings precede exercise and barrier reports, then determination confirmations, termination and settlement;
 stable event IDs break remaining ties. The date-only interface treats same-day
 fixings without an event as current observations, consistent with native MC;
 strictly earlier required observations must have a fixing. Intraday cutoffs
@@ -210,11 +211,59 @@ measured repetitions with alternating execution order. Override these with
 `CONTRACT_BENCH_PATHS`, `CONTRACT_BENCH_SAMPLES`, `CONTRACT_BENCH_PERIODS`,
 `CONTRACT_BENCH_WORKERS` and `CONTRACT_BENCH_REPETITIONS`; periods must divide 12.
 Raw paired samples and immutable evaluation-program bytes are reported.
-Reserved workspace bytes and capacity growth are
-measured explicitly; these are not process-wide allocation counts. Advanced
-register liveness compression and model-wide buffer reuse remain Phase 5 work;
-the existing engine owns simulated path storage.
+The benchmark measures reserved workspace bytes and capacity growth directly.
+Forward-only linear graphs reuse registers after their last read. Reverse mode
+has access to the original SSA values. In branching graphs, only shared calls
+need memo flags. LSM releases training path matrices before allocating valuation
+paths. Run `cargo run --release -p pricing --example benchmark_contract_advanced`
+for seven paired native/Contract timings, values, errors and a path-storage check.
 
 The [Phase 0–4 verification record](../../design/validation/contract-dsl/README.md)
 links the five draft PRs, local checks, raw benchmark/mutation evidence, hosted
 CI snapshot, measured performance envelope and explicit capability limits.
+
+## Exercise and continuous monitoring
+
+A Bermudan uses its contractual exercise dates. An American has a legal window
+and requires a separate approximation grid for valuation. Each date on the grid
+must be in the window, in strictly increasing order, with expiry last. Supply an
+LSM configuration on the pricing template or with the pricing call. The training
+and valuation engines must use independent sampling as required by the native
+solver. Existing fixed-policy risk diagnostics apply.
+
+```python
+from pathlib import Path
+import rust_pricing as rp
+
+request = rp.PricingRequest.from_json(
+    Path("fixtures/v3/pricing_request_american.golden.json").read_text())
+source = rp.PricingSpecification.from_request(request, worker_threads=2)
+builder = rp.ContractBuilder("put", 2, 1, "official.close")
+option = builder.american("put", 100., 1., "2026-09-04", "2027-09-04")
+task = option.pricing_task(source, american_grid=["2027-03-04", "2027-09-04"])
+report = task.compile().evaluate().report
+```
+
+In Rust, pass `OptionFeature::Bermudan { dates }`, `OptionFeature::American { start }`
+or `OptionFeature::ContinuousBarrier(terms)` to `InstrumentBuilder::vanilla_option`.
+Build the native task with `Contract::pricing_task(&spec, operation, &settings)`.
+`AdvancedMcSettings` carries the explicit grid, optional LSM override and bridge opt-in.
+The [paired benchmark results](../../design/validation/contract-dsl/phase5-benchmark.json)
+include seven measured runs per task and a 10,000-path register-reuse check.
+
+Analysis lists each potential Bermudan payment date. These alternatives share a cashflow ID because exercising exhausts the right. American analysis records the legal window and its terminal payment.
+
+On actual exercise, obtain the published fixing identity with
+`exercise_observation_json(option_id, date)`. Supply a fixing and an
+`exercise` event with that `exercise_id` to `advance`. A notice can arrive on a
+legal American date outside the pricing grid. At expiry the lifecycle uses the
+published terminal fixing. Prior payments remain outstanding until settled.
+
+For a continuous barrier, construct `builder.continuous_barrier(...)` and pass
+`brownian_bridge=True` to `pricing_task`. Crossing or touching the level in the
+inclusive window counts as a hit. Rebates are absolute cash paid on the stated
+payment date. A cumulative `barrier_status` event carries `barrier_id` and `hit`.
+No-hit history must extend through valuation or the end of monitoring, whichever
+comes first. Continuous historical monitoring cannot be inferred from safe
+closing prices. See [ADR 0042](../../design/adr/0042-contract-exercise-and-monitoring.md)
+for model assumptions and the supported native task shapes.

@@ -34,6 +34,19 @@ fn date(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<Date> {
 fn dates(py: Python<'_>, values: Vec<Py<PyAny>>) -> PyResult<Vec<Date>> {
     values.iter().map(|v| date(py, v.bind(py))).collect()
 }
+fn barrier_kind(direction: &str, style: &str) -> PyResult<(c::BarrierDirection, BarrierStyle)> {
+    let direction = match direction {
+        "up" => c::BarrierDirection::Up,
+        "down" => c::BarrierDirection::Down,
+        _ => return Err(invalid("direction must be up or down")),
+    };
+    let style = match style {
+        "knock_in" => BarrierStyle::KnockIn,
+        "knock_out" => BarrierStyle::KnockOut,
+        _ => return Err(invalid("style must be knock_in or knock_out")),
+    };
+    Ok((direction, style))
+}
 fn side(value: &str) -> PyResult<OptionSide> {
     match value {
         "call" => Ok(OptionSide::Call),
@@ -64,8 +77,9 @@ impl PyContract {
             .map_err(error)
     }
     #[staticmethod]
-    fn json_schema() -> &'static str {
-        Contract::json_schema()
+    #[pyo3(signature=(version=1))]
+    fn json_schema(version: u32) -> PyResult<&'static str> {
+        Contract::json_schema_for_version(version).map_err(error)
     }
     fn to_json(&self) -> PyResult<String> {
         self.inner.to_json().map_err(error)
@@ -138,6 +152,16 @@ impl PyContract {
         .to_json()
         .map_err(error)
     }
+    fn exercise_observation_json(
+        &self,
+        py: Python<'_>,
+        option_id: &str,
+        exercise_date: &Bound<'_, PyAny>,
+    ) -> PyResult<String> {
+        self.inner
+            .exercise_observation_json(option_id, date(py, exercise_date)?)
+            .map_err(error)
+    }
     fn advance(
         &self,
         py: Python<'_>,
@@ -176,22 +200,38 @@ impl PyContract {
             })
             .collect())
     }
-    #[pyo3(signature=(source, *, operation="evaluate", gamma_relative_bump=None))]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(source, *, operation="evaluate", gamma_relative_bump=None, lsm=None, american_grid=None, brownian_bridge=false))]
     fn pricing_task(
         &self,
         py: Python<'_>,
         source: &Bound<'_, PyAny>,
         operation: &str,
         gamma_relative_bump: Option<f64>,
+        lsm: Option<&crate::builders::PyLsmConfig>,
+        american_grid: Option<Vec<Py<PyAny>>>,
+        brownian_bridge: bool,
     ) -> PyResult<PyPricingTask> {
         let source = crate::pricing_source::extract_source(source)?;
         let operation = crate::pricing_task::operation(operation, gamma_relative_bump)?;
+        let settings = c::AdvancedMcSettings {
+            lsm: lsm.map(|l| l.inner.clone()),
+            american_grid: american_grid.map(|g| dates(py, g)).transpose()?,
+            brownian_bridge,
+        };
+        if !matches!(source, pricing::PricingSource::SingleAsset(_))
+            && (settings.lsm.is_some() || settings.american_grid.is_some() || brownian_bridge)
+        {
+            return Err(invalid(
+                "advanced option settings require a compatible single-asset source",
+            ));
+        }
         let contract = self.inner.clone();
         let task = py
             .detach(move || match source {
-                pricing::PricingSource::SingleAsset(s) => contract
-                    .compile_mc(s.valuation_date(), vec![s.product().underlying()])?
-                    .pricing_task(&s, operation),
+                pricing::PricingSource::SingleAsset(s) => {
+                    contract.pricing_task(&s, operation, &settings)
+                }
                 pricing::PricingSource::MultiAsset(s) => contract
                     .compile_mc(s.valuation_date(), s.product().underlyings().to_vec())?
                     .multi_asset_task(&s, operation),
@@ -286,6 +326,88 @@ impl PyContractBuilder {
         )
         .map(|inner| Self { inner })
         .map_err(error)
+    }
+    fn bermudan(
+        &self,
+        py: Python<'_>,
+        side: &str,
+        strike: f64,
+        notional: f64,
+        exercise_dates: Vec<Py<PyAny>>,
+    ) -> PyResult<PyContract> {
+        let dates = dates(py, exercise_dates)?;
+        let expiry = *dates
+            .last()
+            .ok_or_else(|| invalid("empty exercise schedule"))?;
+        self.inner
+            .vanilla_option(
+                self::side(side)?,
+                strike,
+                notional,
+                expiry,
+                c::OptionFeature::Bermudan { dates },
+            )
+            .map(|inner| PyContract { inner })
+            .map_err(error)
+    }
+    fn american(
+        &self,
+        py: Python<'_>,
+        side: &str,
+        strike: f64,
+        notional: f64,
+        start: &Bound<'_, PyAny>,
+        expiry: &Bound<'_, PyAny>,
+    ) -> PyResult<PyContract> {
+        self.inner
+            .vanilla_option(
+                self::side(side)?,
+                strike,
+                notional,
+                date(py, expiry)?,
+                c::OptionFeature::American {
+                    start: date(py, start)?,
+                },
+            )
+            .map(|inner| PyContract { inner })
+            .map_err(error)
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn continuous_barrier(
+        &self,
+        py: Python<'_>,
+        side: &str,
+        strike: f64,
+        notional: f64,
+        expiry: &Bound<'_, PyAny>,
+        payment_date: &Bound<'_, PyAny>,
+        start: &Bound<'_, PyAny>,
+        end: &Bound<'_, PyAny>,
+        direction: &str,
+        style: &str,
+        level: f64,
+        rebate: f64,
+    ) -> PyResult<PyContract> {
+        let (direction, style) = barrier_kind(direction, style)?;
+        let terms = c::ContinuousBarrierTerms {
+            start: date(py, start)?,
+            end: date(py, end)?,
+            payment_date: date(py, payment_date)?,
+            direction,
+            style,
+            level,
+            rebate,
+        };
+        self.inner
+            .vanilla_option(
+                self::side(side)?,
+                strike,
+                notional,
+                date(py, expiry)?,
+                c::OptionFeature::ContinuousBarrier(terms),
+            )
+            .map(|inner| PyContract { inner })
+            .map_err(error)
     }
     fn forward(
         &self,
@@ -421,16 +543,7 @@ impl PyContractBuilder {
         level: f64,
         rebate: f64,
     ) -> PyResult<PyContract> {
-        let direction = match direction {
-            "up" => c::BarrierDirection::Up,
-            "down" => c::BarrierDirection::Down,
-            _ => return Err(invalid("direction must be up or down")),
-        };
-        let style = match style {
-            "knock_in" => BarrierStyle::KnockIn,
-            "knock_out" => BarrierStyle::KnockOut,
-            _ => return Err(invalid("style must be knock_in or knock_out")),
-        };
+        let (direction, style) = barrier_kind(direction, style)?;
         self.inner
             .discrete_barrier(c::DiscreteBarrierTerms {
                 side: self::side(side)?,

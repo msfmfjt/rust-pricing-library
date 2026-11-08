@@ -575,9 +575,10 @@ impl Lowerer<'_> {
                     scale,
                 )?;
             }
+            Term::VanillaOption { .. } => return Err(ContractError::Unsupported("exercise policies and continuous monitoring require a native option task; use Contract::pricing_task".into())),
             Term::Exercise { .. } | Term::ContinuousBarrier { .. } => {
                 return Err(ContractError::Unsupported(
-                    "Phase 5 observation/exercise semantics".into(),
+                    "incomplete exercise or monitoring terms".into(),
                 ));
             }
         }
