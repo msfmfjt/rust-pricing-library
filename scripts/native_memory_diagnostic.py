@@ -22,7 +22,8 @@ from scripts.smoke_test_wheel import run_test_process, run_validation
 SHARDS = ("custom-basis-row_hats-4-call-fixed_lookback", "extension-all_rows-4",
           "coupled-basis-coupled_row_hats-6",
           "coupled-basis-coupled_row_hats-4-call-arithmetic_asian",
-          "custom-basis-weighted_time_hats-4-put-fixed_lookback")
+          "custom-basis-weighted_time_hats-4-put-fixed_lookback",
+          "put-extension-linear_time-4")
 ASAN_OPTIONS = "detect_leaks=0:abort_on_error=1"
 # This standalone diagnostic deliberately contains a fault. It is never linked
 # into the pricing library; both its normal and faulting exits must be verified.

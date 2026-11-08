@@ -14,6 +14,7 @@ on:
           - coupled-basis-coupled_row_hats-6
           - coupled-basis-coupled_row_hats-4-call-arithmetic_asian
           - custom-basis-weighted_time_hats-4-put-fixed_lookback
+          - put-extension-linear_time-4
       allocation_frames:
         description: Stack frames saved for each allocation and free
         type: choice
