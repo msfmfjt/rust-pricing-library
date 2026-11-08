@@ -103,10 +103,19 @@ def instrumented_extension() -> dict:
             "sha256": hashlib.sha256(extension.read_bytes()).hexdigest()}
 
 
+def sanitizer_options() -> str:
+    frames = os.environ.get("PRICING_ASAN_ALLOCATION_FRAMES", "default")
+    if frames == "default":
+        return ASAN_OPTIONS
+    if frames == "8":
+        return ASAN_OPTIONS + ":malloc_context_size=8"
+    raise ValueError("PRICING_ASAN_ALLOCATION_FRAMES must be default or 8")
+
+
 def verify_detector(directory: Path) -> None:
     source, executable = directory / "asan-probe.rs", directory / "asan-probe"
     source.write_text(PROBE_SOURCE, encoding="utf-8")
-    env = dict(os.environ, RUSTC_BOOTSTRAP="1", ASAN_OPTIONS=ASAN_OPTIONS)
+    env = dict(os.environ, RUSTC_BOOTSTRAP="1", ASAN_OPTIONS=sanitizer_options())
     subprocess.run(["rustc", "-Zsanitizer=address", "-Cdebuginfo=1", str(source),
                     "-o", str(executable)], env=env, check=True)
     results = []
@@ -167,7 +176,7 @@ def prepare_sanitizer(directory: Path) -> Path:
     verify_detector(directory)
     settings = {"DYLD_INSERT_LIBRARIES": str(runtime),
                 "__PYVENV_LAUNCHER__": sys.executable,
-                "ASAN_OPTIONS": ASAN_OPTIONS,
+                "ASAN_OPTIONS": sanitizer_options(),
                 "PYTHONPATH": os.pathsep.join(str(ROOT / name)
                                               for name in ("tests/python", "backtesting", "scripts"))}
     save(directory, "asan-environment.json", {

@@ -51,6 +51,8 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
             r"^        run: \|\n((?:          [^\n]*\n)+)", workflow, re.MULTILINE)
         self.assertIsNotNone(match)
         source = textwrap.dedent(match.group(1))
+        deadline_step = re.search(r"^        run: (echo \"NATIVE_DIAGNOSTIC_DEADLINE=.+)$",
+                                  workflow, re.MULTILINE).group(1)
         self.assertIn("    shell: bash", workflow)
         for selection in ("preflight-only", *diagnostic.SHARDS):
             for exit_code in (0, 23):
@@ -61,6 +63,9 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
                     prelude = (
                         f"cd {shlex.quote(Path(temporary).as_posix())}\nNATIVE_SELECTION='{selection}'\n"
                         f"python() {{ printf '%s\\n' \"$@\"; return {exit_code}; }}\n")
+                    if selection != "preflight-only":
+                        prelude += ("GITHUB_ENV=job.env\ndate() { echo 100; }\n"
+                                    + deadline_step + "\n. ./job.env\ndate() { echo 700; }\n")
                     result = run_block(prelude + source + "printf 'continued\\n'\n")
                     self.assertEqual(result.returncode, exit_code, result.stderr)
                     choice = (["--preflight-only"] if selection == "preflight-only"
@@ -69,12 +74,25 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
                                 *choice, "--report-directory", "native-memory-reports"]
                     if selection != "preflight-only":
                         expected = ["scripts/native_memory_watchdog.py", "--report-directory",
-                                    "native-memory-reports/watchdog", "--timeout-seconds", "16800",
+                                    "native-memory-reports/watchdog", "--timeout-seconds", "20700",
                                     "--", "python", *expected]
                     self.assertEqual(result.stdout.splitlines(),
                                      expected + (["continued"] if exit_code == 0 else []))
                     self.assertEqual((Path(temporary) / "native-memory-run.log").read_text().splitlines(),
                                      expected)
+
+        expired = run_block("NATIVE_SELECTION=full\nNATIVE_DIAGNOSTIC_DEADLINE=700\n"
+                            "date() { echo 700; }\npython() { exit 99; }\n" + source)
+        self.assertEqual(expired.returncode, 124, expired.stderr)
+
+    def test_allocation_frames_only_change_trace_depth(self):
+        for frames, suffix in (("default", ""), ("8", ":malloc_context_size=8")):
+            with self.subTest(frames=frames), patch.dict(os.environ, {
+                    "PRICING_ASAN_ALLOCATION_FRAMES": frames, "ASAN_OPTIONS": "halt_on_error=0"}):
+                self.assertEqual(diagnostic.sanitizer_options(), diagnostic.ASAN_OPTIONS + suffix)
+        with patch.dict(os.environ, {"PRICING_ASAN_ALLOCATION_FRAMES": "8:halt_on_error=0"}):
+            with self.assertRaises(ValueError):
+                diagnostic.sanitizer_options()
 
     def test_framework_interpreter_bypasses_launcher_and_missing_binary_fails(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -204,12 +222,16 @@ class NativeMemoryDiagnosticTests(unittest.TestCase):
                 patch.object(diagnostic, "verify_python_allocator") as allocator, \
                 patch.object(diagnostic.subprocess, "check_output", return_value="rustc fixture"), \
                 patch.object(diagnostic, "run_test_process", return_value=None) as run, \
-                patch.dict(os.environ, {"ASAN_OPTIONS": "halt_on_error=0"}):
+                patch.dict(os.environ, {"ASAN_OPTIONS": "halt_on_error=0",
+                                        "PRICING_ASAN_ALLOCATION_FRAMES": "8"}):
             result = diagnostic.prepare_sanitizer(Path(temporary))
             self.assertEqual(result, Path("/actual Python"))
             self.assertEqual(os.environ["DYLD_INSERT_LIBRARIES"], str(Path("/runtime with spaces/asan.dylib")))
             self.assertEqual(os.environ["__PYVENV_LAUNCHER__"], diagnostic.sys.executable)
-            self.assertEqual(os.environ["ASAN_OPTIONS"], diagnostic.ASAN_OPTIONS)
+            options = diagnostic.ASAN_OPTIONS + ":malloc_context_size=8"
+            self.assertEqual(os.environ["ASAN_OPTIONS"], options)
+            settings = json.loads((Path(temporary) / "asan-environment.json").read_text())["settings"]
+            self.assertEqual(settings["ASAN_OPTIONS"], options)
             self.assertEqual(run.call_args.args[0][0], str(Path("/actual Python")))
             allocator.assert_called_once_with(Path(temporary), Path("/actual Python"))
             allocator.reset_mock()

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       selection:
-        description: Diagnostic selection; full shards may exceed the 330-minute limit
+        description: Numerical selection to run under AddressSanitizer
         type: choice
         default: preflight-only
         options:
@@ -14,6 +14,13 @@ on:
           - coupled-basis-coupled_row_hats-6
           - coupled-basis-coupled_row_hats-4-call-arithmetic_asian
           - custom-basis-weighted_time_hats-4-put-fixed_lookback
+      allocation_frames:
+        description: Stack frames saved for each allocation and free
+        type: choice
+        default: default
+        options:
+          - default
+          - '8'
   pull_request:
     paths:
       - .github/workflows/native-memory-diagnostic.yml
@@ -96,8 +103,13 @@ jobs:
   address-sanitizer:
     name: address-sanitizer (${{ inputs.selection || 'preflight-only' }})
     runs-on: macos-15
-    timeout-minutes: ${{ inputs.selection && inputs.selection != 'preflight-only' && 330 || 30 }}
+    timeout-minutes: ${{ inputs.selection && inputs.selection != 'preflight-only' && 360 || 30 }}
+    env:
+      PRICING_ASAN_ALLOCATION_FRAMES: ${{ inputs.allocation_frames || 'default' }}
     steps:
+      - name: Reserve five minutes for result collection
+        if: ${{ inputs.selection && inputs.selection != 'preflight-only' }}
+        run: echo "NATIVE_DIAGNOSTIC_DEADLINE=$(( $(date +%s) + 355 * 60 ))" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
@@ -137,9 +149,12 @@ jobs:
           fi
           command=(python -X faulthandler scripts/native_memory_diagnostic.py "${selection[@]}" --report-directory native-memory-reports)
           if [ "$NATIVE_SELECTION" != preflight-only ]; then
-            # Keep the complete selection unchanged, with time left to save
-            # evidence if it cannot finish. A deadline exits 124, never success.
-            command=(python scripts/native_memory_watchdog.py --report-directory native-memory-reports/watchdog --timeout-seconds 16800 -- "${command[@]}")
+            remaining=$(( NATIVE_DIAGNOSTIC_DEADLINE - $(date +%s) ))
+            if (( remaining <= 0 )); then
+              echo "Diagnostic deadline reached during setup" >&2
+              exit 124
+            fi
+            command=(python scripts/native_memory_watchdog.py --report-directory native-memory-reports/watchdog --timeout-seconds "$remaining" -- "${command[@]}")
           fi
           "${command[@]}" 2>&1 | tee native-memory-run.log
       - name: Preserve diagnostic evidence
