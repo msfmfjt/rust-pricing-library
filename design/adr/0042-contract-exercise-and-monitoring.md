@@ -18,7 +18,7 @@ Historical continuous monitoring requires a cumulative hit or no-hit report. An 
 
 ## Path storage
 
-The forward evaluator allocates linear-tape registers according to last use, retaining outputs until collection. It uses the original SSA tape for reverse-mode derivatives and diagnostics. The compiler enables a compact register program when it reduces the register count and fits the graph's byte budget. Lazy control flow keeps memo flags only for shared subroutines. AAD records its execution trace on request. Pseudo-MC and RQMC LSM release the training matrices before allocating the valuation matrices.
+The forward evaluator allocates linear-tape registers according to last use, retaining outputs until collection. It uses the original SSA tape for reverse-mode derivatives and diagnostics. Native exercise and continuous-barrier plans request compact compilation. Other graphs can select `SourceGraph::compile_compact`. The compact program consumes additional immutable instruction storage, so the standard graph API keeps its existing layout. Compact compilation requires register savings and space within the byte budget. Lazy control flow keeps memo flags only for shared subroutines. AAD records its execution trace on request. Pseudo-MC and RQMC LSM release the training matrices before allocating the valuation matrices.
 
 ## Compatibility and verification
 

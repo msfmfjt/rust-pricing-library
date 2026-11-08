@@ -212,7 +212,9 @@ measured repetitions with alternating execution order. Override these with
 `CONTRACT_BENCH_WORKERS` and `CONTRACT_BENCH_REPETITIONS`; periods must divide 12.
 Raw paired samples and immutable evaluation-program bytes are reported.
 The benchmark measures reserved workspace bytes and capacity growth directly.
-Forward-only linear graphs reuse registers after their last read. Reverse mode
+Native exercise and continuous-barrier plans request compact forward evaluation.
+Other graphs can opt in with `SourceGraph::compile_compact`. Linear programs in
+this mode reuse registers after their last read. Reverse mode
 has access to the original SSA values. In branching graphs, only shared calls
 need memo flags. LSM releases training path matrices before allocating valuation
 paths. Run `cargo run --release -p pricing --example benchmark_contract_advanced`

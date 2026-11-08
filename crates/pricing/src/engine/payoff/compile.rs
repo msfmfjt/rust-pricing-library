@@ -22,7 +22,13 @@ pub(in crate::engine) const TAPE_ABI_VERSION: u32 = 1;
 
 impl SourceGraph {
     pub fn compile(&self, limits: GraphLimitPolicy) -> Result<CompiledPayoff, GraphError> {
-        compile(self, limits)
+        compile(self, limits, false)
+    }
+
+    /// Trade immutable instruction storage for fewer per-path value registers.
+    /// Reverse-mode values and observable tape identities retain their SSA layout.
+    pub fn compile_compact(&self, limits: GraphLimitPolicy) -> Result<CompiledPayoff, GraphError> {
+        compile(self, limits, true)
     }
 }
 
@@ -481,9 +487,10 @@ impl ProductSpec {
     }
 }
 
-pub(in crate::engine) fn compile(
+fn compile(
     graph: &SourceGraph,
     limits: GraphLimitPolicy,
+    compact_forward: bool,
 ) -> Result<CompiledPayoff, GraphError> {
     enforce_limit("source_nodes", graph.nodes.len(), limits.source_nodes)?;
     enforce_limit("outputs", graph.outputs.len(), limits.outputs)?;
@@ -636,7 +643,7 @@ pub(in crate::engine) fn compile(
             .ok_or(GraphError::SizeOverflow)?,
         limits.estimated_bytes,
     )?;
-    let linear = if branching {
+    let linear = if branching || !compact_forward {
         None
     } else {
         super::registers::RegisterProgram::compile(

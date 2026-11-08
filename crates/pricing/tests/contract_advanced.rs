@@ -491,10 +491,12 @@ fn forward_liveness_preserves_shared_outputs_adjoints_and_reused_workspaces() {
             })
             .unwrap();
     }
-    let program = builder
-        .finish(vec![sum, spot, sum])
-        .compile(GraphLimitPolicy::DEFAULT)
-        .unwrap();
+    let graph = builder.finish(vec![sum, spot, sum]);
+    let standard = graph.compile(GraphLimitPolicy::DEFAULT).unwrap();
+    let program = graph.compile_compact(GraphLimitPolicy::DEFAULT).unwrap();
+    assert_eq!(standard.tape_fingerprint(), program.tape_fingerprint());
+    assert!(standard.workspace().allocated_bytes() > program.workspace().allocated_bytes());
+    assert_eq!(standard.evaluation_program_bytes(), 0);
     assert!(program.forward_value_slots() <= 3);
     assert!(program.opcodes().len() > 128);
     let mut workspace = program.workspace();

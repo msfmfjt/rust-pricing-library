@@ -155,7 +155,7 @@ fn main() {
     }
     let payoff = graph
         .finish(vec![sum, spot, sum])
-        .compile(GraphLimitPolicy::DEFAULT)
+        .compile_compact(GraphLimitPolicy::DEFAULT)
         .unwrap();
     let mut workspace = payoff.workspace();
     let bytes = workspace.allocated_bytes();
