@@ -147,3 +147,8 @@ execution caches or add string-keyed model parameter bags.
 Validation is in [Rust conformance tests](../../crates/pricing/tests/pricing_specification.rs),
 [Python tests](../../tests/python/test_pricing_specification.py), the wheel
 contract gate, and [offline schema checks](../../scripts/check_specification_json_schema.py).
+
+Contract-generated lazy selection, exact comparisons, logarithms and exponentials
+use extended graph v2 / specification v3 / task v2 documents. Legacy sources
+retain their existing emitted versions and fingerprint domains. Current schema
+accessors include version guards for both forms; see [Contract MC integration](contracts.md#native-mc-compilation).

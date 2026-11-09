@@ -30,15 +30,20 @@ pub enum Event {
     Exercise {
         exercise_id: String,
     },
+    /// Cumulative published status from the start of the monitoring window.
+    BarrierStatus {
+        barrier_id: String,
+        hit: bool,
+    },
 }
 impl Event {
     fn priority(&self) -> u8 {
         match self {
             Self::Fixing { .. } => 0,
-            Self::Determination { .. } => 1,
-            Self::Termination { .. } => 2,
-            Self::Settlement { .. } => 3,
-            Self::Exercise { .. } => 4,
+            Self::Determination { .. } => 2,
+            Self::Termination { .. } => 3,
+            Self::Settlement { .. } => 4,
+            Self::Exercise { .. } | Self::BarrierStatus { .. } => 1,
         }
     }
 }
@@ -107,7 +112,7 @@ impl LifecycleResult {
         let contract = serde_json::from_str(&self.original.to_json()?).map_err(wire_error)?;
         serde_json::to_string(&Checkpoint {
             document_kind: "contract_lifecycle".into(),
-            schema_version: 1,
+            schema_version: self.original.schema_version(),
             contract,
             events: self.events.clone(),
             as_of: self.as_of,
@@ -118,15 +123,19 @@ impl LifecycleResult {
         let text = crate::wire::validate_and_decode(input, limits)
             .map_err(|e| ContractError::Wire(e.to_string()))?;
         let saved: Checkpoint = serde_json::from_str(text).map_err(wire_error)?;
-        if saved.document_kind != "contract_lifecycle" || saved.schema_version != 1 {
-            return Err(ContractError::Wire("expected contract_lifecycle v1".into()));
+        if saved.document_kind != "contract_lifecycle" || !(1..=2).contains(&saved.schema_version) {
+            return Err(ContractError::Wire(
+                "expected contract_lifecycle v1 or v2".into(),
+            ));
         }
         let bytes = serde_json::to_vec(&saved.contract).map_err(wire_error)?;
-        advance(
-            &Contract::from_json(&bytes, limits)?,
-            &saved.events,
-            saved.as_of,
-        )
+        let contract = Contract::from_json(&bytes, limits)?;
+        if contract.schema_version() != saved.schema_version {
+            return Err(ContractError::Wire(
+                "checkpoint and contract versions differ".into(),
+            ));
+        }
+        advance(&contract, &saved.events, saved.as_of)
     }
 }
 #[derive(Serialize, Deserialize)]
@@ -152,6 +161,7 @@ pub fn advance(
     if events.len() > 100_000 {
         return Err(ContractError::Invalid("too many lifecycle events".into()));
     }
+    let mut history = super::option_history::OptionHistory::new(contract, as_of);
     let mut unique = BTreeMap::new();
     for e in events {
         super::source::identifier(&e.id)?;
@@ -165,12 +175,14 @@ pub fn advance(
         }
         if let Event::Fixing { observation, value } = &e.event {
             super::expression::finite(*value)?;
-            if contract
+            let matches_source = match contract
                 .observations
-                .iter()
-                .find(|o| o.id == observation.id)
-                != Some(observation)
+                .binary_search_by(|o| o.id.cmp(&observation.id))
             {
+                Ok(index) => contract.observations[index] == *observation,
+                Err(_) => history.recognizes_fixing(observation),
+            };
+            if !matches_source {
                 return Err(ContractError::EventConflict(format!(
                     "fixing identity/source does not match {}",
                     observation.id
@@ -188,10 +200,11 @@ pub fn advance(
                     "termination refers to another contract".into(),
                 ));
             }
-            Event::Exercise { .. } => {
-                return Err(ContractError::Unsupported(
-                    "exercise event requires Phase 5 MC policy".into(),
-                ));
+            Event::Exercise { exercise_id } => {
+                history.exercise_observation(exercise_id, e.effective_date)?;
+            }
+            Event::BarrierStatus { barrier_id, .. } => {
+                history.check_barrier_date(barrier_id, e.effective_date)?;
             }
             Event::Determination { amount, .. } => {
                 super::expression::finite(*amount)?;
@@ -212,6 +225,7 @@ pub fn advance(
     let mut termination: Option<Date> = None;
     let mut applied = Vec::new();
     for e in ordered.iter().filter(|e| e.effective_date <= as_of) {
+        history.as_of = e.effective_date;
         match &e.event {
             Event::Fixing { observation, value } => {
                 if let Some(old) = fixings.insert(observation.id.clone(), *value)
@@ -230,12 +244,13 @@ pub fn advance(
             Event::Settlement { cashflow_id } | Event::Determination { cashflow_id, .. } => {
                 let reduced = reduce_term(
                     &contract.root,
+                    &history,
                     &fixings,
                     termination,
                     &mut BTreeMap::new(),
                     NumericExpr::from(1.0),
                 )?;
-                let amounts = collect_determined(&reduced, e.effective_date, &BTreeSet::new());
+                let amounts = collect_determined(&reduced, e.effective_date, &BTreeSet::new())?;
                 let amount = amounts
                     .iter()
                     .find(|c| &c.id == cashflow_id)
@@ -264,19 +279,37 @@ pub fn advance(
                     ));
                 }
             }
-            Event::Exercise { .. } => unreachable!("rejected above"),
+            Event::Exercise { exercise_id } => {
+                if termination.is_some_and(|t| t < e.effective_date) {
+                    return Err(ContractError::EventConflict(
+                        "exercise after termination".into(),
+                    ));
+                }
+                if !super::option_history::exercisable(&contract.root, exercise_id, &fixings)? {
+                    return Err(ContractError::EventConflict(format!(
+                        "exercise right {exercise_id} is inactive or depends on an unresolved condition"
+                    )));
+                }
+                history.notice(exercise_id, e.effective_date)?;
+            }
+            Event::BarrierStatus { barrier_id, hit } => {
+                history.status(barrier_id, e.effective_date, *hit)?
+            }
         }
         applied.push(e.id.clone());
     }
+    history.as_of = as_of;
+    history.require_history = true;
     let mut barrier_states = BTreeMap::new();
     let reduced = reduce_term(
         &contract.root,
+        &history,
         &fixings,
         termination,
         &mut barrier_states,
         NumericExpr::from(1.0),
     )?;
-    let determined_cashflows = collect_determined(&reduced, as_of, &settled);
+    let determined_cashflows = collect_determined(&reduced, as_of, &settled)?;
     let outstanding_payments = determined_cashflows
         .iter()
         .filter(|c| !c.settled)
@@ -327,6 +360,7 @@ fn scaled(
 }
 fn reduce_term(
     t: &Term,
+    history: &super::option_history::OptionHistory,
     f: &BTreeMap<String, f64>,
     termination: Option<Date>,
     states: &mut BTreeMap<String, bool>,
@@ -346,11 +380,12 @@ fn reduce_term(
         Term::Bundle { contracts } => bundle(
             contracts
                 .iter()
-                .map(|t| reduce_term(t, f, termination, states, factor.clone()))
+                .map(|t| reduce_term(t, history, f, termination, states, factor.clone()))
                 .collect::<Result<_, _>>()?,
         ),
         Term::Reverse { contract } => reduce_term(
             contract,
+            history,
             f,
             termination,
             states,
@@ -361,6 +396,7 @@ fn reduce_term(
             contract,
         } => reduce_term(
             contract,
+            history,
             f,
             termination,
             states,
@@ -379,14 +415,22 @@ fn reduce_term(
                 if let Some(v) = c.constant() {
                     reduce_term(
                         if v { then_contract } else { else_contract },
+                        history,
                         f,
                         termination,
                         states,
                         factor,
                     )?
                 } else {
-                    let a = reduce_term(then_contract, f, termination, states, factor.clone())?;
-                    let b = reduce_term(else_contract, f, termination, states, factor)?;
+                    let a = reduce_term(
+                        then_contract,
+                        history,
+                        f,
+                        termination,
+                        states,
+                        factor.clone(),
+                    )?;
+                    let b = reduce_term(else_contract, history, f, termination, states, factor)?;
                     if matches!((&a, &b), (Term::Empty, Term::Empty)) {
                         Term::Empty
                     } else {
@@ -407,13 +451,24 @@ fn reduce_term(
             if termination.is_some_and(|d| all_cancelled(t, d)) {
                 Term::Empty
             } else {
+                // Any published hit resolves the barrier even if an earlier fixing
+                // is unavailable. Ordinary logical expressions remain ordered.
+                let known_hit =
+                    *hit || observations.iter().filter_map(|id| f.get(id)).any(
+                        |v| match direction {
+                            super::BarrierDirection::Up => *v >= *level,
+                            super::BarrierDirection::Down => *v <= *level,
+                        },
+                    );
                 let condition =
-                    Term::barrier_condition(observations, *direction, *level, *hit).reduce(f)?;
+                    Term::barrier_condition(observations, *direction, *level, known_hit)
+                        .reduce(f)?;
                 let triggered = condition.constant() == Some(true);
                 states.insert(id.clone(), triggered);
                 if let Some(v) = condition.constant() {
                     reduce_term(
                         if v { on_hit } else { on_no_hit },
+                        history,
                         f,
                         termination,
                         states,
@@ -432,6 +487,7 @@ fn reduce_term(
                         hit: false,
                         on_hit: Box::new(reduce_term(
                             on_hit,
+                            history,
                             f,
                             termination,
                             states,
@@ -439,6 +495,7 @@ fn reduce_term(
                         )?),
                         on_no_hit: Box::new(reduce_term(
                             on_no_hit,
+                            history,
                             f,
                             termination,
                             states,
@@ -448,9 +505,21 @@ fn reduce_term(
                 }
             }
         }
+        Term::VanillaOption { option } => {
+            let resolved = history.resolve(option, f, termination, states)?;
+            if matches!(resolved, Term::VanillaOption { .. }) {
+                if factor.constant() == Some(1.0) {
+                    resolved
+                } else {
+                    resolved.scale(factor)
+                }
+            } else {
+                reduce_term(&resolved, history, f, termination, states, factor)?
+            }
+        }
         Term::Exercise { .. } | Term::ContinuousBarrier { .. } => {
             return Err(ContractError::Unsupported(
-                "exercise/continuous barrier".into(),
+                "incomplete exercise or monitoring terms".into(),
             ));
         }
     })
@@ -476,29 +545,43 @@ fn collect_determined(
     t: &Term,
     as_of: Date,
     settled: &BTreeSet<String>,
-) -> Vec<DeterminedCashflow> {
+) -> Result<Vec<DeterminedCashflow>, ContractError> {
     match t {
-        Term::Cashflow { cashflow: c } if c.determination_date <= as_of => c
-            .amount
-            .constant()
-            .map(|amount| DeterminedCashflow {
-                id: c.id.clone(),
-                currency: c.currency,
-                amount: amount * c.direction.sign(),
-                determination_date: c.determination_date,
-                payment_date: c.payment_date,
-                settlement_date: c.settlement_date,
-                settled: settled.contains(&c.id),
-            })
-            .into_iter()
-            .collect(),
-        Term::Bundle { contracts } => contracts
-            .iter()
-            .flat_map(|t| collect_determined(t, as_of, settled))
-            .collect(),
-        _ => vec![],
+        Term::Cashflow { cashflow: c } if c.determination_date <= as_of => {
+            if let Some(amount) = c.amount.constant() {
+                Ok(vec![DeterminedCashflow {
+                    id: c.id.clone(),
+                    currency: c.currency,
+                    amount: amount * c.direction.sign(),
+                    determination_date: c.determination_date,
+                    payment_date: c.payment_date,
+                    settlement_date: c.settlement_date,
+                    settled: settled.contains(&c.id),
+                }])
+            } else {
+                let mut refs = BTreeSet::new();
+                c.amount.refs(&mut refs, 0, &mut 0)?;
+                if refs.is_empty() {
+                    Err(ContractError::Invalid(format!(
+                        "cashflow {} has invalid determined arithmetic",
+                        c.id
+                    )))
+                } else {
+                    Ok(vec![])
+                }
+            }
+        }
+        Term::Bundle { contracts } => {
+            let mut result = Vec::new();
+            for t in contracts {
+                result.extend(collect_determined(t, as_of, settled)?);
+            }
+            Ok(result)
+        }
+        _ => Ok(vec![]),
     }
 }
+
 fn remove_settled(t: Term, settled: &BTreeSet<String>) -> Term {
     match t {
         Term::Cashflow {
@@ -511,5 +594,40 @@ fn remove_settled(t: Term, settled: &BTreeSet<String>) -> Term {
                 .collect(),
         ),
         other => other,
+    }
+}
+
+/// Bounded, duplicate-rejecting event-array parser. Contract-specific consistency
+/// (including exact fixing-source identity) is checked by advance.
+pub fn parse_events_json(
+    input: &[u8],
+    limits: JsonLimits,
+) -> Result<Vec<LifecycleEvent>, ContractError> {
+    let text = crate::wire::validate_and_decode(input, limits)
+        .map_err(|e| ContractError::Wire(e.to_string()))?;
+    serde_json::from_str(text).map_err(wire_error)
+}
+
+impl LifecycleEvent {
+    pub fn to_json(&self) -> Result<String, ContractError> {
+        if let Event::Fixing { value, .. } | Event::Determination { amount: value, .. } = self.event
+        {
+            super::expression::finite(value)?;
+        }
+        serde_json::to_string(self).map_err(wire_error)
+    }
+}
+impl LifecycleResult {
+    pub fn determined_cashflows_json(&self) -> Result<String, ContractError> {
+        serde_json::to_string(&self.determined_cashflows).map_err(wire_error)
+    }
+    pub fn outstanding_payments_json(&self) -> Result<String, ContractError> {
+        serde_json::to_string(&self.outstanding_payments).map_err(wire_error)
+    }
+    pub fn remaining_observations_json(&self) -> Result<String, ContractError> {
+        serde_json::to_string(&self.remaining_observations).map_err(wire_error)
+    }
+    pub fn barrier_states_json(&self) -> Result<String, ContractError> {
+        serde_json::to_string(&self.barrier_states).map_err(wire_error)
     }
 }

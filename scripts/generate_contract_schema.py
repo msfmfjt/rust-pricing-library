@@ -1,4 +1,5 @@
 """Generate the versioned contract source schema (semantic validation stays in Rust)."""
+import copy
 import json
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,5 +33,26 @@ terms = [tagged("empty"), tagged("cashflow", cashflow=ref("cashflow")), tagged("
          tagged("reverse", contract=ref("term")), tagged("scale", factor=ref("numeric"), contract=ref("term")),
          tagged("barrier", id=identifier, observations={**arr(identifier),"minItems":1,"uniqueItems":True}, direction={"enum":["up","down"]},level=number,hit=boolean,on_hit=ref("term"),on_no_hit=ref("term"))]
 schema = {"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://github.com/msfmfjt/rust-pricing-library/schemas/contract-v1/contract.schema.json",**obj({"document_kind":{"const":"contract"},"schema_version":{"const":1},"id":identifier,"observations":arr(ref("observation")),"root":ref("term")}),"$defs":{"numeric":{"oneOf":numeric},"boolean":{"oneOf":bools},"date_expression":{"oneOf":dates},"observation":observation,"cashflow":cashflow,"term":{"oneOf":terms}}}
+def advanced_schema():
+    result = copy.deepcopy(schema)
+    result["$id"] = result["$id"].replace("contract-v1", "contract-v2")
+    result["properties"]["schema_version"] = {"const": 2}
+    positive = {"type": "number", "exclusiveMinimum": 0}
+    features = [
+        tagged("bermudan", dates={**arr(date), "minItems": 1, "uniqueItems": True}),
+        tagged("american", start=date),
+        tagged("continuous_barrier", start=date, end=date, payment_date=date, level=positive,
+               direction={"enum": ["up", "down"]}, style={"enum": ["knock_in", "knock_out"]},
+               rebate={"type": "number", "minimum": 0}),
+    ]
+    option = obj({"id": identifier, "currency": cashflow["properties"]["currency"],
+                  "expiry_observation": identifier, "side": {"enum": ["call", "put"]},
+                  "strike": positive, "notional": positive, "feature": {"oneOf": features}})
+    result["$defs"]["term"]["oneOf"].append(tagged("vanilla_option", option=option))
+    return result
+
 if __name__ == "__main__":
     (ROOT / "schemas/contract-v1/contract.schema.json").write_text(json.dumps(schema, indent=2) + "\n")
+    target = ROOT / "schemas/contract-v2/contract.schema.json"
+    target.parent.mkdir(exist_ok=True)
+    target.write_text(json.dumps(advanced_schema(), indent=2) + "\n")

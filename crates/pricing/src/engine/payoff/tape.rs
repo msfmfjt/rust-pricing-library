@@ -1,11 +1,31 @@
 use crate::core::{Date, NodeId, UnderlyingId};
-use crate::product::CompactC2Smoothing;
 use crate::product::graph::GraphError;
 use crate::product::graph::GraphFingerprint;
-use std::collections::BTreeSet;
+use crate::product::{CompactC2Smoothing, GraphComparison};
+use std::{cell::RefCell, collections::BTreeSet};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CompiledOpcode {
+    Select {
+        condition: u32,
+        then_value: u32,
+        else_value: u32,
+        output: u32,
+    },
+    Log {
+        input: u32,
+        output: u32,
+    },
+    Exp {
+        input: u32,
+        output: u32,
+    },
+    Compare {
+        left: u32,
+        right: u32,
+        operation: GraphComparison,
+        output: u32,
+    },
     Literal {
         value: f64,
         output: u32,
@@ -84,12 +104,51 @@ pub enum CompiledOpcode {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CompiledPayoff {
+    pub(in crate::engine) branching: bool,
+    pub(super) linear: Option<super::registers::RegisterProgram>,
+    pub(super) memo_count: usize,
+    pub(super) program: Box<[super::program::Instruction]>,
     pub(in crate::engine) opcodes: Box<[CompiledOpcode]>,
     pub(in crate::engine) output_slots: Box<[u32]>,
     pub(in crate::engine) source_to_slot: Box<[(NodeId, u32)]>,
     pub(in crate::engine) removed_source_nodes: Box<[NodeId]>,
     pub(in crate::engine) source_fingerprint: GraphFingerprint,
     pub(in crate::engine) tape_fingerprint: GraphFingerprint,
+}
+
+/// Reusable path values and call state. A workspace may be reused across
+/// paths for this payoff; resizing for another payoff is explicit in evaluation.
+#[derive(Clone, Debug, Default)]
+pub struct PayoffWorkspace {
+    prepared: Option<GraphFingerprint>,
+    values: Vec<f64>,
+    visited: Vec<bool>,
+    pending: Vec<u32>,
+    outputs: Vec<f64>,
+}
+
+// Legacy nonbranching paths remain allocation-compatible. New lazy tapes keep
+// only evaluation arrays here, never source trees or model objects. Reachability and call state
+// reset on every path; finite constants are prepared once per tape identity.
+// Bound retained capacity per worker; reentrant observation callbacks fall back
+// to an owned workspace instead of borrowing this cell twice.
+thread_local! {
+    static BRANCH_WORKSPACE: RefCell<PayoffWorkspace> = const { RefCell::new(PayoffWorkspace {
+        prepared: None, values: Vec::new(), visited: Vec::new(), pending: Vec::new(), outputs: Vec::new(),
+    }) };
+}
+const MAX_RETAINED_BRANCH_BYTES: usize = 1024 * 1024;
+
+impl PayoffWorkspace {
+    /// Heap storage reserved for values, visited flags, call stack and outputs.
+    /// Excludes the immutable tape and model simulation state.
+    #[must_use]
+    pub fn allocated_bytes(&self) -> usize {
+        self.values.capacity() * std::mem::size_of::<f64>()
+            + self.visited.capacity() * std::mem::size_of::<bool>()
+            + self.pending.capacity() * std::mem::size_of::<u32>()
+            + self.outputs.capacity() * std::mem::size_of::<f64>()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -114,6 +173,28 @@ pub struct PayoffEvaluation {
 }
 
 impl CompiledPayoff {
+    /// Per-path floating-point registers for forward payoff evaluation.
+    pub fn forward_value_slots(&self) -> usize {
+        self.linear
+            .as_ref()
+            .map_or(self.opcodes.len(), |program| program.registers)
+    }
+    fn forward_ops(&self) -> &[CompiledOpcode] {
+        self.linear.as_ref().map_or(&self.opcodes, |p| &p.ops)
+    }
+    fn forward_outputs(&self) -> &[u32] {
+        self.linear
+            .as_ref()
+            .map_or(&self.output_slots, |p| &p.outputs)
+    }
+
+    /// Immutable control-flow storage, separate from reusable path workspace.
+    #[must_use]
+    pub fn evaluation_program_bytes(&self) -> usize {
+        self.program.len() * std::mem::size_of::<super::program::Instruction>()
+            + self.linear.as_ref().map_or(0, |p| p.bytes())
+    }
+
     #[must_use]
     pub fn opcodes(&self) -> &[CompiledOpcode] {
         &self.opcodes
@@ -198,27 +279,196 @@ impl CompiledPayoff {
         F: FnMut(UnderlyingId, Date) -> Option<f64>,
         G: FnMut(UnderlyingId, Date) -> Option<f64>,
     {
-        let mut slots = vec![0.0; self.opcodes.len()];
-        for opcode in &self.opcodes {
-            let (output, value) = execute_opcode(
-                *opcode,
-                &slots,
-                &mut observation,
-                &mut pre_dividend_observation,
-            )?;
-            let output = checked_index(output, slots.len())?;
-            if !value.is_finite() {
-                return Err(GraphError::NonFiniteRuntimeValue {
-                    opcode: opcode.name(),
-                    bits: value.to_bits(),
-                });
+        if !self.branching {
+            // Preserve the legacy allocation count and instruction order.
+            let mut values = vec![0.0; self.forward_value_slots()];
+            for &opcode in self.forward_ops() {
+                let (output, value) = execute_opcode(
+                    opcode,
+                    &values,
+                    &mut observation,
+                    &mut pre_dividend_observation,
+                )?;
+                check_value(opcode, value)?;
+                values[output as usize] = value;
             }
-            slots[output] = value;
+            return Ok(self
+                .forward_outputs()
+                .iter()
+                .map(|slot| values[*slot as usize])
+                .collect());
         }
-        self.output_slots
-            .iter()
-            .map(|slot| checked_index(*slot, slots.len()).map(|index| slots[index]))
-            .collect()
+        BRANCH_WORKSPACE.with(|cached| {
+            if let Ok(mut workspace) = cached.try_borrow_mut() {
+                let result = self
+                    .evaluate_reusing(
+                        &mut workspace,
+                        &mut observation,
+                        &mut pre_dividend_observation,
+                    )
+                    .map(<[f64]>::to_vec);
+                if workspace.allocated_bytes() > MAX_RETAINED_BRANCH_BYTES {
+                    *workspace = PayoffWorkspace::default();
+                }
+                result
+            } else {
+                let mut workspace = self.workspace();
+                self.evaluate_reusing(
+                    &mut workspace,
+                    &mut observation,
+                    &mut pre_dividend_observation,
+                )?;
+                Ok(workspace.outputs)
+            }
+        })
+    }
+
+    #[must_use]
+    pub fn workspace(&self) -> PayoffWorkspace {
+        PayoffWorkspace {
+            prepared: None,
+            values: vec![0.0; self.forward_value_slots()],
+            visited: vec![false; self.memo_count],
+            pending: Vec::new(),
+            outputs: vec![0.0; self.output_slots.len()],
+        }
+    }
+
+    /// Evaluate native compiled operations without allocating path arrays after
+    /// workspace initialization once branch call-stack capacity is sufficient.
+    pub fn evaluate_reusing<'a, F, G>(
+        &self,
+        workspace: &'a mut PayoffWorkspace,
+        observation: F,
+        pre_dividend_observation: G,
+    ) -> Result<&'a [f64], GraphError>
+    where
+        F: FnMut(UnderlyingId, Date) -> Option<f64>,
+        G: FnMut(UnderlyingId, Date) -> Option<f64>,
+    {
+        self.evaluate_path::<false, _, _>(workspace, observation, pre_dividend_observation, &mut [])
+    }
+
+    fn evaluate_path<'a, const TRACE: bool, F, G>(
+        &self,
+        workspace: &'a mut PayoffWorkspace,
+        mut observation: F,
+        mut pre_dividend_observation: G,
+        trace: &mut [bool],
+    ) -> Result<&'a [f64], GraphError>
+    where
+        F: FnMut(UnderlyingId, Date) -> Option<f64>,
+        G: FnMut(UnderlyingId, Date) -> Option<f64>,
+    {
+        workspace.values.resize(self.forward_value_slots(), 0.0);
+        workspace.outputs.resize(self.output_slots.len(), 0.0);
+        if self.branching {
+            use super::program::Instruction;
+            workspace.visited.resize(self.memo_count, false);
+            workspace.visited.fill(false);
+            workspace.pending.clear();
+            if workspace.prepared != Some(self.tape_fingerprint) {
+                for &opcode in &self.opcodes {
+                    if let CompiledOpcode::Literal { value, output } = opcode {
+                        workspace.values[output as usize] = value;
+                    }
+                }
+                workspace.prepared = Some(self.tape_fingerprint);
+            }
+            let mut pc = 0_usize;
+            loop {
+                let instruction = self.program[pc];
+                match instruction {
+                    Instruction::Evaluate(slot) => {
+                        let opcode = self.opcodes[slot as usize];
+                        let (_, value) = execute_opcode(
+                            opcode,
+                            &workspace.values,
+                            &mut observation,
+                            &mut pre_dividend_observation,
+                        )?;
+                        check_value(opcode, value)?;
+                        workspace.values[slot as usize] = value;
+                        if TRACE {
+                            trace[slot as usize] = true;
+                        }
+                        pc += 1;
+                    }
+                    Instruction::Copy { input, output } => {
+                        workspace.values[output as usize] = workspace.values[input as usize];
+                        if TRACE {
+                            trace[output as usize] = true;
+                        }
+                        pc += 1;
+                    }
+                    Instruction::ShortcutZero {
+                        condition,
+                        value,
+                        output,
+                        target,
+                    }
+                    | Instruction::ShortcutNonZero {
+                        condition,
+                        value,
+                        output,
+                        target,
+                    } => {
+                        let take_constant = (workspace.values[condition as usize] == 0.0)
+                            == matches!(instruction, Instruction::ShortcutZero { .. });
+                        if take_constant {
+                            workspace.values[output as usize] = workspace.values[value as usize];
+                            if TRACE {
+                                trace[output as usize] = true;
+                            }
+                            pc = target as usize;
+                        } else {
+                            pc += 1;
+                        }
+                    }
+                    Instruction::Call { slot, target } => {
+                        if workspace.visited[slot as usize] {
+                            pc += 1;
+                        } else {
+                            workspace.pending.push((pc + 1) as u32);
+                            pc = target as usize;
+                        }
+                    }
+                    Instruction::BranchZero { condition, target } => {
+                        pc = if workspace.values[condition as usize] == 0.0 {
+                            target as usize
+                        } else {
+                            pc + 1
+                        };
+                    }
+                    Instruction::Jump(target) => pc = target as usize,
+                    Instruction::Return(memo) => {
+                        workspace.visited[memo as usize] = true;
+                        pc = workspace
+                            .pending
+                            .pop()
+                            .expect("compiled call/return pairing")
+                            as usize
+                    }
+                    Instruction::Stop => break,
+                }
+            }
+        } else {
+            workspace.prepared = None;
+            for &opcode in self.forward_ops() {
+                let (output, value) = execute_opcode(
+                    opcode,
+                    &workspace.values,
+                    &mut observation,
+                    &mut pre_dividend_observation,
+                )?;
+                check_value(opcode, value)?;
+                workspace.values[output as usize] = value;
+            }
+        }
+        for (value, &slot) in workspace.outputs.iter_mut().zip(self.forward_outputs()) {
+            *value = workspace.values[slot as usize];
+        }
+        Ok(&workspace.outputs)
     }
 
     pub fn evaluate_single_with_terminal_adjoint<F>(
@@ -288,23 +538,30 @@ impl CompiledPayoff {
                     index: output_index,
                     count: self.output_slots.len(),
                 })?;
-        let mut values = vec![0.0; self.opcodes.len()];
-        for opcode in &self.opcodes {
-            let (output, value) = execute_opcode(
-                *opcode,
-                &values,
+        let (values, visited) = if self.branching {
+            let mut workspace = self.workspace();
+            let mut trace = vec![false; self.opcodes.len()];
+            self.evaluate_path::<true, _, _>(
+                &mut workspace,
                 &mut observation,
                 &mut pre_dividend_observation,
+                &mut trace,
             )?;
-            let output = checked_index(output, values.len())?;
-            if !value.is_finite() {
-                return Err(GraphError::NonFiniteRuntimeValue {
-                    opcode: opcode.name(),
-                    bits: value.to_bits(),
-                });
+            (workspace.values, trace)
+        } else {
+            let mut values = vec![0.0; self.opcodes.len()];
+            for &opcode in &self.opcodes {
+                let (output, value) = execute_opcode(
+                    opcode,
+                    &values,
+                    &mut observation,
+                    &mut pre_dividend_observation,
+                )?;
+                check_value(opcode, value)?;
+                values[output as usize] = value;
             }
-            values[output] = value;
-        }
+            (values, Vec::new())
+        };
         let output = checked_index(output_slot, values.len())?;
         let value = values[output];
         let mut adjoints = vec![0.0; self.opcodes.len()];
@@ -312,6 +569,9 @@ impl CompiledPayoff {
         let mut terminal_adjoints = Vec::new();
         let mut pre_dividend_adjoints = Vec::new();
         for opcode in self.opcodes.iter().rev().copied() {
+            if self.branching && !visited[opcode.output() as usize] {
+                continue;
+            }
             reverse_opcode(
                 opcode,
                 &values,
@@ -341,6 +601,32 @@ pub(in crate::engine) fn reverse_opcode(
     let output = checked_index(opcode.output(), adjoints.len())?;
     let output_adjoint = adjoints[output];
     match opcode {
+        CompiledOpcode::Select {
+            condition,
+            then_value,
+            else_value,
+            ..
+        } => {
+            let selected = if values[condition as usize] != 0.0 {
+                then_value
+            } else {
+                else_value
+            };
+            add_adjoint(adjoints, selected, output_adjoint, opcode.name())?;
+        }
+        CompiledOpcode::Compare { .. } => {}
+        CompiledOpcode::Log { input, .. } => add_adjoint(
+            adjoints,
+            input,
+            output_adjoint / values[input as usize],
+            opcode.name(),
+        )?,
+        CompiledOpcode::Exp { input, .. } => add_adjoint(
+            adjoints,
+            input,
+            output_adjoint * values[output],
+            opcode.name(),
+        )?,
         CompiledOpcode::Literal { .. } => {}
         CompiledOpcode::TerminalSpot {
             underlying,
@@ -567,9 +853,60 @@ pub(in crate::engine) fn add_adjoint(
     Ok(())
 }
 
+fn check_value(opcode: CompiledOpcode, value: f64) -> Result<(), GraphError> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(GraphError::NonFiniteRuntimeValue {
+            opcode: opcode.name(),
+            bits: value.to_bits(),
+        })
+    }
+}
 impl CompiledOpcode {
+    pub(super) fn operands(self) -> ([u32; 3], usize) {
+        match self {
+            Self::Literal { .. } | Self::TerminalSpot { .. } | Self::PreDividendSpot { .. } => {
+                ([0; 3], 0)
+            }
+            Self::Select {
+                condition,
+                then_value,
+                else_value,
+                ..
+            } => ([condition, then_value, else_value], 3),
+            Self::Log { input, .. }
+            | Self::Exp { input, .. }
+            | Self::Negate { input, .. }
+            | Self::Indicator { input, .. }
+            | Self::SmoothIndicator { input, .. } => ([input, 0, 0], 1),
+            Self::Add { left, right, .. }
+            | Self::Subtract { left, right, .. }
+            | Self::Multiply { left, right, .. }
+            | Self::Minimum { left, right, .. }
+            | Self::Maximum { left, right, .. }
+            | Self::SmoothMinimum { left, right, .. }
+            | Self::SmoothMaximum { left, right, .. }
+            | Self::Compare { left, right, .. } => ([left, right, 0], 2),
+            Self::Divide {
+                numerator,
+                denominator,
+                ..
+            } => ([numerator, denominator, 0], 2),
+            Self::BarrierHitState {
+                previous,
+                hit_weight,
+                ..
+            } => ([previous, hit_weight, 0], 2),
+        }
+    }
+
     pub(in crate::engine) const fn name(self) -> &'static str {
         match self {
+            Self::Select { .. } => "select",
+            Self::Log { .. } => "log",
+            Self::Exp { .. } => "exp",
+            Self::Compare { .. } => "compare",
             Self::Literal { .. } => "literal",
             Self::TerminalSpot { .. } => "terminal_spot",
             Self::PreDividendSpot { .. } => "pre_dividend_spot",
@@ -590,7 +927,11 @@ impl CompiledOpcode {
 
     pub(in crate::engine) const fn output(self) -> u32 {
         match self {
-            Self::Literal { output, .. }
+            Self::Select { output, .. }
+            | Self::Log { output, .. }
+            | Self::Exp { output, .. }
+            | Self::Compare { output, .. }
+            | Self::Literal { output, .. }
             | Self::TerminalSpot { output, .. }
             | Self::PreDividendSpot { output, .. }
             | Self::Add { output, .. }
@@ -625,6 +966,33 @@ where
         ))
     };
     match opcode {
+        CompiledOpcode::Select {
+            condition,
+            then_value,
+            else_value,
+            output,
+        } => {
+            let selected = if slots[checked_index(condition, slots.len())?] != 0.0 {
+                then_value
+            } else {
+                else_value
+            };
+            Ok((output, slots[checked_index(selected, slots.len())?]))
+        }
+        CompiledOpcode::Compare {
+            left,
+            right,
+            operation,
+            output,
+        } => {
+            binary(left, right).map(|(a, b)| (output, if operation.test(a, b) { 1.0 } else { 0.0 }))
+        }
+        CompiledOpcode::Log { input, output } => {
+            Ok((output, slots[checked_index(input, slots.len())?].ln()))
+        }
+        CompiledOpcode::Exp { input, output } => {
+            Ok((output, slots[checked_index(input, slots.len())?].exp()))
+        }
         CompiledOpcode::Literal { value, output } => Ok((output, value)),
         CompiledOpcode::TerminalSpot {
             underlying,

@@ -1,6 +1,6 @@
 """Independent module exports, literal aliases and function contracts."""
 
-CONTRACT = {'exports': ['AndersenBroadieConfig',
+CONTRACT = {'exports': ['Contract', 'ContractLifecycle', 'ContractBuilder', 'AndersenBroadieConfig',
              'AndersenBroadiePlan',
              'AndersenBroadieResult',
              'AsianObservation',

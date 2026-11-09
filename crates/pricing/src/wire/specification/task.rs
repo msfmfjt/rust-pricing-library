@@ -118,6 +118,16 @@ enum SourceV1 {
         maximum_step: f64,
     },
 }
+impl SourceV1 {
+    fn requires_v2(&self) -> bool {
+        match self {
+            Self::SingleAsset { specification } => specification.schema_version >= 3,
+            Self::StochasticDividend { equity, .. } => equity.schema_version >= 3,
+            Self::MultiAsset { product, .. } => product.requires_v2(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DividendsV1 {
@@ -459,7 +469,7 @@ impl From<&PricingTask> for TaskV1 {
         };
         Self {
             document_kind: TASK_KIND.into(),
-            schema_version: 1,
+            schema_version: if source.requires_v2() { 2 } else { 1 },
             operation: t.operation().into(),
             source,
         }
@@ -574,10 +584,16 @@ pub fn parse_pricing_task_json(input: &[u8], limits: JsonLimits) -> Result<Prici
             actual: header.document_kind,
         });
     }
-    if header.schema_version != 1 {
+    if !matches!(header.schema_version, 1 | 2) {
         return Err(WireError::UnsupportedSchemaVersion(header.schema_version));
     }
     let task: TaskV1 = serde_json::from_str(text).map_err(json)?;
+    if task.schema_version == 1 && task.source.requires_v2() {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "contract operations require pricing_task v2",
+            schema_version: 1,
+        });
+    }
     task.into_domain()
 }
 pub fn pricing_task_to_json(task: &PricingTask) -> Result<String, WireError> {
@@ -588,12 +604,16 @@ pub fn pricing_task_to_pretty_json(task: &PricingTask) -> Result<String, WireErr
 }
 pub fn fingerprint_pricing_task(task: &PricingTask) -> Result<Fingerprint, WireError> {
     let value = serde_json::to_value(TaskV1::from(task)).map_err(json)?;
-    let mut bytes = b"pricing/task/v1\0".to_vec();
+    let mut bytes = if TaskV1::from(task).schema_version == 1 {
+        b"pricing/task/v1\0".to_vec()
+    } else {
+        b"pricing/task/v2\0".to_vec()
+    };
     encode_value(&value, &mut bytes)?;
     Ok(Fingerprint::from_bytes(*blake3::hash(&bytes).as_bytes()))
 }
 pub fn current_pricing_task_schema() -> &'static str {
-    include_str!("../../../../../schemas/task-v1/pricing_task.schema.json")
+    include_str!("../../../../../schemas/task-v2/pricing_task.schema.json")
 }
 
 #[derive(Serialize, Deserialize)]

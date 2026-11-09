@@ -1,0 +1,76 @@
+{
+  "pricing_implementation_commit": "aafdcf2c2169ed007aedbb66d930ec9ec6049d1b",
+  "local": {
+    "rust_workspace": {
+      "command": "cargo test --locked --workspace --all-features --exclude pricing-python",
+      "passed": 1164,
+      "ignored": 91,
+      "failed": 0,
+      "suites": 116
+    },
+    "rust_python_crate_passed": 7,
+    "python_installed_wheel": {
+      "contracts": 8,
+      "product_graph": 7,
+      "pricing_task": 5,
+      "pricing_specification": 5,
+      "typed_pricing_sources": 10,
+      "wheel_runtime_contract": 5,
+      "multi_asset": 4
+    },
+    "python_total": 44,
+    "frozen_runtime_signatures": 368,
+    "curated_mutants_killed": 6,
+    "format": "passed",
+    "clippy_workspace_all_targets_all_features": "passed",
+    "default_workspace_all_targets_check": "passed",
+    "minimal_features_all_targets_check": "passed",
+    "rustdoc": "passed",
+    "current_and_legacy_json_schema_validation": "passed",
+    "source_archive": "passed",
+    "three_crate_dependency_direction": "passed",
+    "markdown_links": "passed",
+    "wheel_layout_metadata_record_sbom_abi_stub": "passed",
+    "python_example": "passed",
+    "wheel_contract_script_tests": 15,
+    "wheel_runner_script_tests": 15,
+    "remaining_shard_script_tests": 6,
+    "ci_failure_propagation_tests": 3,
+    "benchmark_acceptance": {
+      "status": "passed",
+      "protocol": "performance-protocol.json",
+      "evidence": "benchmark.json",
+      "unchanged_max_median_ratio": 1.15,
+      "cases": 6,
+      "complete_invocations": 10
+    },
+    "generated_native_dag_scenarios": 2000,
+    "derived_analysis_python_round_trip": "passed"
+  },
+  "remaining": [
+    "Hosted checks for the submitted PR heads remain incomplete in the dated CI snapshot.",
+    "Ignored extended acceptance panels and additional OS/Python builds await hosted CI."
+  ],
+  "hosted_ci_snapshot": "ci-snapshot.json",
+  "validated_at_utc": "2026-11-06T00:02:38.526502+00:00",
+  "explicit_limits": [
+    "Future rate fixings and intraday observation simulation are explicitly unsupported.",
+    "Currency groups require explicit native tasks and markets; no implicit FX sum.",
+    "Hard predicates reject unsupported pathwise/AAD estimators; explicit same-seed MC bumps remain available.",
+    "Autocall uses absolute levels, non-memory coupons, maturity rebates and at most 20 periods.",
+    "Exercise and continuous-barrier features are Phase 5 and excluded."
+  ],
+  "local_log_sha256": {
+    "contract-accepted-rust.log": "ce9e38c7a555ff92a0bf97351de711840ef2d35d45e9cf4f337836fbd8ced448",
+    "contract-accepted-python-rust.log": "b7e125afbb798b9c607a4107a5cb2c855e945d8ff3fd49b3eaef847e6950824e",
+    "contract-accepted-default.log": "53112fc1900f153d0fca6b5132852087987260fe5d164729b43708c2e9464db0",
+    "contract-accepted-minimal.log": "15963464a9ef5a6c08825c7663d39c05fc482f942045c23a28c4255e50496a17",
+    "contract-accepted-docs.log": "3bc538405f664b055c7e5e0efa438d085d156709b53baf1e363a27698851e6be",
+    "contract-accepted-wheel.log": "12e40d665815c33af70f856aa37af6d86e74b3f812979d8edf9b6f21a2b3cb15",
+    "contract-accepted-python.log": "02b9a2d3512accc54d62ed8b7b9915b44cbafbfc824be8cb5a3983cf675bbfe0",
+    "contract-shortcut-clippy.log": "f792e0ed640807a2c9b78cc2180d82e6136fa39c4b51620042acad24fe0ef987",
+    "contract-completion-gates.log": "461ecf4677668c551ae9c601fb2793371bc29045b6a936c78fa221755593507f",
+    "contract-shortcut-performance.log": "2d7a1ff2f4a8e3df9f14a21cbbbada773260eb89be0390ac6eaa802135681010",
+    "contract-accepted-mutations.log": "cba00840bab5c693b01062b4bad3625652385e6d28d807d0d6fc87a1fa96d85f"
+  }
+}

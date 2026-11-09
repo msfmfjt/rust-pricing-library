@@ -118,10 +118,12 @@ impl GraphProduct {
             .map(|(_, date)| *date)
             .max()
             .unwrap_or(last_payment);
-        let pathwise_risk = !compiled
-            .opcodes()
-            .iter()
-            .any(|opcode| matches!(opcode, CompiledOpcode::Indicator { .. }));
+        let pathwise_risk = !compiled.opcodes().iter().any(|opcode| {
+            matches!(
+                opcode,
+                CompiledOpcode::Indicator { .. } | CompiledOpcode::Compare { .. }
+            )
+        });
         Ok(Self {
             currency,
             underlyings,
@@ -143,6 +145,18 @@ impl GraphProduct {
     }
     pub(crate) const fn primary_underlying(&self) -> UnderlyingId {
         self.underlyings.as_slice()[0]
+    }
+    #[must_use]
+    pub fn requires_graph_v2(&self) -> bool {
+        self.graph.nodes().iter().any(|n| {
+            matches!(
+                n.opcode(),
+                SourceOpcode::Select { .. }
+                    | SourceOpcode::Log { .. }
+                    | SourceOpcode::Exp { .. }
+                    | SourceOpcode::Compare { .. }
+            )
+        })
     }
     #[must_use]
     pub const fn source_graph(&self) -> &SourceGraph {
