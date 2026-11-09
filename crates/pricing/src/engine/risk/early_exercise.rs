@@ -60,11 +60,14 @@ impl SimulationPlan {
             early_exercise.config.max_matrix_elements(),
             training_metadata,
         )?;
+        let training_paths = training.path_count;
+        drop(training);
         let valuation = self.pseudo_lsm_path_matrices(
             valuation_engine,
             RandomDomain::Valuation,
             early_exercise,
         )?;
+        let valuation_paths = valuation.path_count;
         let valued = value_exercise_policy(
             fitted.policy(),
             &valuation.features,
@@ -72,6 +75,7 @@ impl SimulationPlan {
             &valuation.immediate_values,
             &early_exercise.discount_factors,
         )?;
+        drop(valuation);
         let antithetic = valuation_engine.variance_reduction().antithetic();
         let unit_values = collapse_antithetic_values(valued.discounted_cashflows(), antithetic)?;
         let statistics = DeterministicStatistics::from_ordered_values_two_pass(&unit_values);
@@ -104,7 +108,7 @@ impl SimulationPlan {
         let exercise_probabilities = valued
             .exercise_counts()
             .iter()
-            .map(|count| *count as f64 / valuation.path_count as f64)
+            .map(|count| *count as f64 / valuation_paths as f64)
             .collect::<Vec<_>>()
             .into_boxed_slice();
         let early_risk_enabled = self.risk_enabled()
@@ -183,9 +187,9 @@ impl SimulationPlan {
             valuation_direction_checksum: None,
             valuation_scramble_checksum: None,
             training_sampling_units: training_engine.independent_sampling_units().get(),
-            training_trajectories: training.path_count as u64,
+            training_trajectories: training_paths as u64,
             valuation_sampling_units: independent_units,
-            valuation_trajectories: valuation.path_count as u64,
+            valuation_trajectories: valuation_paths as u64,
             in_sample_value,
             exercise_dates: early_exercise.exercise_dates.clone(),
             exercise_counts: valued.exercise_counts().into(),
@@ -266,8 +270,11 @@ impl SimulationPlan {
             early_exercise.config.max_matrix_elements(),
             training_metadata,
         )?;
+        let training_paths = training.path_count;
+        drop(training);
         let (valuation, valuation_qmc) =
             self.rqmc_lsm_path_matrices(valuation_engine, early_exercise)?;
+        let valuation_paths = valuation.path_count;
         let valued = value_exercise_policy(
             fitted.policy(),
             &valuation.features,
@@ -275,6 +282,7 @@ impl SimulationPlan {
             &valuation.immediate_values,
             &early_exercise.discount_factors,
         )?;
+        drop(valuation);
         let replicate_values =
             rqmc_replicate_values(valued.discounted_cashflows(), valuation_engine)?;
         let statistics = DeterministicStatistics::from_ordered_values_two_pass(&replicate_values);
@@ -304,7 +312,7 @@ impl SimulationPlan {
         let exercise_probabilities = valued
             .exercise_counts()
             .iter()
-            .map(|count| *count as f64 / valuation.path_count as f64)
+            .map(|count| *count as f64 / valuation_paths as f64)
             .collect::<Vec<_>>()
             .into_boxed_slice();
         let early_risk_enabled = self.risk_enabled()
@@ -386,9 +394,9 @@ impl SimulationPlan {
             valuation_direction_checksum: Some(valuation_qmc.direction_checksum()),
             valuation_scramble_checksum: Some(valuation_qmc.scramble_checksum()),
             training_sampling_units: u64::from(training_engine.scramble_count().get()),
-            training_trajectories: training.path_count as u64,
+            training_trajectories: training_paths as u64,
             valuation_sampling_units: independent_units,
-            valuation_trajectories: valuation.path_count as u64,
+            valuation_trajectories: valuation_paths as u64,
             in_sample_value,
             exercise_dates: early_exercise.exercise_dates.clone(),
             exercise_counts: valued.exercise_counts().into(),
