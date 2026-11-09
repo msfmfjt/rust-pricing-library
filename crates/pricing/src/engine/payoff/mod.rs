@@ -5,7 +5,12 @@ pub(crate) mod compile;
 #[cfg(test)]
 #[path = "tests.rs"]
 mod conformance;
+mod program;
 pub(crate) mod tape;
 pub(crate) mod valuation;
 
 pub(crate) mod contract;
+
+mod registers;
+
+mod option_task;

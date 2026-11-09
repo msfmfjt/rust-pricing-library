@@ -22,7 +22,13 @@ pub(in crate::engine) const TAPE_ABI_VERSION: u32 = 1;
 
 impl SourceGraph {
     pub fn compile(&self, limits: GraphLimitPolicy) -> Result<CompiledPayoff, GraphError> {
-        compile(self, limits)
+        compile(self, limits, false)
+    }
+
+    /// Trade immutable instruction storage for fewer per-path value registers.
+    /// Reverse-mode values and observable tape identities retain their SSA layout.
+    pub fn compile_compact(&self, limits: GraphLimitPolicy) -> Result<CompiledPayoff, GraphError> {
+        compile(self, limits, true)
     }
 }
 
@@ -481,9 +487,10 @@ impl ProductSpec {
     }
 }
 
-pub(in crate::engine) fn compile(
+fn compile(
     graph: &SourceGraph,
     limits: GraphLimitPolicy,
+    compact_forward: bool,
 ) -> Result<CompiledPayoff, GraphError> {
     enforce_limit("source_nodes", graph.nodes.len(), limits.source_nodes)?;
     enforce_limit("outputs", graph.outputs.len(), limits.outputs)?;
@@ -620,8 +627,36 @@ pub(in crate::engine) fn compile(
     let mapping = source_to_slot.into_iter().collect::<Vec<_>>();
     let source_fingerprint = fingerprint_source(&nodes, &graph.outputs);
     let tape_fingerprint = fingerprint_tape(&opcodes, &output_slots, &mapping);
+    let (program, memo_count) = if branching {
+        super::program::compile(&opcodes, &output_slots)?
+    } else {
+        (Box::default(), 0)
+    };
+    let program_bytes = program
+        .len()
+        .checked_mul(mem::size_of::<super::program::Instruction>())
+        .ok_or(GraphError::SizeOverflow)?;
+    enforce_limit(
+        "estimated_bytes",
+        estimated_bytes
+            .checked_add(program_bytes)
+            .ok_or(GraphError::SizeOverflow)?,
+        limits.estimated_bytes,
+    )?;
+    let linear = if branching || !compact_forward {
+        None
+    } else {
+        super::registers::RegisterProgram::compile(
+            &opcodes,
+            &output_slots,
+            limits.estimated_bytes - estimated_bytes,
+        )
+    };
     Ok(CompiledPayoff {
+        linear,
         branching,
+        memo_count,
+        program,
         opcodes: opcodes.into_boxed_slice(),
         output_slots: output_slots.into_boxed_slice(),
         source_to_slot: mapping.into_boxed_slice(),

@@ -466,8 +466,6 @@ impl BooleanExpr {
                     let b = right.reduce(fixings)?;
                     if a.constant() == Some(and) {
                         b
-                    } else if b.constant() == Some(!and) {
-                        Self::from(!and)
                     } else if b.constant() == Some(and) {
                         a
                     } else if and {
