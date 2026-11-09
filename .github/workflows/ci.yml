@@ -21,8 +21,8 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
-    # Cold Windows builds plus the complete refinement panels can exceed 20m.
-    timeout-minutes: ${{ matrix.os == 'windows-2025' && 30 || 20 }}
+    # Cold macOS builds plus the complete refinement panels exceeded 20m in CI.
+    timeout-minutes: ${{ matrix.os == 'macos-15' && 40 || (matrix.os == 'windows-2025' && 30 || 20) }}
     defaults:
       run:
         shell: bash
@@ -79,7 +79,8 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: ${{ matrix.os == 'windows-2025' && 30 || 20 }}
+    # Allow the complete Barrier panels to finish after a cold macOS build.
+    timeout-minutes: ${{ matrix.os == 'macos-15' && 40 || (matrix.os == 'windows-2025' && 30 || 20) }}
     defaults:
       run:
         shell: bash
@@ -333,6 +334,8 @@ jobs:
           python -m pip install "jsonschema>=4.18,<5"
           python scripts/check_specification_json_schema.py
           python scripts/check_product_graph_json_schema.py
+          python scripts/check_contract_json_schema.py
+          python scripts/check_contract_mc_json_schema.py
           python scripts/check_task_json_schema.py
 
       - name: Check Bergomi diagnostic evidence parser

@@ -428,7 +428,12 @@ impl From<&PricingSpecification> for SpecificationV1 {
         let policy = s.numerics().execution_policy;
         Self {
             document_kind: KIND.into(),
-            schema_version: 2,
+            schema_version: if matches!(s.product(),ProductSpec::Graph(g) if g.requires_graph_v2())
+            {
+                3
+            } else {
+                2
+            },
             valuation_date: legacy.valuation_date,
             product: legacy.product,
             market: legacy.market,
@@ -470,7 +475,7 @@ fn specification_from_document(
             actual: header.document_kind,
         });
     }
-    if !matches!(header.schema_version, 1 | 2) {
+    if !matches!(header.schema_version, 1..=3) {
         return Err(WireError::UnsupportedSchemaVersion(header.schema_version));
     }
     let value: SpecificationV1 = serde_json::from_str(text).map_err(json)?;
@@ -483,13 +488,21 @@ fn specification_from_wire(value: SpecificationV1) -> Result<PricingSpecificatio
             actual: value.document_kind,
         });
     }
-    if !matches!(value.schema_version, 1 | 2) {
+    if !matches!(value.schema_version, 1..=3) {
         return Err(WireError::UnsupportedSchemaVersion(value.schema_version));
     }
     if value.schema_version == 1 && matches!(&value.product, ProductV1::Graph { .. }) {
         return Err(WireError::UnsupportedSchemaFeature {
             feature: "graph products require pricing_specification v2",
             schema_version: 1,
+        });
+    }
+    if value.schema_version < 3
+        && matches!(&value.product,ProductV1::Graph{graph} if graph.requires_v2())
+    {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "contract operations require pricing_specification v3",
+            schema_version: value.schema_version,
         });
     }
     let model = value.model.into_domain()?;
@@ -535,11 +548,11 @@ pub fn specification_to_pretty_json(source: &PricingSpecification) -> Result<Str
 pub fn fingerprint_specification(source: &PricingSpecification) -> Result<Fingerprint, WireError> {
     let value = serde_json::to_value(SpecificationV1::from(source)).map_err(json)?;
     let mut bytes = b"pricing/specification\0".to_vec();
-    bytes.extend_from_slice(&2_u32.to_be_bytes());
+    bytes.extend_from_slice(&SpecificationV1::from(source).schema_version.to_be_bytes());
     encode_value(&value, &mut bytes)?;
     Ok(Fingerprint::from_bytes(*blake3::hash(&bytes).as_bytes()))
 }
 #[must_use]
 pub fn current_specification_schema() -> &'static str {
-    include_str!("../../../../schemas/specification-v2/pricing_specification.schema.json")
+    include_str!("../../../../schemas/specification-v3/pricing_specification.schema.json")
 }
