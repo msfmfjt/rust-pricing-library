@@ -1000,6 +1000,7 @@ REQUIRED_FILES = {
     "design/validation/pure-stochastic-volatility.md",
     ".gitattributes",
     ".gitignore",
+    "AGENTS.md",
     "Cargo.lock",
     "Cargo.toml",
     "CONTRIBUTING.md",
