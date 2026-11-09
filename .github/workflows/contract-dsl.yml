@@ -10,7 +10,11 @@ on:
       - crates/pricing/src/engine/compile/**
       - crates/pricing/src/product/**
       - crates/pricing/tests/contract_*.rs
-      - crates/pricing/examples/benchmark_contract.rs
+      - crates/pricing/examples/benchmark_contract*.rs
+      - crates/pricing/src/engine/risk/early_exercise.rs
+      - tests/python/test_contract_advanced.py
+      - schemas/contract-v2/**
+      - fixtures/contract-v2/**
       - crates/pricing-python/src/contract.rs
       - scripts/check_contract*.py
       - Cargo.lock
@@ -33,6 +37,22 @@ env:
   CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
+  option-wheel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.10"
+      - name: Install wheel and verify exercise, monitoring and task replay
+        run: |
+          python -m pip install "maturin>=1.9,<2.0" "jsonschema>=4.18,<5"
+          python -m maturin build --locked --out dist
+          python -m pip install --no-deps dist/*.whl
+          python scripts/check_contract_json_schema.py
+          PYTHONPATH=tests/python python -m unittest -v test_contracts test_contract_advanced test_wheel_runtime_contract
+
   contracts:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -43,13 +63,15 @@ jobs:
           python-version: "3.12.10"
       - name: Source, lifecycle, identical-path and MC regressions
         run: |
-          cargo test --locked -p pricing --test contract_source --test contract_lifecycle --test contract_mc --test contract_builders
+          cargo test --locked -p pricing --test contract_source --test contract_lifecycle --test contract_mc --test contract_builders --test contract_advanced
           cargo test --locked -p pricing --lib contract_aggregation_tests
           cargo test --locked -p pricing --lib engine::payoff
       - name: Curated semantic mutations
         run: python scripts/check_contract_mutations.py --report-directory contract-mutations
       - name: Compare compilation, path evaluation, memory and native MC
-        run: cargo run --locked --release -p pricing --example benchmark_contract > contract-benchmark.json
+        run: |
+          cargo run --locked --release -p pricing --example benchmark_contract > contract-benchmark.json
+          cargo run --locked --release -p pricing --example benchmark_contract_advanced > advanced-benchmark.json
       - name: Retain measurement and mutation evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -57,5 +79,6 @@ jobs:
           name: contract-conformance-evidence
           path: |
             contract-benchmark.json
+            advanced-benchmark.json
             contract-mutations/*.json
             contract-mutations/*.log

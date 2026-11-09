@@ -1,0 +1,35 @@
+{
+  "document_kind": "contract",
+  "schema_version": 2,
+  "id": "continuous",
+  "observations": [
+    {
+      "id": "continuous/observation/0",
+      "underlying": 1,
+      "kind": "spot",
+      "date": "2027-09-04",
+      "fixing_source": "official.close"
+    }
+  ],
+  "root": {
+    "type": "vanilla_option",
+    "option": {
+      "id": "continuous/option",
+      "currency": 2,
+      "expiry_observation": "continuous/observation/0",
+      "side": "call",
+      "strike": 95.0,
+      "notional": 1.0,
+      "feature": {
+        "type": "continuous_barrier",
+        "start": "2026-09-04",
+        "end": "2027-09-04",
+        "payment_date": "2027-09-04",
+        "level": 115.0,
+        "direction": "up",
+        "style": "knock_in",
+        "rebate": 2.0
+      }
+    }
+  }
+}

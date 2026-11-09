@@ -20,3 +20,15 @@ v=copy.deepcopy(base);v['root']={'type':'exercise','id':'x','date':'2027-01-01',
 for v in bad:
     if validator.is_valid(v): raise AssertionError(f'accepted invalid contract: {v}')
 print(f'Contract schema: {len(fixtures)} fixtures and {len(bad)} rejection cases passed')
+
+advanced_schema = json.loads((ROOT / "schemas/contract-v2/contract.schema.json").read_text())
+Draft202012Validator.check_schema(advanced_schema)
+advanced = Draft202012Validator(advanced_schema, format_checker=FormatChecker())
+for fixture in sorted((ROOT / "fixtures/contract-v2").glob("*.json")):
+    doc = json.loads(fixture.read_text())
+    advanced.validate(doc)
+    downgraded = dict(doc, schema_version=1)
+    assert not validator.is_valid(downgraded), fixture.name
+    wrong = copy.deepcopy(doc)
+    wrong["root"]["option"]["feature"]["regression_basis"] = "quadratic"
+    assert not advanced.is_valid(wrong), fixture.name

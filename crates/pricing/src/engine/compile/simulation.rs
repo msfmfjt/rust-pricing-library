@@ -132,7 +132,13 @@ impl SimulationPlan {
             )?,
             _ => product.source_graph(request.valuation_date())?,
         };
-        let payoff = payoff_graph.compile(GraphLimitPolicy::DEFAULT)?;
+        let payoff = if matches!(product, ProductSpec::AmericanVanilla(_))
+            || continuous_barrier_spec.is_some()
+        {
+            payoff_graph.compile_compact(GraphLimitPolicy::DEFAULT)?
+        } else {
+            payoff_graph.compile(GraphLimitPolicy::DEFAULT)?
+        };
         let mut cashflow_discount_adjoints = Vec::new();
         if let ProductSpec::Graph(graph) = product
             && graph.has_multiple_payment_dates()

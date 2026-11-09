@@ -1,0 +1,891 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/msfmfjt/rust-pricing-library/schemas/contract-v2/contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "document_kind": {
+      "const": "contract"
+    },
+    "schema_version": {
+      "const": 2
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/observation"
+      },
+      "maxItems": 100000
+    },
+    "root": {
+      "$ref": "#/$defs/term"
+    }
+  },
+  "required": [
+    "document_kind",
+    "schema_version",
+    "id",
+    "observations",
+    "root"
+  ],
+  "$defs": {
+    "numeric": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "constant"
+            },
+            "value": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "observation"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "type",
+            "id"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "add"
+            },
+            "left": {
+              "$ref": "#/$defs/numeric"
+            },
+            "right": {
+              "$ref": "#/$defs/numeric"
+            }
+          },
+          "required": [
+            "type",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "subtract"
+            },
+            "left": {
+              "$ref": "#/$defs/numeric"
+            },
+            "right": {
+              "$ref": "#/$defs/numeric"
+            }
+          },
+          "required": [
+            "type",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "multiply"
+            },
+            "left": {
+              "$ref": "#/$defs/numeric"
+            },
+            "right": {
+              "$ref": "#/$defs/numeric"
+            }
+          },
+          "required": [
+            "type",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "divide"
+            },
+            "left": {
+              "$ref": "#/$defs/numeric"
+            },
+            "right": {
+              "$ref": "#/$defs/numeric"
+            }
+          },
+          "required": [
+            "type",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "minimum"
+            },
+            "left": {
+              "$ref": "#/$defs/numeric"
+            },
+            "right": {
+              "$ref": "#/$defs/numeric"
+            }
+          },
+          "required": [
+            "type",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "maximum"
+            },
+            "left": {
+              "$ref": "#/$defs/numeric"
+            },
+            "right": {
+              "$ref": "#/$defs/numeric"
+            }
+          },
+          "required": [
+            "type",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "abs"
+            },
+            "input": {
+              "$ref": "#/$defs/numeric"
+            }
+          },
+          "required": [
+            "type",
+            "input"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "negate"
+            },
+            "input": {
+              "$ref": "#/$defs/numeric"
+            }
+          },
+          "required": [
+            "type",
+            "input"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "conditional"
+            },
+            "condition": {
+              "$ref": "#/$defs/boolean"
+            },
+            "then_value": {
+              "$ref": "#/$defs/numeric"
+            },
+            "else_value": {
+              "$ref": "#/$defs/numeric"
+            }
+          },
+          "required": [
+            "type",
+            "condition",
+            "then_value",
+            "else_value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "aggregate"
+            },
+            "operation": {
+              "enum": [
+                "arithmetic_average",
+                "geometric_average",
+                "running_minimum",
+                "running_maximum"
+              ]
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/numeric"
+              },
+              "maxItems": 100000,
+              "minItems": 1
+            }
+          },
+          "required": [
+            "type",
+            "operation",
+            "values"
+          ]
+        }
+      ]
+    },
+    "boolean": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "constant"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "compare"
+            },
+            "operation": {
+              "enum": [
+                "less",
+                "less_equal",
+                "equal",
+                "not_equal",
+                "greater_equal",
+                "greater"
+              ]
+            },
+            "left": {
+              "$ref": "#/$defs/numeric"
+            },
+            "right": {
+              "$ref": "#/$defs/numeric"
+            }
+          },
+          "required": [
+            "type",
+            "operation",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "date_compare"
+            },
+            "operation": {
+              "enum": [
+                "less",
+                "less_equal",
+                "equal",
+                "not_equal",
+                "greater_equal",
+                "greater"
+              ]
+            },
+            "left": {
+              "$ref": "#/$defs/date_expression"
+            },
+            "right": {
+              "$ref": "#/$defs/date_expression"
+            }
+          },
+          "required": [
+            "type",
+            "operation",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "not"
+            },
+            "input": {
+              "$ref": "#/$defs/boolean"
+            }
+          },
+          "required": [
+            "type",
+            "input"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "and"
+            },
+            "left": {
+              "$ref": "#/$defs/boolean"
+            },
+            "right": {
+              "$ref": "#/$defs/boolean"
+            }
+          },
+          "required": [
+            "type",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "or"
+            },
+            "left": {
+              "$ref": "#/$defs/boolean"
+            },
+            "right": {
+              "$ref": "#/$defs/boolean"
+            }
+          },
+          "required": [
+            "type",
+            "left",
+            "right"
+          ]
+        }
+      ]
+    },
+    "date_expression": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "constant"
+            },
+            "value": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "conditional"
+            },
+            "condition": {
+              "$ref": "#/$defs/boolean"
+            },
+            "then_value": {
+              "$ref": "#/$defs/date_expression"
+            },
+            "else_value": {
+              "$ref": "#/$defs/date_expression"
+            }
+          },
+          "required": [
+            "type",
+            "condition",
+            "then_value",
+            "else_value"
+          ]
+        }
+      ]
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "underlying": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "kind": {
+          "enum": [
+            "spot",
+            "pre_dividend_spot",
+            "rate"
+          ]
+        },
+        "date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "fixing_source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "time": {
+          "type": "string",
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "calendar": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "id",
+        "underlying",
+        "kind",
+        "date",
+        "fixing_source"
+      ]
+    },
+    "cashflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "currency": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "amount": {
+          "$ref": "#/$defs/numeric"
+        },
+        "direction": {
+          "enum": [
+            "receive",
+            "pay"
+          ]
+        },
+        "determination_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "payment_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "settlement_date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        }
+      },
+      "required": [
+        "id",
+        "currency",
+        "amount",
+        "direction",
+        "determination_date",
+        "payment_date",
+        "settlement_date"
+      ]
+    },
+    "term": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "empty"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "cashflow"
+            },
+            "cashflow": {
+              "$ref": "#/$defs/cashflow"
+            }
+          },
+          "required": [
+            "type",
+            "cashflow"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "bundle"
+            },
+            "contracts": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/term"
+              },
+              "maxItems": 100000
+            }
+          },
+          "required": [
+            "type",
+            "contracts"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "conditional"
+            },
+            "condition": {
+              "$ref": "#/$defs/boolean"
+            },
+            "then_contract": {
+              "$ref": "#/$defs/term"
+            },
+            "else_contract": {
+              "$ref": "#/$defs/term"
+            }
+          },
+          "required": [
+            "type",
+            "condition",
+            "then_contract",
+            "else_contract"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "reverse"
+            },
+            "contract": {
+              "$ref": "#/$defs/term"
+            }
+          },
+          "required": [
+            "type",
+            "contract"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "scale"
+            },
+            "factor": {
+              "$ref": "#/$defs/numeric"
+            },
+            "contract": {
+              "$ref": "#/$defs/term"
+            }
+          },
+          "required": [
+            "type",
+            "factor",
+            "contract"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "barrier"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "observations": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "maxItems": 100000,
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "direction": {
+              "enum": [
+                "up",
+                "down"
+              ]
+            },
+            "level": {
+              "type": "number"
+            },
+            "hit": {
+              "type": "boolean"
+            },
+            "on_hit": {
+              "$ref": "#/$defs/term"
+            },
+            "on_no_hit": {
+              "$ref": "#/$defs/term"
+            }
+          },
+          "required": [
+            "type",
+            "id",
+            "observations",
+            "direction",
+            "level",
+            "hit",
+            "on_hit",
+            "on_no_hit"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "vanilla_option"
+            },
+            "option": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "currency": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                "expiry_observation": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "side": {
+                  "enum": [
+                    "call",
+                    "put"
+                  ]
+                },
+                "strike": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "notional": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "feature": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "const": "bermudan"
+                        },
+                        "dates": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                          },
+                          "maxItems": 100000,
+                          "minItems": 1,
+                          "uniqueItems": true
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "dates"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "const": "american"
+                        },
+                        "start": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "start"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "const": "continuous_barrier"
+                        },
+                        "start": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                        },
+                        "end": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                        },
+                        "payment_date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                        },
+                        "level": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        "direction": {
+                          "enum": [
+                            "up",
+                            "down"
+                          ]
+                        },
+                        "style": {
+                          "enum": [
+                            "knock_in",
+                            "knock_out"
+                          ]
+                        },
+                        "rebate": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "start",
+                        "end",
+                        "payment_date",
+                        "level",
+                        "direction",
+                        "style",
+                        "rebate"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "currency",
+                "expiry_observation",
+                "side",
+                "strike",
+                "notional",
+                "feature"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "option"
+          ]
+        }
+      ]
+    }
+  }
+}

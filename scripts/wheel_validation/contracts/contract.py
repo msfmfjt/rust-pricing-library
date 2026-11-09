@@ -5,7 +5,7 @@ def prop(declaration): return {'kind':'property','declaration':'@property\n'+dec
 CLASSES = {
     'Contract': {'bases': [], 'members': {
         'from_json':static('def from_json(json: str) -> Contract: ...'),
-        'json_schema':static('def json_schema() -> str: ...'),
+        'json_schema':static('def json_schema(version: int = 1) -> str: ...'),
         'bundle':static('def bundle(id: str, contracts: Sequence[Contract]) -> Contract: ...'),
         'to_json':method('def to_json(self) -> str: ...'),
         'fingerprint':prop('def fingerprint(self) -> str: ...'),
@@ -13,10 +13,11 @@ CLASSES = {
         'observations_json':method('def observations_json(self) -> str: ...'),
         'reversed':method('def reversed(self, id: str) -> Contract: ...'),
         'scaled':method('def scaled(self, id: str, factor: float) -> Contract: ...'),
+        'exercise_observation_json':method('def exercise_observation_json(self, option_id: str, exercise_date: DateLike) -> str: ...'),
         'fixing_event_json':method('def fixing_event_json(self, event_id: str, observation_id: str, value: float, *, effective_date: DateLike | None = None) -> str: ...'),
         'advance':method('def advance(self, events_json: str, as_of: DateLike) -> ContractLifecycle: ...'),
         'to_graphs':method('def to_graphs(self, as_of: DateLike, underlying_ids: Sequence[int]) -> list[GraphProduct]: ...'),
-        'pricing_task':method('def pricing_task(self, source: PricingSpecification | MultiAssetSpecification | StochasticDividendSpecification, *, operation: Literal["evaluate", "aad", "local_variance_risk"] = "evaluate", gamma_relative_bump: float | None = None) -> PricingTask: ...'),
+        'pricing_task':method('def pricing_task(self, source: PricingSpecification | MultiAssetSpecification | StochasticDividendSpecification, *, operation: Literal["evaluate", "aad", "local_variance_risk"] = "evaluate", gamma_relative_bump: float | None = None, lsm: LsmConfig | None = None, american_grid: Sequence[DateLike] | None = None, brownian_bridge: bool = False) -> PricingTask: ...'),
     }},
     'ContractLifecycle': {'bases': [], 'members': {
         'from_json':static('def from_json(json: str) -> ContractLifecycle: ...'),
@@ -32,6 +33,9 @@ CLASSES = {
     }},
     'ContractBuilder': {'bases': [], 'members': {
         '__init__':method('def __init__(self, id: str, currency_id: int, underlying_id: int, fixing_source: str) -> None: ...'),
+        'bermudan':method('def bermudan(self, side: Literal["call", "put"], strike: float, notional: float, exercise_dates: Sequence[DateLike]) -> Contract: ...'),
+        'american':method('def american(self, side: Literal["call", "put"], strike: float, notional: float, start: DateLike, expiry: DateLike) -> Contract: ...'),
+        'continuous_barrier':method('def continuous_barrier(self, side: Literal["call", "put"], strike: float, notional: float, expiry: DateLike, payment_date: DateLike, start: DateLike, end: DateLike, direction: Literal["up", "down"], style: Literal["knock_in", "knock_out"], level: float, rebate: float) -> Contract: ...'),
         'forward':method('def forward(self, strike: float, notional: float, observation_date: DateLike, payment_date: DateLike) -> Contract: ...'),
         'european':method('def european(self, side: Literal["call", "put"], strike: float, notional: float, expiry: DateLike, payment_date: DateLike) -> Contract: ...'),
         'digital':method('def digital(self, side: Literal["call", "put"], strike: float, payout: float, expiry: DateLike, payment_date: DateLike) -> Contract: ...'),
