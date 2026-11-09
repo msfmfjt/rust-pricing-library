@@ -141,7 +141,7 @@ class PricingTaskTests(unittest.TestCase):
         original = json.loads(fixture('multi_asset_bs'))
         report = json.loads(rp.PricingTask.from_json(fixture('standard_risk')).compile().evaluate().report.to_json())
         for kind, original, cls, mutations in [
-            ('pricing_task', original, rp.PricingTask, [(['schema_version'], 2),
+            ('pricing_task', original, rp.PricingTask, [(['schema_version'], 99),
                 (['unknown'], 1), (['source', 'numerics', 'maximum_step'], 0),
                 (['source', 'lsv', 0], None)]),
             ('valuation_report', report, rp.ValuationReport, [(['schema_version'], 3),
@@ -161,7 +161,7 @@ class PricingTaskTests(unittest.TestCase):
             duplicate = json.dumps(original).replace('{', '{"schema_version":1,', 1)
             with self.assertRaises(rp.ValidationError):
                 cls.from_json(duplicate)
-        for name, export in [('task-v1/pricing_task', rp.pricing_task_json_schema),
+        for name, export in [('task-v2/pricing_task', rp.pricing_task_json_schema),
                              ('report-v2/valuation_report', rp.valuation_report_json_schema)]:
             self.assertEqual(json.loads(export()), json.loads((ROOT / f'schemas/{name}.schema.json').read_text()))
         saved = (ROOT / 'fixtures/report-v1/multi_asset_joint.golden.json').read_text()

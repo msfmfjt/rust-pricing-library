@@ -284,3 +284,8 @@ regression tests, wheel/stub validation and source-archive inclusion. Small
 fixtures exercise contracts and deterministic replay; they are not accuracy
 acceptance panels. Existing statistical and extended-model accuracy gates remain
 in CI without relaxed tolerances or exclusions.
+
+Contract-generated lazy selection, exact comparisons, logarithms and exponentials
+use extended graph v2 / specification v3 / task v2 documents. Legacy sources
+retain their existing emitted versions and fingerprint domains. Current schema
+accessors include version guards for both forms; see [Contract MC integration](contracts.md#native-mc-compilation).

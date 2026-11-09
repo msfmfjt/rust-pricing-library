@@ -1,0 +1,30 @@
+{
+  "scope": "Representative European, arithmetic Asian and discrete barrier native-versus-contract paths; autocall measured without a legacy native comparator.",
+  "status": "protocol fixed after exploratory measurements, before retained five-invocation validation",
+  "observation_periods": [
+    2,
+    12
+  ],
+  "invocations_per_schedule": 5,
+  "path_evaluations_per_invocation": 1000000,
+  "mc_sampling_units": 262144,
+  "warmup_repetitions": 1,
+  "measured_repetitions_per_invocation": 7,
+  "mc_execution_order": "Alternating native plan/native task/contract task and reverse order",
+  "worker_threads": 2,
+  "seed": 7,
+  "acceptance": {
+    "median_across_invocations_of_paired_mc_ratio_max": 1.15,
+    "median_across_invocations_of_reused_payoff_ratio_max": 1.15,
+    "contract_compilation_median_microseconds_max": 1000,
+    "warmed_workspace_capacity_growth": 0,
+    "contract_workspace_bytes_max_relative_to_native": 1.0,
+    "pv_and_standard_error_absolute_difference_max": 1e-11
+  },
+  "limits": [
+    "Machine-specific timings; raw samples retained, not a universal SLA.",
+    "Compilation includes Contract validation/lowering, unlike the native graph-only baseline.",
+    "Workspace capacity measures path allocations; process-wide allocator interception is unavailable under the workspace unsafe-code prohibition.",
+    "Immutable control-flow storage reported separately; path simulation buffers remain owned by existing engines."
+  ]
+}
