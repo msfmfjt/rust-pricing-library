@@ -95,6 +95,8 @@ features. Experimental model adapters have separate entry points and limitations
   supported public paths and Python compatibility.
 - [Benchmarking](benchmarking.md): native Rust and installed-wheel Python
   timing commands, host metadata and interpretation.
+- [Mutation testing](mutation-testing.md): scoped Rust mutation checks, PR
+  selection, manual surveys and interpretation of surviving mutations.
 
 Required contributor checks are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
