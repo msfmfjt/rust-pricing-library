@@ -27,6 +27,8 @@ limitations and risk semantics.
   several foreign currencies. Quanto, floating-FX and composite settlement
   share one domestic discount curve, with one FX quote and foreign discount
   curve per stock currency. Each currency can have a Hull–White short rate.
+  Autocalls can specify separate coupon and principal currencies for settlement
+  at floating FX. [Coupon and principal currencies](../models/cross-currency-equity.md#separate-coupon-and-principal-currencies)
   [Mixed-currency settlement](../models/cross-currency-equity.md#stocks-in-different-foreign-currencies)
 
 - Single-stock European, Asian, lookback, digital, barrier, scheduled-exercise

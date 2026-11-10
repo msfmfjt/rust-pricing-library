@@ -14,12 +14,12 @@ use crate::{Estimate, PricingRequest, SimulationPlan};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-pub(super) fn payment_fx_schedule(
-    graph: &GraphProduct,
+pub(super) fn payment_fx_schedule<'a>(
+    payment_dates: impl IntoIterator<Item = &'a Date>,
     valuation: Date,
     schedule: &[(Date, Date)],
 ) -> Result<BTreeMap<Date, Date>, Error> {
-    let payments: std::collections::BTreeSet<_> = graph.payment_dates().iter().copied().collect();
+    let payments: std::collections::BTreeSet<_> = payment_dates.into_iter().copied().collect();
     let mut fixings = BTreeMap::new();
     for &(payment, fixing) in schedule {
         if !payments.contains(&payment) {
@@ -53,7 +53,8 @@ impl CrossCurrencyEquityOption {
                 "payment FX fixings require a floating_fx payoff graph",
             ));
         };
-        self.payment_fx_fixings = payment_fx_schedule(graph, self.valuation_date, schedule)?;
+        self.payment_fx_fixings =
+            payment_fx_schedule(graph.payment_dates(), self.valuation_date, schedule)?;
         if schedule.iter().all(|(payment, fixing)| payment == fixing) {
             self.foreign_fixing_product = None;
             return Ok(self);

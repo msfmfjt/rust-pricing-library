@@ -253,8 +253,8 @@ carry and model. [Runnable USD/EUR worst-of autocall in JPY](../../examples/pyth
 | `floating_fx` | The same local-currency performances | Specify USD or EUR as the `payout_currency_id`. Each amount converts once at that currency’s contractual FX fixing. |
 | `composite` | Each share price times its own contemporaneous JPY exchange rate, divided by its JPY reference | JPY. Use JPY amounts and references throughout the graph. |
 
-The graph currency identifies settlement. One payout currency applies to all
-coupons and principal, including a recovered coupon or early redemption.
+With `from_currencies`, the graph currency identifies settlement and
+`payout_currency_id` denominates all coupons and principal.
 The worst performer can change across observations. For floating FX the
 cash denomination continues to follow the term sheet whichever name is worst.
 Use `with_payment_fx_fixings` for fixing-to-payment lags.
@@ -274,3 +274,35 @@ use the same JPY short-rate integral and their own foreign-rate integral.
 The pricing tests check discounted minima against a joint lognormal formula,
 as well as foreign bonds and early redemption with coupon memory.
 [Mixed-currency benchmarks](../../tests/python/test_cross_currency_mixed_basket.py)
+
+### Separate coupon and principal currencies
+
+Build both legs from the same worst-of terms. For a JPY 150,000 principal and a
+USD 20 quarterly coupon, set `notional=150_000` in the terms and
+`coupon_amount=20` on each observation. The coupon currency applies to ordinary
+coupons, recovered memory coupons and `call_coupon_amount`. The principal
+currency applies to the early redemption and to the protected or reduced
+principal at maturity.
+
+```python
+coupon, principal = rp.MultiAssetProduct.autocallable_legs(
+    **terms, coupon_currency_id=USD, principal_currency_id=JPY)
+note = rp.CrossCurrencyEquityBasket.from_legs(
+    valuation_date, [coupon, principal], markets, jpy_curve,
+    settlement_currency_id=JPY, performance="local", equity_models=models,
+    fx_quotes=quotes, correlations=correlations, rates=[jpy_hw, usd_hw, eur_hw])
+note = note.with_payment_fx_fixings(list(zip(coupon_payment_dates, coupon_observation_dates)))
+estimate = note.price_mc(engine)
+```
+
+Each foreign leg uses its own JPY exchange rate. A recovered coupon converts
+in full at the fixing for the payment that releases it. By default each foreign
+payment fixes on its payment date. To fix earlier, supply one entry per distinct
+foreign payment date. Foreign payments on the same date share the fixing date.
+JPY principal can depend on a later equity observation even when it shares a
+payment date with an earlier-fixed USD coupon.
+
+Use `performance="local"` for local stock references or `performance="composite"`
+for JPY stock references. Under either convention, both legs follow the same
+equity, FX and rate paths. The engine discounts their sum in JPY and estimates
+the standard error for the whole note. [Runnable split-currency note](../../examples/python/cross_currency_usd_eur_autocall.py)

@@ -204,6 +204,21 @@ impl PyCrossCurrencyEquityOption {
     }
 }
 
+fn basket_quotes(py: Python<'_>, fx_quotes: Vec<(u16, f64, f64)>) -> PyResult<Vec<BasketFxQuote>> {
+    fx_quotes
+        .into_iter()
+        .map(|(c, x, v)| BasketFxQuote::new(CurrencyId::new(c), x, v))
+        .collect::<Result<_, _>>()
+        .map_err(|e| {
+            domain_error(
+                py,
+                "invalid_cross_currency_basket",
+                "/cross_currency/basket",
+                e,
+            )
+        })
+}
+
 fn basket_stocks(
     py: Python<'_>,
     foreign_markets: Vec<Py<PyMarket>>,
@@ -336,11 +351,7 @@ impl PyCrossCurrencyEquityBasket {
         } else {
             fixed_fx_rate
         };
-        let quotes = fx_quotes
-            .into_iter()
-            .map(|(c, x, v)| BasketFxQuote::new(CurrencyId::new(c), x, v))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| invalid(e.to_string()))?;
+        let quotes = basket_quotes(py, fx_quotes)?;
         let rates = rates.map(|rs| rs.into_iter().map(|r| r.borrow(py).inner.clone()).collect());
         CrossCurrencyEquityBasket::from_currencies(
             date_from_python(py, valuation_date, "/cross_currency/valuation_date")?,
@@ -352,6 +363,58 @@ impl PyCrossCurrencyEquityBasket {
             quotes,
             correlations,
             rates,
+            maximum_step,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| invalid(e.to_string()))
+    }
+
+    /// Value denominated graph legs jointly; foreign cash fixes on payment unless overridden.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(valuation_date,legs,foreign_markets,settlement_curve,*,settlement_currency_id,equity_models,fx_quotes,correlations,performance="local",rates=None,maximum_step=0.02,dividend_models=None))]
+    fn from_legs(
+        py: Python<'_>,
+        valuation_date: &Bound<'_, PyAny>,
+        legs: Vec<Py<crate::product_graph::PyGraphProduct>>,
+        foreign_markets: Vec<Py<PyMarket>>,
+        settlement_curve: &PyDiscountCurve,
+        settlement_currency_id: u16,
+        equity_models: Vec<Py<PyAny>>,
+        fx_quotes: Vec<(u16, f64, f64)>,
+        correlations: Vec<Vec<f64>>,
+        performance: &str,
+        rates: Option<Vec<Py<crate::hull_white::PyHullWhiteModel>>>,
+        maximum_step: f64,
+        dividend_models: Option<Vec<Option<Py<crate::source_config::PyBuehlerDividendModel>>>>,
+    ) -> PyResult<Self> {
+        let invalid = |message: String| {
+            domain_error(
+                py,
+                "invalid_cross_currency_basket",
+                "/cross_currency/basket",
+                message,
+            )
+        };
+        let composite = match performance {
+            "local" => false,
+            "composite" => true,
+            _ => return Err(invalid("performance must be local or composite".into())),
+        };
+        let products = legs
+            .into_iter()
+            .map(|g| g.borrow(py).inner.clone())
+            .collect();
+        CrossCurrencyEquityBasket::from_legs(
+            date_from_python(py, valuation_date, "/cross_currency/valuation_date")?,
+            products,
+            basket_stocks(py, foreign_markets, equity_models, dividend_models)?,
+            CurrencyId::new(settlement_currency_id),
+            settlement_curve.inner.clone(),
+            composite,
+            basket_quotes(py, fx_quotes)?,
+            correlations,
+            rates.map(|rs| rs.into_iter().map(|r| r.borrow(py).inner.clone()).collect()),
             maximum_step,
         )
         .map(|inner| Self { inner })
