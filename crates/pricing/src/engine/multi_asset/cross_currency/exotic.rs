@@ -14,6 +14,33 @@ use crate::{Estimate, PricingRequest, SimulationPlan};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+pub(super) fn payment_fx_schedule(
+    graph: &GraphProduct,
+    valuation: Date,
+    schedule: &[(Date, Date)],
+) -> Result<BTreeMap<Date, Date>, Error> {
+    let payments: std::collections::BTreeSet<_> = graph.payment_dates().iter().copied().collect();
+    let mut fixings = BTreeMap::new();
+    for &(payment, fixing) in schedule {
+        if !payments.contains(&payment) {
+            return Err(Error::Invalid(
+                "FX schedule contains an unknown payment date",
+            ));
+        }
+        if fixing < valuation || fixing > payment {
+            return Err(Error::Invalid(
+                "require valuation date <= FX fixing date <= payment date",
+            ));
+        }
+        if fixings.insert(payment, fixing).is_some() {
+            return Err(Error::Invalid(
+                "duplicate payment date in FX fixing schedule",
+            ));
+        }
+    }
+    Ok(fixings)
+}
+
 impl CrossCurrencyEquityOption {
     /// Set (payment date, FX fixing date) pairs for a floating-FX graph.
     /// Unspecified payments fix on payment. Each fixing must be on or after
@@ -26,27 +53,7 @@ impl CrossCurrencyEquityOption {
                 "payment FX fixings require a floating_fx payoff graph",
             ));
         };
-        let mut fixings = graph
-            .payment_dates()
-            .iter()
-            .map(|&payment| (payment, None))
-            .collect::<BTreeMap<_, _>>();
-        for &(payment, fixing) in schedule {
-            let entry = fixings.get_mut(&payment).ok_or(Error::Invalid(
-                "FX schedule contains an unknown payment date",
-            ))?;
-            if fixing < self.valuation_date || fixing > payment {
-                return Err(Error::Invalid(
-                    "require valuation date <= FX fixing date <= payment date",
-                ));
-            }
-            if entry.replace(fixing).is_some() {
-                return Err(Error::Invalid(
-                    "duplicate payment date in FX fixing schedule",
-                ));
-            }
-        }
-        self.payment_fx_fixings = schedule.iter().copied().collect();
+        self.payment_fx_fixings = payment_fx_schedule(graph, self.valuation_date, schedule)?;
         if schedule.iter().all(|(payment, fixing)| payment == fixing) {
             self.foreign_fixing_product = None;
             return Ok(self);
@@ -61,7 +68,11 @@ impl CrossCurrencyEquityOption {
         let mut dates = Vec::with_capacity(source.outputs().len());
         let time = |date| DayCountConvention::Act365F.year_fraction(self.valuation_date, date);
         for (&output, &payment) in source.outputs().iter().zip(graph.payment_dates()) {
-            let fixing = fixings[&payment].unwrap_or(payment);
+            let fixing = self
+                .payment_fx_fixings
+                .get(&payment)
+                .copied()
+                .unwrap_or(payment);
             let value = if fixing == payment {
                 output
             } else {

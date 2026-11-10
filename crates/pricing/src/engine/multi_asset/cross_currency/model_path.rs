@@ -74,24 +74,38 @@ impl StockPath {
 pub(super) fn simulation_grid(
     model: &EquityModelSpec,
     market: &EquityForward,
-    mut events: Vec<f64>,
+    events: Vec<f64>,
     equity_end: f64,
     maximum_step: f64,
 ) -> Result<LocalVolTimeGrid, Error> {
-    events.extend(
-        model_times(model)
-            .iter()
-            .copied()
-            .filter(|&t| t > 0. && t <= equity_end),
-    );
-    if let Some(schedule) = market.discrete_dividends() {
+    joint_grid(
+        std::iter::once((model, market, equity_end)),
+        events,
+        maximum_step,
+    )
+}
+
+pub(super) fn joint_grid<'a>(
+    stocks: impl Iterator<Item = (&'a EquityModelSpec, &'a EquityForward, f64)> + Clone,
+    mut events: Vec<f64>,
+    maximum_step: f64,
+) -> Result<LocalVolTimeGrid, Error> {
+    for (model, market, equity_end) in stocks.clone() {
         events.extend(
-            schedule
-                .events()
+            model_times(model)
                 .iter()
-                .map(|e| e.ex_time())
-                .filter(|&t| t <= equity_end),
+                .copied()
+                .filter(|&t| t > 0. && t <= equity_end),
         );
+        if let Some(schedule) = market.discrete_dividends() {
+            events.extend(
+                schedule
+                    .events()
+                    .iter()
+                    .map(|e| e.ex_time())
+                    .filter(|&t| t <= equity_end),
+            );
+        }
     }
     events.push(0.);
     events.sort_by(f64::total_cmp);
@@ -100,18 +114,20 @@ pub(super) fn simulation_grid(
     if events.windows(2).map(steps).sum::<f64>() > u32::MAX as f64 {
         return Err(Error::Invalid("equity/FX random dimension is too large"));
     }
-    if let EquityModelSpec::RoughVolatility(m)
-    | EquityModelSpec::RoughLocalStochasticVolatility { model: m, .. } = model
-    {
-        let count = events
-            .windows(2)
-            .take_while(|w| w[1] <= equity_end)
-            .map(steps)
-            .sum::<f64>();
-        if count > RoughVolatilityPathPlan::maximum_time_steps(m) as f64 {
-            return Err(Error::Invalid(
-                "rough equity time grid exceeds the model step limit",
-            ));
+    for (model, _, equity_end) in stocks {
+        if let EquityModelSpec::RoughVolatility(m)
+        | EquityModelSpec::RoughLocalStochasticVolatility { model: m, .. } = model
+        {
+            let count = events
+                .windows(2)
+                .take_while(|w| w[1] <= equity_end)
+                .map(steps)
+                .sum::<f64>();
+            if count > RoughVolatilityPathPlan::maximum_time_steps(m) as f64 {
+                return Err(Error::Invalid(
+                    "rough equity time grid exceeds the model step limit",
+                ));
+            }
         }
     }
     LocalVolTimeGrid::compile(events, maximum_step).map_err(Error::numerical)

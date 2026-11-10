@@ -1,4 +1,6 @@
 //! Foreign-equity options paid in a different currency with correlated FX and optional domestic and foreign short rates.
+mod basket;
+pub use basket::{CrossCurrencyEquityBasket, ForeignEquity};
 mod dividend_path;
 mod exotic;
 mod model;

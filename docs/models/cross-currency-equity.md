@@ -209,3 +209,31 @@ volatility and the native discounted conditional dividend reserve. Dividend
 correlations with FX, rates and volatility factors are the product of their
 respective correlations with the residual-equity driver. Pricing requires
 strictly future fixed-cash events. [Dividend-claim and native-price comparisons](../../tests/python/test_cross_currency_dividends.py)
+
+### Several stocks in one foreign currency
+
+Use `CrossCurrencyEquityBasket` for a basket, worst-of, memory autocall or other
+dated payoff graph on stocks that share one foreign discount curve. Supply the
+markets and equity models in the graph’s declared underlying order. Each stock
+has its own initial price, dividend carry, volatility model and last observation
+date. The graph sets each payment amount and governs coupon recovery, early
+redemption and downside participation. [Two-stock USD/JPY quarterly note](../../examples/python/cross_currency_worst_of_autocall.py)
+
+The correlation matrix orders the stocks first, then FX. When passing
+`rates=(domestic_hw, foreign_hw)`, append the domestic and foreign short-rate
+drivers in that order. For two stocks this gives a 5 × 5 matrix. Correlations
+are constant and may be singular. The simulation uses one realization of FX
+and of both rates across all stocks and payments. Volatility and dividend
+innovations left over after conditioning each equity model on its stock driver
+are independent between stocks. A `dividend_models` list can select the
+Buehler model for individual names under the same combinations as single-stock
+pricing.
+
+For quanto and floating FX, supply foreign-currency stock references and cash
+amounts. For composite, supply domestic-currency references and cash amounts.
+Each composite observation uses the same contemporaneous FX rate for all
+stocks. In floating FX, payment-day fixing is the default. Use
+`with_payment_fx_fixings([(payment, fixing), ...])` to set observation-day FX.
+All cash flows sharing a payment date share the specified fixing. The result
+reports the sampling error of the complete note in the settlement currency.
+[Joint moments, foreign-currency equivalence and model tests](../../tests/python/test_cross_currency_basket.py)

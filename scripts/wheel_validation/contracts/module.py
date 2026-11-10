@@ -30,6 +30,7 @@ CONTRACT = {'exports': ['Contract', 'ContractLifecycle', 'ContractBuilder', 'And
              'CompiledPricingSpecification',
              'CompiledPricingTask',
              'CorrelationSchedule',
+             'CrossCurrencyEquityBasket',
              'CrossCurrencyEquityOption',
              'DateLike',
              'DiagnosticEstimate',

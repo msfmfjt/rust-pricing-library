@@ -1,6 +1,11 @@
 """Independent frozen multi asset API expectations, migrated from the release gate."""
 
-CLASSES = {'CrossCurrencyEquityOption': {'bases': [], 'members': {
+CLASSES = {'CrossCurrencyEquityBasket': {'bases': [], 'members': {
+    '__init__': {'kind': 'method', 'declaration': 'def __init__(self, valuation_date: DateLike, product: GraphProduct, foreign_markets: Sequence[Market], settlement_curve: DiscountCurve, *, equity_models: Sequence[Model | EquityModelSpec], settlement: Literal["quanto", "floating_fx", "composite"], fx_spot: float, fx_volatility: float, correlations: Sequence[Sequence[float]], fixed_fx_rate: float | None = None, rates: tuple[HullWhiteModel, HullWhiteModel] | None = None, maximum_step: float = 0.02, dividend_models: Sequence[BuehlerDividendModel | None] | None = None) -> None: ...'},
+    'with_payment_fx_fixings': {'kind': 'method', 'declaration': 'def with_payment_fx_fixings(self, schedule: Sequence[tuple[DateLike, DateLike]]) -> CrossCurrencyEquityBasket: ...'},
+    'price_mc': {'kind': 'method', 'declaration': 'def price_mc(self, engine: Engine, *, worker_threads: int = 1, reduction_block_size: int | None = None) -> DiagnosticEstimate: ...'},
+}},
+ 'CrossCurrencyEquityOption': {'bases': [], 'members': {
     '__init__': {'kind': 'method', 'declaration': (
         'def __init__(self, valuation_date: DateLike, product: Product, foreign_market: Market, '
         'settlement_curve: DiscountCurve, *, settlement: Literal["quanto", "floating_fx", "composite"], '

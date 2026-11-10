@@ -55,6 +55,55 @@ impl CrossCurrencyHullWhite {
         )
     }
 
+    /// Conditional on both rate Brownian increments, each OU endpoint and
+    /// integral share one bridge residual: exp(-a*u) + a*B(a,u) = 1.
+    /// Bridge residuals are independent of every stock and FX increment.
+    pub(super) fn basket_steps(
+        &self,
+        times: &[f64],
+        sigma_fx: f64,
+    ) -> Result<Vec<BasketRateStep>, Error> {
+        times
+            .windows(2)
+            .map(|w| {
+                let h = w[1] - w[0];
+                let [domestic, foreign] = [&self.domestic, &self.foreign];
+                let reversion = [domestic.mean_reversion(), foreign.mean_reversion()];
+                let vol = [domestic, foreign].map(|m| {
+                    m.volatilities()[m.volatility_times().partition_point(|&t| t <= w[0]) - 1]
+                });
+                let loading = reversion.map(|a| b(a, h));
+                let mean_integral = reversion.map(|a| integrated_b(a, h));
+                let residual = std::array::from_fn(|i| {
+                    std::array::from_fn(|j| {
+                        vol[i]
+                            * vol[j]
+                            * self.correlations[i + 2][j + 2]
+                            * centered_b_product(reversion[i], reversion[j], h)
+                    })
+                });
+                let quanto = -sigma_fx * self.correlations[1][3] * vol[1];
+                Ok(BasketRateStep {
+                    residual: covariance_loading(residual).map_err(Error::numerical)?,
+                    decay: reversion.map(|a| (-a * h).exp()),
+                    loading,
+                    reversion,
+                    shift: [
+                        domestic
+                            .integrated_shift(w[0], w[1])
+                            .map_err(Error::numerical)?,
+                        foreign
+                            .integrated_shift(w[0], w[1])
+                            .map_err(Error::numerical)?,
+                    ],
+                    endpoint_weight: std::array::from_fn(|i| vol[i] * loading[i] / h.sqrt()),
+                    integral_weight: std::array::from_fn(|i| vol[i] * mean_integral[i] / h.sqrt()),
+                    foreign_quanto: [quanto * loading[1], quanto * mean_integral[1]],
+                })
+            })
+            .collect()
+    }
+
     pub(super) fn steps(&self, times: &[f64], sigma_fx: f64) -> Result<Vec<RateStep>, Error> {
         let zero = HybridCorrelation::new(0., 0., 0.).map_err(Error::numerical)?;
         times
@@ -159,6 +208,77 @@ impl RateStep {
             s.factors[i] = self.decay[i] * s.factors[i]
                 + shock(2 + 2 * i)
                 + if f { self.foreign_quanto[0] } else { 0. };
+        }
+    }
+}
+
+// Integral of (B(a,u)-mean_a)*(B(k,u)-mean_k). For fast mean reversion
+// remove the constant in B analytically before subtracting similar moments.
+fn centered_b_product(a: f64, k: f64, h: f64) -> f64 {
+    let (lo, hi) = (a.min(k), a.max(k));
+    if lo * h >= 0.1 {
+        (b(lo + hi, h) - b(lo, h) * b(hi, h) / h) / lo / hi
+    } else if hi * h >= 0.1 {
+        (b(hi, h) * integrated_b(lo, h) / h - mixed_b(hi, lo, h)) / hi
+    } else {
+        b_product(lo, hi, h) - integrated_b(lo, h) * integrated_b(hi, h) / h
+    }
+}
+
+pub(super) struct BasketRateStep {
+    residual: [[f64; 2]; 2],
+    decay: [f64; 2],
+    loading: [f64; 2],
+    reversion: [f64; 2],
+    shift: [f64; 2],
+    endpoint_weight: [f64; 2],
+    integral_weight: [f64; 2],
+    foreign_quanto: [f64; 2],
+}
+impl BasketRateStep {
+    pub(super) fn advance(&self, s: &mut RateState, rate_normals: [f64; 2], bridge: [f64; 2]) {
+        for (i, z) in rate_normals.into_iter().enumerate() {
+            let residual = self.residual[i][0] * bridge[0] + self.residual[i][1] * bridge[1];
+            s.integrated[i] += self.shift[i]
+                + self.loading[i] * s.factors[i]
+                + self.integral_weight[i] * z
+                + residual;
+            s.factors[i] = self.decay[i] * s.factors[i] + self.endpoint_weight[i] * z
+                - self.reversion[i] * residual;
+        }
+        s.factors[1] += self.foreign_quanto[0];
+        s.integrated[1] += self.foreign_quanto[1];
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{b, centered_b_product};
+
+    #[test]
+    fn ou_bridge_integrals_match_centered_kernel_quadrature() {
+        let h = 0.75;
+        const CELLS: usize = 8192;
+        for (a, k) in [
+            (0., 0.),
+            (0., 2.),
+            (1e-6, 1e-3),
+            (0.12, 0.17),
+            (0.2, 2.),
+            (3., 15.),
+        ] {
+            let cell = h / CELLS as f64;
+            let kernels = (0..CELLS).map(|i| {
+                let u = (i as f64 + 0.5) * cell;
+                (b(a, u), b(k, u))
+            });
+            let (sum_a, sum_k) = kernels
+                .clone()
+                .fold((0., 0.), |(sa, sk), (x, y)| (sa + x, sk + y));
+            let integral: f64 = kernels
+                .map(|(x, y)| (x - sum_a / CELLS as f64) * (y - sum_k / CELLS as f64) * cell)
+                .sum();
+            assert!((centered_b_product(a, k, h) - integral).abs() < 2e-7 * integral);
         }
     }
 }
