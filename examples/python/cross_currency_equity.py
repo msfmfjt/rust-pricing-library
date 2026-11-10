@@ -26,3 +26,14 @@ for settlement, strike, fixed_rate in [
     estimate = option.price_mc(engine)
     print(f"{settlement:12}  PV {option.analytical_price():9.3f} JPY  "
           f"RQMC {estimate.value:9.3f} JPY  SE {estimate.standard_error:.3f} JPY")
+
+# Each composite Asian fixing is the USD stock price times that day's JPY/USD.
+fixings = [rp.AsianObservation.unknown("2026-07-01", .5),
+           rp.AsianObservation.unknown(expiry, .5)]
+asian = rp.Product.arithmetic_asian(stock, jpy, 15_000., 1., "call", fixings, "2027-01-05")
+option = rp.CrossCurrencyEquityOption(
+    valuation, asian, market, jpy_curve, settlement="composite",
+    fx_spot=150., equity_volatility=.20, fx_volatility=.10, correlation=.35,
+)
+estimate = option.price_mc(engine)
+print(f"Asian composite PV {estimate.value:.3f} JPY  SE {estimate.standard_error:.3f} JPY")

@@ -9,7 +9,7 @@ CLASSES = {'CrossCurrencyEquityOption': {'bases': [], 'members': {
     'analytical_price': {'kind': 'method', 'declaration': 'def analytical_price(self) -> float: ...'},
     'price_mc': {'kind': 'method', 'declaration': (
         'def price_mc(self, engine: Engine, *, worker_threads: int = 1, '
-        'reduction_block_size: int | None = None) -> DiagnosticEstimate: ...')},
+        'reduction_block_size: int | None = None, lsm: LsmConfig | None = None) -> DiagnosticEstimate: ...')},
 }},
  'AutocallObservation': {'bases': [],
                          'members': {'__init__': {'kind': 'method',

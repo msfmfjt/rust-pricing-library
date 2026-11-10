@@ -23,9 +23,10 @@ limitations and risk semantics.
 
 ## Boundary notes
 
-- European foreign-equity calls and puts use a dedicated price-only Rust/Python
-  entry point with deterministic curves, continuous dividend carry and constant
-  equity/FX volatilities and correlation. [Quanto and FX-linked settlement](../models/cross-currency-equity.md)
+- Single-stock European, Asian, lookback, digital, barrier, scheduled-exercise
+  and custom graph payoffs support cross-currency pricing with deterministic
+  curves, continuous dividend carry and constant equity/FX volatilities and
+  correlation. [Quanto and FX-linked settlement](../models/cross-currency-equity.md)
 
 - The first column covers the standard single-asset `PricingRequest` path with
   `BlackScholes`, `Black76` or `LocalVolatility` models.

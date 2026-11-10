@@ -1,15 +1,16 @@
-//! European foreign-equity options paid in a different currency under joint GBM.
+//! Foreign-equity options paid in a different currency under joint GBM.
+mod exotic;
 use crate::analytical::{BlackForwardOracleInputs, evaluate_black_forward};
 use crate::core::{Date, DayCountConvention, PositiveF64, UnderlyingId};
 use crate::market::{
     CorrelationTermStructure, CorrelationToleranceConfig, DiscountCurve, EquityForward,
     EquityMarket, LogLinearDiscountCurve,
 };
-use crate::mc::{EngineConfig, ExecutionPolicy};
+use crate::mc::{EngineConfig, ExecutionPolicy, LsmConfig};
 use crate::models::{BlackScholesSpec, ModelSpec};
 use crate::multi_asset::{MultiAssetError as Error, MultiAssetPricingPlan, MultiAssetProduct};
 use crate::product::{
-    EuropeanVanillaSpec, SourceGraphBuilder, SourceOpcode as Op, multi_asset::option,
+    EuropeanVanillaSpec, ProductSpec, SourceGraphBuilder, SourceOpcode as Op, multi_asset::option,
 };
 use crate::{Estimate, EstimatorKind};
 use std::sync::Arc;
@@ -49,12 +50,20 @@ impl EquityFxDynamics {
             correlation,
         })
     }
+
+    fn composite_volatility(self) -> f64 {
+        let rho = self.correlation;
+        let fx = self.fx.volatility().get();
+        (self.equity.volatility().get() + rho * fx).hypot(fx * ((1.0 - rho) * (1.0 + rho)).sqrt())
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct CrossCurrencyEquityOption {
     valuation_date: Date,
-    product: EuropeanVanillaSpec,
+    product: ProductSpec,
+    foreign_market: EquityMarket,
+    fx_spot: PositiveF64,
     payment_date: Date,
     settlement: EquityFxSettlement,
     domestic_curve: Arc<LogLinearDiscountCurve>,
@@ -78,6 +87,44 @@ impl CrossCurrencyEquityOption {
         settlement: EquityFxSettlement,
         payment_date: Date,
     ) -> Result<Self, Error> {
+        Self::from_product(
+            valuation_date,
+            ProductSpec::EuropeanVanilla(product),
+            foreign_market,
+            settlement_curve,
+            fx_spot,
+            dynamics,
+            settlement,
+            Some(payment_date),
+        )
+    }
+
+    /// Exotic products carry their contractual payment dates. A European
+    /// vanilla can optionally specify a later payment date.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_product(
+        valuation_date: Date,
+        product: ProductSpec,
+        foreign_market: &EquityMarket,
+        settlement_curve: Arc<LogLinearDiscountCurve>,
+        fx_spot: f64,
+        dynamics: EquityFxDynamics,
+        settlement: EquityFxSettlement,
+        payment_date: Option<Date>,
+    ) -> Result<Self, Error> {
+        let payment_date = payment_date.unwrap_or_else(|| product.payment_date());
+        if !matches!(product, ProductSpec::EuropeanVanilla(_))
+            && payment_date != product.payment_date()
+        {
+            return Err(Error::Invalid(
+                "use the payment dates specified by the exotic product",
+            ));
+        }
+        if matches!(&product, ProductSpec::Graph(graph) if graph.underlyings().len() != 1) {
+            return Err(Error::Invalid(
+                "cross-currency equity graphs require one equity underlying",
+            ));
+        }
         let equity = foreign_market.forward();
         if product.underlying() != equity.underlying() {
             return Err(Error::Invalid(
@@ -110,6 +157,8 @@ impl CrossCurrencyEquityOption {
         Ok(Self {
             valuation_date,
             product,
+            foreign_market: foreign_market.clone(),
+            fx_spot,
             payment_date,
             settlement,
             domestic_curve: settlement_curve,
@@ -133,9 +182,12 @@ impl CrossCurrencyEquityOption {
 
     /// Present value in the product's settlement currency.
     pub fn analytical_price(&self) -> Result<f64, Error> {
+        let ProductSpec::EuropeanVanilla(product) = &self.product else {
+            return Err(Error::Invalid(
+                "analytical_price supports European vanilla only; use price_mc for exotics",
+            ));
+        };
         let equity_vol = self.dynamics.equity.volatility().get();
-        let fx_vol = self.dynamics.fx.volatility().get();
-        let rho = self.dynamics.correlation;
         let (forward, volatility, conversion) = match self.settlement {
             EquityFxSettlement::Quanto { fixed_fx_rate } => (
                 self.domestic_equity_forward()?.get(),
@@ -147,23 +199,18 @@ impl CrossCurrencyEquityOption {
                 equity_vol,
                 self.fx_forward.get(),
             ),
-            EquityFxSettlement::Composite => {
-                // Orthogonal Brownian loadings also handle rho=-1 and equal vols.
-                let joint_vol =
-                    (equity_vol + rho * fx_vol).hypot(fx_vol * ((1.0 - rho) * (1.0 + rho)).sqrt());
-                (
-                    self.foreign_equity_forward * self.fx_forward.get(),
-                    joint_vol,
-                    1.0,
-                )
-            }
+            EquityFxSettlement::Composite => (
+                self.foreign_equity_forward * self.fx_forward.get(),
+                self.dynamics.composite_volatility(),
+                1.0,
+            ),
         };
         let payment_time =
             DayCountConvention::Act365F.year_fraction(self.valuation_date, self.payment_date);
         let result = evaluate_black_forward(BlackForwardOracleInputs {
-            side: self.product.side(),
-            strike: self.product.strike().get(),
-            notional: self.product.notional().get() * conversion,
+            side: product.side(),
+            strike: product.strike().get(),
+            notional: product.notional().get() * conversion,
             discount: self.domestic_curve.discount(payment_time)?,
             forward,
             volatility,
@@ -173,13 +220,28 @@ impl CrossCurrencyEquityOption {
         Ok(result.price)
     }
 
-    /// Price the contractual payoff on correlated terminal equity and FX draws.
-    /// The native engine supplies pseudo-MC or RQMC errors and discounting.
+    /// Price in settlement currency using the supplied MC or RQMC engine.
     pub fn price_mc(
         &self,
         engine: EngineConfig,
         execution: ExecutionPolicy,
     ) -> Result<Estimate, Error> {
+        self.price_mc_with_lsm(engine, execution, None)
+    }
+
+    /// Scheduled early exercise uses the native LSM training configuration.
+    pub fn price_mc_with_lsm(
+        &self,
+        engine: EngineConfig,
+        execution: ExecutionPolicy,
+        lsm: Option<LsmConfig>,
+    ) -> Result<Estimate, Error> {
+        let ProductSpec::EuropeanVanilla(product) = &self.product else {
+            return self.price_exotic(engine, execution, lsm);
+        };
+        if lsm.is_some() {
+            return Err(Error::Invalid("LSM settings apply only to early exercise"));
+        }
         if self.time == 0.0 {
             let value = self.analytical_price()?;
             return Estimate::new(value, 0.0, value, value, EstimatorKind::Analytical, 1)
@@ -203,9 +265,9 @@ impl CrossCurrencyEquityOption {
         let intrinsic = option(
             &mut graph,
             underlier,
-            self.product.side(),
-            self.product.strike().get(),
-            self.product.notional().get(),
+            product.side(),
+            product.strike().get(),
+            product.notional().get(),
             None,
         )?;
         let payoff = match self.settlement {

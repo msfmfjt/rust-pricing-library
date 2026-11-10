@@ -1,14 +1,13 @@
 use crate::builders::{
-    PyDiscountCurve, PyEngine, PyMarket, PyProduct, date_from_python, domain_error,
+    PyDiscountCurve, PyEngine, PyLsmConfig, PyMarket, PyProduct, date_from_python, domain_error,
 };
 use crate::{diagnostics::PyDiagnosticEstimate, pricing_exception};
 use pricing::core::PositiveF64;
 use pricing::cross_currency::{CrossCurrencyEquityOption, EquityFxDynamics, EquityFxSettlement};
 use pricing::mc::ExecutionPolicy;
-use pricing::product::ProductSpec;
 use pyo3::prelude::*;
 
-/// European call or put fixing both equity and FX at expiry, paid in product currency.
+/// A single-equity option or payoff graph settled in a different currency.
 #[pyclass(frozen, name = "CrossCurrencyEquityOption")]
 pub struct PyCrossCurrencyEquityOption {
     inner: CrossCurrencyEquityOption,
@@ -42,11 +41,6 @@ impl PyCrossCurrencyEquityOption {
                 message,
             )
         };
-        let ProductSpec::EuropeanVanilla(product) = &product.inner else {
-            return Err(invalid(
-                "cross-currency pricing requires a European vanilla option",
-            ));
-        };
         let settlement = match (settlement, fixed_fx_rate) {
             ("quanto", Some(rate)) => EquityFxSettlement::Quanto {
                 fixed_fx_rate: PositiveF64::new(rate, "fixed_fx_rate")
@@ -69,11 +63,10 @@ impl PyCrossCurrencyEquityOption {
         let as_of = date_from_python(py, valuation_date, "/cross_currency/valuation_date")?;
         let payment = payment_date
             .map(|d| date_from_python(py, d, "/cross_currency/payment_date"))
-            .transpose()?
-            .unwrap_or(product.expiry());
-        CrossCurrencyEquityOption::new(
+            .transpose()?;
+        CrossCurrencyEquityOption::from_product(
             as_of,
-            product.clone(),
+            product.inner.clone(),
             foreign_market.inner.equity(),
             settlement_curve.inner.clone(),
             fx_spot,
@@ -90,18 +83,20 @@ impl PyCrossCurrencyEquityOption {
         self.inner.analytical_price().map_err(pricing_exception)
     }
 
-    /// Joint equity/FX Monte Carlo estimate in settlement currency.
-    #[pyo3(signature=(engine, *, worker_threads=1, reduction_block_size=None))]
+    /// Monte Carlo estimate in settlement currency, with native LSM for scheduled exercise.
+    #[pyo3(signature=(engine, *, worker_threads=1, reduction_block_size=None, lsm=None))]
     fn price_mc(
         &self,
         py: Python<'_>,
         engine: &PyEngine,
         worker_threads: u32,
         reduction_block_size: Option<u64>,
+        lsm: Option<&PyLsmConfig>,
     ) -> PyResult<PyDiagnosticEstimate> {
         let execution = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
-        py.detach(|| self.inner.price_mc(engine.inner, execution))
+        let lsm = lsm.map(|config| config.inner.clone());
+        py.detach(|| self.inner.price_mc_with_lsm(engine.inner, execution, lsm))
             .map(PyDiagnosticEstimate::from_estimate)
             .map_err(pricing_exception)
     }
