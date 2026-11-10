@@ -328,6 +328,8 @@ fn risk_factor(py: Python<'_>, factor: &str, identifier: u32) -> PyResult<Basket
     match factor {
         "equity_spot" => Ok(F::EquitySpot(stock)),
         "equity_volatility" => Ok(F::EquityVolatility(stock)),
+        "equity_vol_of_vol" => Ok(F::EquityVolOfVol(stock)),
+        "dividend_volatility" => Ok(F::DividendVolatility(stock)),
         "dividend_yield" => Ok(F::DividendYield(stock)),
         "fx_spot" => Ok(F::FxSpot(ccy()?)),
         "fx_volatility" => Ok(F::FxVolatility(ccy()?)),
@@ -582,6 +584,36 @@ impl PyCrossCurrencyEquityBasket {
             .with_leg_fx(leg_index, fixed_fx_rate, &dates, &known)
             .map(|inner| Self { inner })
             .map_err(|e| domain_error(py, "invalid_leg_fx", path, e))
+    }
+
+    #[pyo3(signature=(underlying_id, *, model_age, volatility_factor, equity_factor, dividend_factor))]
+    fn with_dividend_state(
+        &self,
+        py: Python<'_>,
+        underlying_id: u32,
+        model_age: f64,
+        volatility_factor: f64,
+        equity_factor: f64,
+        dividend_factor: f64,
+    ) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_dividend_state(
+                pricing::core::UnderlyingId::new(underlying_id),
+                model_age,
+                volatility_factor,
+                equity_factor,
+                dividend_factor,
+            )
+            .map(|inner| Self { inner })
+            .map_err(|e| {
+                domain_error(
+                    py,
+                    "invalid_dividend_state",
+                    "/cross_currency/dividend_state",
+                    e,
+                )
+            })
     }
 
     /// Shift a market quote by an absolute amount, keeping the contract fixed.

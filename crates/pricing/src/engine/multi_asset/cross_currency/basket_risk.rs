@@ -8,6 +8,8 @@ pub enum BasketRiskFactor {
     EquitySpot(UnderlyingId),
     EquityVolatility(UnderlyingId),
     DividendYield(UnderlyingId),
+    EquityVolOfVol(UnderlyingId),
+    DividendVolatility(UnderlyingId),
     FxSpot(CurrencyId),
     FxVolatility(CurrencyId),
     DiscountRate(CurrencyId),
@@ -51,6 +53,36 @@ impl ForeignEquity {
                     shifted_curve(market.dividend_curve(), shift)?,
                 )?;
                 self.market = EquityMarket::new(self.market.currency(), f);
+            }
+            BasketRiskFactor::EquityVolOfVol(_) => {
+                let EquityModelSpec::StochasticVolatility {
+                    factor: crate::VolatilityFactorSpec::Bergomi(factor),
+                    ..
+                } = &mut self.model
+                else {
+                    return Err(Error::Invalid(
+                        "equity_vol_of_vol requires a one-factor Bergomi volatility model",
+                    ));
+                };
+                *factor = crate::models::Bergomi1Factor::new(
+                    factor.mean_reversion(),
+                    factor.vol_of_vol() + shift,
+                    factor.correlation(),
+                )?;
+            }
+            BasketRiskFactor::DividendVolatility(_) => {
+                let d = self.dividend_model.ok_or(Error::Invalid(
+                    "dividend_volatility requires stochastic cash dividends",
+                ))?;
+                self.dividend_model = Some(
+                    BuehlerDividendModel::new(
+                        d.mean_reversion(),
+                        d.equity_linkage(),
+                        d.dividend_volatility() + shift,
+                        d.equity_dividend_correlation(),
+                    )
+                    .map_err(Error::numerical)?,
+                );
             }
             BasketRiskFactor::EquityVolatility(_) => match &mut self.model {
                 EquityModelSpec::Standard(ModelSpec::BlackScholes(spec)) => {
@@ -108,6 +140,8 @@ impl CrossCurrencyEquityBasket {
                 }
             }
             BasketRiskFactor::EquitySpot(id)
+            | BasketRiskFactor::DividendVolatility(id)
+            | BasketRiskFactor::EquityVolOfVol(id)
             | BasketRiskFactor::EquityVolatility(id)
             | BasketRiskFactor::DividendYield(id) => {
                 let stock = self

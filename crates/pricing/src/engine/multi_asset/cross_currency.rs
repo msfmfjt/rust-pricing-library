@@ -313,11 +313,9 @@ impl CrossCurrencyEquityOption {
         };
         if self.dividends.is_some()
             && !rates.foreign.is_deterministic()
-            && self.equity_model.is_some()
+            && let Some(model) = &self.equity_model
         {
-            return Err(Error::Invalid(
-                "stochastic cash dividends with a stochastic foreign rate require constant equity volatility",
-            ));
+            dividend_path::validate_stochastic_rate(model)?;
         }
         if (rates.correlations[0][1] - self.dynamics.correlation).abs() > 1e-12 {
             return Err(Error::Invalid(

@@ -29,10 +29,11 @@ impl StockPath {
         market: &EquityForward,
         rates: Option<&CrossCurrencyHullWhite>,
         dividend: Option<BuehlerDividendModel>,
+        snapshot: Option<super::dividend_path::BergomiAsOf>,
     ) -> Result<Self, Error> {
         if let Some(d) = dividend {
             return Ok(Self::Dividend(DividendPath::compile(
-                model, d, grid, market, rates,
+                model, d, grid, market, rates, snapshot,
             )?));
         }
         let equity = match rates {

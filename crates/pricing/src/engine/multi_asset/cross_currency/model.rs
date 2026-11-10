@@ -99,7 +99,7 @@ impl CrossCurrencyEquityOption {
                 .binary_search_by(|t| t.total_cmp(&time(date)))
                 .map_err(|_| Error::Invalid("equity fixing absent from simulation grid"))?;
         }
-        let equity = StockPath::compile(model, &grid, foreign, None, self.dividends)?;
+        let equity = StockPath::compile(model, &grid, foreign, None, self.dividends, None)?;
         let steps = times.len() - 1;
         let (dimension, brownian_blocks) = equity.layout(steps);
         let carry = times

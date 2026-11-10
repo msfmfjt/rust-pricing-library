@@ -76,6 +76,7 @@ pub struct CrossCurrencyEquityBasket {
     valuation: Date,
     legs: Vec<BasketLeg>,
     stocks: Vec<ForeignEquity>,
+    dividend_states: BTreeMap<crate::core::UnderlyingId, dividend_path::BergomiAsOf>,
     domestic_curve: Arc<LogLinearDiscountCurve>,
     composite: bool,
     currencies: Vec<ForeignCurrency>,
@@ -326,16 +327,8 @@ impl CrossCurrencyEquityBasket {
                 if rate_models
                     .as_ref()
                     .is_some_and(|r| !r[rate].is_deterministic())
-                    && !matches!(
-                        stock.model,
-                        EquityModelSpec::Standard(
-                            ModelSpec::BlackScholes(_) | ModelSpec::Black76(_)
-                        )
-                    )
                 {
-                    return Err(Error::Invalid(
-                        "stochastic dividends and a stochastic foreign rate require constant equity volatility",
-                    ));
+                    dividend_path::validate_stochastic_rate(&stock.model)?;
                 }
             } else if market
                 .discrete_dividends()
@@ -392,6 +385,7 @@ impl CrossCurrencyEquityBasket {
             valuation,
             legs,
             stocks,
+            dividend_states: BTreeMap::new(),
             domestic_curve,
             composite,
             currencies,
@@ -474,6 +468,43 @@ impl CrossCurrencyEquityBasket {
             }
             leg.set_terms(self.valuation, None, &schedule, &[])?;
         }
+        Ok(self)
+    }
+
+    /// Condition the residual share, cash dividends and Bergomi OU factor on
+    /// their as-of states. Future cash quotes are as-of foreign-measure means.
+    pub fn with_dividend_state(
+        mut self,
+        underlying: crate::core::UnderlyingId,
+        model_age: f64,
+        volatility_factor: f64,
+        equity_factor: f64,
+        dividend_factor: f64,
+    ) -> Result<Self, Error> {
+        let stock = self
+            .stocks
+            .iter()
+            .find(|s| s.market.forward().underlying() == underlying)
+            .ok_or(Error::Invalid("unknown stock in dividend state"))?;
+        if stock.dividend_model.is_none()
+            || dividend_path::validate_stochastic_rate(&stock.model)?.is_none()
+        {
+            return Err(Error::Invalid(
+                "a dividend state requires Buehler dividends and one-factor Bergomi equity volatility",
+            ));
+        }
+        if !volatility_factor.is_finite() || model_age == 0. && volatility_factor != 0. {
+            return Err(Error::Invalid(
+                "Bergomi factor must be finite and starts at zero when model age is zero",
+            ));
+        }
+        let snapshot = dividend_path::BergomiAsOf {
+            age: NonNegativeF64::new(model_age, "model_age")?.get(),
+            x: volatility_factor,
+            factors: crate::models::BuehlerDividendState::new(equity_factor, dividend_factor)
+                .map_err(Error::numerical)?,
+        };
+        self.dividend_states.insert(underlying, snapshot);
         Ok(self)
     }
 
@@ -632,6 +663,9 @@ impl CrossCurrencyEquityBasket {
                 &times[..=dates[&end]],
                 self.equity_rates(i)?.as_ref(),
                 residual_count,
+                self.dividend_states
+                    .get(&stock.market.forward().underlying())
+                    .copied(),
             )?;
             residual_count = path.residuals.end;
             stocks.push(path);
@@ -812,6 +846,7 @@ impl ForeignEquity {
         nodes: &[f64],
         rates: Option<&CrossCurrencyHullWhite>,
         residual_begin: usize,
+        snapshot: Option<dividend_path::BergomiAsOf>,
     ) -> Result<CompiledEquity, Error> {
         let market = self.market.forward();
         let steps = nodes.len() - 1;
@@ -824,6 +859,7 @@ impl ForeignEquity {
                 market,
                 rates,
                 self.dividend_model,
+                snapshot,
             )?)
         } else {
             None

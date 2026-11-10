@@ -49,6 +49,8 @@ impl CrossCurrencyEquityOption {
         match factor {
             BasketRiskFactor::EquitySpot(id)
             | BasketRiskFactor::DividendYield(id)
+            | BasketRiskFactor::DividendVolatility(id)
+            | BasketRiskFactor::EquityVolOfVol(id)
             | BasketRiskFactor::EquityVolatility(id)
                 if id == self.product.underlying() =>
             {

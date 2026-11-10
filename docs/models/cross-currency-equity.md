@@ -223,11 +223,63 @@ sides of a dividend event using `builder.spot(..., pre_dividend=True)` and
 With deterministic foreign rates, use Black, one-factor or two-factor Bergomi,
 rough Bergomi, or any of their three residual-equity LSV calibrations. The
 domestic rate can be deterministic or Hull–White. With stochastic foreign
-rates the Buehler/Hull–White combination uses constant residual-equity
-volatility and the native discounted conditional dividend reserve. Dividend
-correlations with FX, rates and volatility factors are the product of their
-respective correlations with the residual-equity driver. Pricing requires
-strictly future fixed-cash events. [Dividend-claim and native-price comparisons](../../tests/python/test_cross_currency_dividends.py)
+rates the residual equity can have constant volatility or **one-factor Bergomi
+stochastic volatility**. Both routes fund the stock using the conditional
+discounted dividend reserve. The one-factor route uses
+`EquityModelSpec.stochastic_volatility(initial_volatility, factor)` with
+`VolatilityFactorSpec.bergomi(reversion, vol_of_vol, stock_correlation)`.
+The joint stochastic-rate and stochastic-cash model currently supports those two
+residual-equity specifications. Dividend and volatility drivers each share the
+specified stock Brownian exposure, with independent remaining Brownian drivers.
+Supply future cash means under the stock currency's money-market measure,
+including dividends after the last contractual observation.
+[Dividend-claim benchmarks](../../tests/python/test_cross_currency_dividends.py) ·
+[Dividend decomposition, Buehler](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2639318)
+
+#### Conditional reserve and mid-life state
+
+For the one-factor model, the residual equity factor `f` has instantaneous
+volatility `sigma0 * exp(eta * (X - eta * Var(X_age)))`. Here `X` is the
+uncentered Ornstein–Uhlenbeck factor with unit diffusion under the foreign
+measure. Each outstanding cash dividend is valued under its foreign payment-date
+forward measure. The conditional projected dividend factor has the form
+`A(t,X) * f + B(t) * Y + C(t)`, where `Y` is the stochastic cash factor.
+The implementation retains the analytical constant-volatility coefficients and
+computes the state-dependent correction to `A` by backward Gaussian quadrature.
+It includes the stock/rate covariance and the correlation between stock and
+volatility. A zero volatility of volatility gives the constant-volatility reserve.
+The quadrature uses a 257-point factor grid, seven normal quadrature points,
+and time intervals of at most one week including rate knots. The grid covers
+the absolute starting factor plus nine OU standard deviations to the cash date.
+Quadrature uses constant boundary values for its tails, and a realized path
+outside the grid raises an error. Price standard errors measure sampling
+uncertainty. Time stepping and reserve interpolation also affect accuracy.
+[Independent forward-simulation benchmark](../../crates/pricing/src/engine/processes/stochastic_dividends/hull_white/bergomi_reserve.rs)
+
+At issue the normalized residual equity and cash factors start at one and
+the volatility factor starts at zero. On a later date, rebuild the basket from
+the remaining contractual outputs and current market curves, spots and cash
+forecasts. Supply the elapsed model time in years and the estimated current
+factors for each stock. The US stock in the April example uses these values.
+
+```python
+live = live.with_dividend_state(us_stock_id, model_age=age, volatility_factor=.16,
+                                equity_factor=.97, dividend_factor=1.06)
+```
+
+The model resumes mean reversion and the variance centering at that age.
+Each remaining cash quote is the **current expected ex-date amount per share**.
+The engine divides it by the conditional mean of its dividend factor and
+funds the remaining residual shares from the current physical spot. Omitting
+the state initializes a newly calibrated model at the valuation date.
+On bumps, historical FX, past observations and the supplied factors stay fixed.
+`equity_volatility` shifts the residual volatility scale, `equity_vol_of_vol`
+shifts the one-factor Bergomi volatility of volatility, and `dividend_volatility`
+shifts the Buehler dividend diffusion. All three use the underlying ID. Spot,
+currency curves, FX and joint scenarios use the existing basket risk interface.
+The example also reprices a ten-basis-point increase in USD short-rate volatility.
+[USD-coupon, JPY-principal autocall example](../../examples/python/cross_currency_stochastic_dividend_autocall.py) ·
+[JPY funding, replay and risk tests](../../tests/python/test_cross_currency_bergomi_cash_rates.py)
 
 ### Several stocks in one foreign currency
 

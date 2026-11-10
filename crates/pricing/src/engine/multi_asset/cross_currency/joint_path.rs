@@ -121,6 +121,7 @@ impl JointPlan {
                 foreign,
                 Some(rates),
                 option.dividends,
+                None,
             )?)
         };
         let (dim, blocks) = path.as_ref().map_or((0, 0), |p| p.layout(equity_steps));

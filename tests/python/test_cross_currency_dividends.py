@@ -101,5 +101,5 @@ class CrossCurrencyDividendTests(unittest.TestCase):
         candidates = dict(models(True))
         with self.assertRaisesRegex(ValueError, "Buehler"):
             self.price(product, "quanto", candidates["roughHeston"])
-        with self.assertRaisesRegex(ValueError, "constant equity volatility"):
-            self.price(product, "quanto", candidates["Bergomi"], self.foreign)
+        with self.assertRaisesRegex(ValueError, "one-factor Bergomi"):
+            self.price(product, "quanto", candidates["Bergomi2"], self.foreign)

@@ -79,7 +79,7 @@ class JointBarrierTests(unittest.TestCase):
         for name, model in models(True):
             if name not in ["BS","Bergomi","Bergomi2 LSV","roughBergomi LSV"]:
                 continue
-            foreign = inputs.foreign if name=="BS" else inputs.zero
+            foreign = inputs.foreign if name in ("BS", "Bergomi") else inputs.zero
             def price(p):
                 return inputs.price(p,"composite",model,foreign).price_mc(self.mc).value
             ki = price(self.barrier("composite","knock_in"))
