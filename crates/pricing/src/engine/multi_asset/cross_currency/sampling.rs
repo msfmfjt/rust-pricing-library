@@ -8,6 +8,7 @@ use crate::{Estimate, EstimatorKind};
 
 /// Factor-major equity Brownian blocks precede the model's orthogonal residuals.
 /// Additional currency and rate shocks may extend beyond the last equity fixing.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub(super) struct Layout {
     pub equity_steps: usize,
     pub equity_dimension: usize,
@@ -21,6 +22,11 @@ pub(super) fn estimate(
     policy: ExecutionPolicy,
     value: impl Fn(&[f64]) -> Result<f64, Error> + Sync,
 ) -> Result<Estimate, Error> {
+    if times.len() == 1 {
+        let exact = value(&[])?;
+        return Estimate::new(exact, 0., exact, exact, EstimatorKind::Analytical, 1)
+            .map_err(Error::numerical);
+    }
     let steps = times.len() - 1;
     let Layout {
         equity_steps,

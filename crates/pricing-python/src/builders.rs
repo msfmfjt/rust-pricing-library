@@ -317,6 +317,28 @@ impl PyProduct {
         }
     }
 
+    /// Export the dated payoff at its source as-of for settlement or later replay.
+    #[pyo3(signature=(as_of, *, currency_id=None, payment_date=None))]
+    fn to_graph(
+        &self,
+        py: Python<'_>,
+        as_of: &Bound<'_, PyAny>,
+        currency_id: Option<u16>,
+        payment_date: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<crate::product_graph::PyGraphProduct> {
+        let path = "/product";
+        self.inner
+            .cashflow_graph(
+                date_from_python(py, as_of, path)?,
+                currency_id.map(CurrencyId::new),
+                payment_date
+                    .map(|p| date_from_python(py, p, path))
+                    .transpose()?,
+            )
+            .map(|inner| crate::product_graph::PyGraphProduct { inner })
+            .map_err(|e| domain_error(py, "invalid_cashflow_graph", path, e))
+    }
+
     /// Build a European vanilla call or put.
     #[staticmethod]
     fn european_vanilla(

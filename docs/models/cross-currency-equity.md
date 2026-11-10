@@ -346,3 +346,44 @@ A nonzero overdue amount needs explicit settlement or closeout. A fully
 redeemed and settled note has zero residual value. If FX for an unpaid amount
 was already published, use `with_leg_fx` on the residual with its fixing date
 and published rate. [Seasoned note tests](../../tests/python/test_cross_currency_seasoned.py)
+
+### Market sensitivities and scenario P&L
+
+`basket.sensitivity("fx_spot", USD, 0.1, engine)` returns the central price
+difference divided by twice the absolute quote bump. The result and its
+standard error are in settlement units per one unit change in the quote.
+For `equity_spot`, `equity_volatility`, and `dividend_yield` supply a stock
+ID. For `fx_spot`, `fx_volatility`, and `discount_rate` supply a currency
+ID. Multiply rate sensitivity by 0.0001 for a one-basis-point exposure, or
+volatility sensitivity by 0.01 for one volatility point. Both sides of a
+central bump must be valid. Scalar equity volatility applies to Black and
+initial Bergomi volatility inputs.
+
+`with_market_shift(factor, id, shift)` returns a shifted basket. Fixed FX,
+historical fixings, stock reference levels and already-determined amounts
+retain their contractual values. A parallel zero-rate shift is applied to
+all markets in its currency and to the discounting or FX-forward curve.
+For a one-sided bump, or a scenario built with new surfaces, rate parameters
+or correlations, use `base.scenario_pnl(scenario, engine)`. This reports
+scenario PV minus base PV. Both valuations must share the as-of, settlement
+currency, grid and random layout. The standard error is estimated from paired
+changes across paths or randomized scrambles.
+[Risk benchmarks](../../tests/python/test_cross_currency_risk.py)
+
+Use `order=2` for a centered second difference (equity or FX gamma for a
+spot bump). `CrossCurrencyEquityOption` also supports `with_market_shift`,
+`sensitivity` and `scenario_pnl`. Vanilla uses its closed form where available.
+Other single-stock products repeat their native pricing calculation on common
+seeds. The `replications` argument defaults to eight full runs per scenario.
+For Bermudans, pass `lsm`; exercise policies are retrained for each bump and
+each independent replication. Errors include policy-training variability.
+A fixed historical FX is never bumped in a remaining cash-flow graph.
+
+For an issued vanilla, digital, Asian, discrete barrier or lookback,
+`product.to_graph(original_as_of, currency_id=amount_currency)` exports its
+dated payoff. A vanilla can also specify `payment_date`. Freeze history on
+that graph with `remaining_cashflows`, then value the outstanding leg with
+`from_legs`. A floating single-stock payoff originally fixing at expiry
+should retain that fixing in the leg schedule, including after expiry.
+Native continuous monitoring and exercise decisions use their own product
+engines. [Dated-product replay](../../tests/python/test_cross_currency_seasoned.py)

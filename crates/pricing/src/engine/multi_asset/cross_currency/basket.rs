@@ -14,8 +14,13 @@ use crate::mc::{EngineConfig, ExecutionPolicy, LocalVolTimeGrid};
 use crate::models::{BuehlerDividendModel, HullWhite1Factor, ModelSpec};
 use crate::multi_asset::MultiAssetError as Error;
 use crate::product::{GraphLimitPolicy, GraphProduct};
-use crate::{EquityModelSpec, Estimate, EstimatorKind};
+use crate::{EquityModelSpec, Estimate};
 use std::{collections::BTreeMap, ops::Range, sync::Arc};
+
+#[path = "basket_risk.rs"]
+pub(super) mod risk;
+pub use risk::BasketRiskFactor;
+type PathPayoff<'a> = dyn Fn(&[f64]) -> Result<f64, Error> + Sync + 'a;
 
 /// One foreign equity in the graph's declared underlying order.
 #[derive(Clone, Debug)]
@@ -78,7 +83,7 @@ pub struct CrossCurrencyEquityBasket {
     maximum_step: f64,
     // Brownian driver order is identical to the public correlation matrix.
     drivers: CorrelationFactor,
-    quanto_drift: Vec<f64>,
+    settlement_currency: CurrencyId,
     rates: Option<Vec<HullWhite1Factor>>,
 }
 
@@ -361,15 +366,6 @@ impl CrossCurrencyEquityBasket {
             ));
         }
         let factor = CorrelationFactor::compile(correlations, TOLERANCE)?;
-        let quanto_drift = stock_rate
-            .iter()
-            .enumerate()
-            .map(|(i, &rate)| {
-                rate.checked_sub(1).map_or(0., |k| {
-                    factor.canonical()[i * width + n + k] * currencies[k].quote.volatility.get()
-                })
-            })
-            .collect();
         let rates = rate_models.filter(|r| r.iter().any(|m| !m.is_deterministic()));
         let drivers = if rates.is_none() && width > market_width {
             CorrelationFactor::compile(
@@ -402,7 +398,7 @@ impl CrossCurrencyEquityBasket {
             stock_rate,
             maximum_step,
             drivers,
-            quanto_drift,
+            settlement_currency,
             rates,
         })
     }
@@ -502,6 +498,15 @@ impl CrossCurrencyEquityBasket {
         engine: EngineConfig,
         execution: ExecutionPolicy,
     ) -> Result<Estimate, Error> {
+        self.with_path_payoff(|times, layout, value| {
+            sampling::estimate(times, layout, engine, execution, value)
+        })
+    }
+
+    fn with_path_payoff<T>(
+        &self,
+        evaluate: impl FnOnce(&[f64], sampling::Layout, &PathPayoff<'_>) -> Result<T, Error>,
+    ) -> Result<T, Error> {
         let payoffs = self
             .legs
             .iter()
@@ -582,8 +587,7 @@ impl CrossCurrencyEquityBasket {
                     })
                     .sum::<f64>();
             }
-            return Estimate::new(total, 0., total, total, EstimatorKind::Analytical, 1)
-                .map_err(Error::numerical);
+            return evaluate(&[0.], sampling::Layout::default(), &|_| Ok(total));
         }
         let time = |d| DayCountConvention::Act365F.year_fraction(self.valuation, d);
         let mut events: Vec<_> = dates.keys().map(|&d| time(d)).collect();
@@ -662,6 +666,17 @@ impl CrossCurrencyEquityBasket {
         let m = self.currencies.len();
         let fx_index = stocks.len();
         let rate_index = fx_index + m;
+        let quanto_drift: Vec<_> = self
+            .stock_rate
+            .iter()
+            .enumerate()
+            .map(|(i, &rate)| {
+                rate.checked_sub(1).map_or(0., |k| {
+                    self.drivers.canonical()[i * width + fx_index + k]
+                        * self.currencies[k].quote.volatility.get()
+                })
+            })
+            .collect();
         let bridge_count = self.rates.as_ref().map_or(0, Vec::len);
         let blocks = width + bridge_count;
         let layout = sampling::Layout {
@@ -670,7 +685,7 @@ impl CrossCurrencyEquityBasket {
             brownian_blocks: 0,
             extra_blocks: blocks,
         };
-        sampling::estimate(times, layout, engine, execution, |normals| {
+        evaluate(times, layout, &|normals| {
             let shared = &normals[residual_count..];
             let mut innovations: Vec<Vec<f64>> = stocks
                 .iter()
@@ -701,7 +716,7 @@ impl CrossCurrencyEquityBasket {
                 }
                 for (i, stock) in stocks.iter().enumerate() {
                     if j < stock.steps {
-                        innovations[i].push(brownian[i] - self.quanto_drift[i] * root);
+                        innovations[i].push(brownian[i] - quanto_drift[i] * root);
                     }
                 }
                 if let Some(steps) = &rate_steps {

@@ -8,6 +8,46 @@ use crate::product::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+impl crate::product::ProductSpec {
+    /// Export a dated payoff in its contractual amount currency. Bermudan
+    /// exercise and continuously monitored barriers require their native engines.
+    pub fn cashflow_graph(
+        &self,
+        as_of: Date,
+        currency: Option<crate::core::CurrencyId>,
+        payment: Option<Date>,
+    ) -> Result<GraphProduct, Error> {
+        use crate::product::{BarrierMonitoring, ProductSpec};
+        if matches!(self, ProductSpec::AmericanVanilla(_))
+            || matches!(self,ProductSpec::Barrier(b) if b.monitoring()==BarrierMonitoring::Continuous)
+        {
+            return Err(Error::Invalid(
+                "scheduled exercise or continuous monitoring requires its native valuation",
+            ));
+        }
+        if !matches!(self, ProductSpec::EuropeanVanilla(_)) && payment.is_some() {
+            return Err(Error::Invalid(
+                "only European vanilla accepts a separate payment date",
+            ));
+        }
+        let currency = currency.unwrap_or(self.currency());
+        if let ProductSpec::Graph(g) = self {
+            return GraphProduct::new(
+                currency,
+                g.underlyings().to_vec(),
+                g.source_graph().clone(),
+                g.payment_dates().to_vec(),
+            );
+        }
+        GraphProduct::new(
+            currency,
+            vec![self.underlying()],
+            self.source_graph(as_of)?,
+            vec![payment.unwrap_or_else(|| self.payment_date())],
+        )
+    }
+}
+
 impl GraphProduct {
     /// Spot fixings use the units of the graph observations (local or composite).
     /// Settlements are zero-based indices of the original outputs of this graph.

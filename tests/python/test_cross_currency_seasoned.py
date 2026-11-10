@@ -87,3 +87,20 @@ class SeasonedNoteTests(unittest.TestCase):
                    dict(fixings=[(1000,FIRST,95.)]),dict(fixings=[(10,FIRST,math.nan)])]:
             with self.assertRaises(ValueError):
                 graph.remaining_cashflows(self.as_of,**kw)
+
+    def test_native_dated_products_export_for_settlement_after_expiry(self):
+        product = rp.Product.european_vanilla(10,JPY,OBS,90.,1.,"call")
+        issued = product.to_graph("2026-01-01",currency_id=USD,payment_date=PAY)
+        unpaid = issued.remaining_cashflows(self.as_of,fixings=[(10,OBS,105.)])
+        basket = rp.CrossCurrencyEquityBasket.from_legs(
+            self.as_of,[unpaid],self.stocks[:1],self.domestic,settlement_currency_id=JPY,
+            equity_models=[rp.Model.black_scholes(.2)],fx_quotes=self.quotes[:1],
+            correlations=[[1.,.2],[.2,1.]])
+        basket = basket.with_leg_fx(0,schedule=[(PAY,OBS)],known_fixings=[(OBS,135.)])
+        self.assertEqual(basket.price_mc(self.engine).value,15.*135.)
+        self.assertEqual(basket.sensitivity("fx_spot",USD,1.,self.engine).value,0.)
+        for special in [rp.Product.american_vanilla(10,JPY,END,100.,1.,"put",[OBS,END]),
+                        rp.Product.barrier(10,JPY,END,100.,140.,1.,"call","up","knock_out",
+                                           "continuous",[FIRST,END],PAY)]:
+            with self.assertRaises(ValueError):
+                special.to_graph("2026-01-01")

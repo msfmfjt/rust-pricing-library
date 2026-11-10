@@ -2,11 +2,15 @@
 mod basket;
 mod basket_leg;
 mod basket_rates;
-pub use basket::{BasketCurrencyMarkets, BasketFxQuote, CrossCurrencyEquityBasket, ForeignEquity};
+pub use basket::{
+    BasketCurrencyMarkets, BasketFxQuote, BasketRiskFactor, CrossCurrencyEquityBasket,
+    ForeignEquity,
+};
 mod dividend_path;
 mod exotic;
 mod model;
 mod model_path;
+mod option_risk;
 mod rate_pricing;
 mod rates;
 mod sampling;

@@ -7,8 +7,8 @@ use crate::{diagnostics::PyDiagnosticEstimate, pricing_exception};
 use pricing::EquityModelSpec;
 use pricing::core::{CurrencyId, PositiveF64};
 use pricing::cross_currency::{
-    BasketCurrencyMarkets, BasketFxQuote, CrossCurrencyEquityBasket, CrossCurrencyEquityOption,
-    EquityFxSettlement, ForeignEquity,
+    BasketCurrencyMarkets, BasketFxQuote, BasketRiskFactor, CrossCurrencyEquityBasket,
+    CrossCurrencyEquityOption, EquityFxSettlement, ForeignEquity,
 };
 use pricing::mc::ExecutionPolicy;
 use pricing::models::{BlackScholesSpec, ModelSpec};
@@ -142,6 +142,89 @@ impl PyCrossCurrencyEquityOption {
         .map_err(|e| invalid(&e.to_string()))
     }
 
+    /// Shift a market quote by an absolute amount, keeping the contract fixed.
+    fn with_market_shift(
+        &self,
+        py: Python<'_>,
+        factor: &str,
+        identifier: u32,
+        shift: f64,
+    ) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_market_shift(risk_factor(py, factor, identifier)?, shift)
+            .map(|inner| Self { inner })
+            .map_err(|e| domain_error(py, "invalid_market_shift", "/cross_currency/risk", e))
+    }
+    /// Scenario PV minus base PV using paired samples in settlement currency.
+    #[pyo3(signature=(scenario,engine,*,worker_threads=1,reduction_block_size=None,lsm=None,replications=8))]
+    #[allow(clippy::too_many_arguments)]
+    fn scenario_pnl(
+        &self,
+        py: Python<'_>,
+        scenario: &Self,
+        engine: &PyEngine,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        lsm: Option<&PyLsmConfig>,
+        replications: u32,
+    ) -> PyResult<PyDiagnosticEstimate> {
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        let lsm = lsm.map(|l| l.inner.clone());
+        py.detach(|| {
+            self.inner.scenario_pnl(
+                &scenario.inner,
+                engine.inner,
+                policy,
+                lsm.as_ref(),
+                replications,
+            )
+        })
+        .map(PyDiagnosticEstimate::from_estimate)
+        .map_err(pricing_exception)
+    }
+    /// Central sensitivity per unit of the quoted input with paired sampling error.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(factor,identifier,bump,engine,*,worker_threads=1,reduction_block_size=None,lsm=None,replications=8,order=1))]
+    fn sensitivity(
+        &self,
+        py: Python<'_>,
+        factor: &str,
+        identifier: u32,
+        bump: f64,
+        engine: &PyEngine,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        lsm: Option<&PyLsmConfig>,
+        replications: u32,
+        order: u8,
+    ) -> PyResult<PyDiagnosticEstimate> {
+        let risk = risk_factor(py, factor, identifier)?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        let lsm = lsm.map(|l| l.inner.clone());
+        if order != 1 && order != 2 {
+            return Err(domain_error(
+                py,
+                "invalid_market_sensitivity",
+                "/cross_currency/risk",
+                "order must be 1 or 2",
+            ));
+        }
+        py.detach(|| {
+            if order == 1 {
+                self.inner
+                    .sensitivity(risk, bump, engine.inner, policy, lsm.as_ref(), replications)
+            } else {
+                self.inner
+                    .curvature(risk, bump, engine.inner, policy, lsm.as_ref(), replications)
+            }
+        })
+        .map(PyDiagnosticEstimate::from_estimate)
+        .map_err(pricing_exception)
+    }
+
     /// Closed-form present value in settlement currency.
     fn analytical_price(&self) -> PyResult<f64> {
         self.inner.analytical_price().map_err(pricing_exception)
@@ -230,6 +313,27 @@ fn basket_quotes(
         fx_quotes,
         discount_curves,
     })
+}
+
+fn risk_factor(py: Python<'_>, factor: &str, identifier: u32) -> PyResult<BasketRiskFactor> {
+    use BasketRiskFactor as F;
+    let invalid =
+        |message| domain_error(py, "invalid_market_shift", "/cross_currency/risk", message);
+    let stock = pricing::core::UnderlyingId::new(identifier);
+    let ccy = || {
+        u16::try_from(identifier)
+            .map(CurrencyId::new)
+            .map_err(|_| invalid("invalid currency ID"))
+    };
+    match factor {
+        "equity_spot" => Ok(F::EquitySpot(stock)),
+        "equity_volatility" => Ok(F::EquityVolatility(stock)),
+        "dividend_yield" => Ok(F::DividendYield(stock)),
+        "fx_spot" => Ok(F::FxSpot(ccy()?)),
+        "fx_volatility" => Ok(F::FxVolatility(ccy()?)),
+        "discount_rate" => Ok(F::DiscountRate(ccy()?)),
+        _ => Err(invalid("unknown cross-currency risk factor")),
+    }
 }
 
 fn basket_stocks(
@@ -478,6 +582,75 @@ impl PyCrossCurrencyEquityBasket {
             .with_leg_fx(leg_index, fixed_fx_rate, &dates, &known)
             .map(|inner| Self { inner })
             .map_err(|e| domain_error(py, "invalid_leg_fx", path, e))
+    }
+
+    /// Shift a market quote by an absolute amount, keeping the contract fixed.
+    fn with_market_shift(
+        &self,
+        py: Python<'_>,
+        factor: &str,
+        identifier: u32,
+        shift: f64,
+    ) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_market_shift(risk_factor(py, factor, identifier)?, shift)
+            .map(|inner| Self { inner })
+            .map_err(|e| domain_error(py, "invalid_market_shift", "/cross_currency/risk", e))
+    }
+    /// Scenario PV minus base PV using paired samples in settlement currency.
+    #[pyo3(signature=(scenario,engine,*,worker_threads=1,reduction_block_size=None))]
+    fn scenario_pnl(
+        &self,
+        py: Python<'_>,
+        scenario: &Self,
+        engine: &PyEngine,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<PyDiagnosticEstimate> {
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        py.detach(|| {
+            self.inner
+                .scenario_pnl(&scenario.inner, engine.inner, policy)
+        })
+        .map(PyDiagnosticEstimate::from_estimate)
+        .map_err(pricing_exception)
+    }
+    /// Central sensitivity per unit of the quoted input with paired sampling error.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(factor,identifier,bump,engine,*,worker_threads=1,reduction_block_size=None,order=1))]
+    fn sensitivity(
+        &self,
+        py: Python<'_>,
+        factor: &str,
+        identifier: u32,
+        bump: f64,
+        engine: &PyEngine,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        order: u8,
+    ) -> PyResult<PyDiagnosticEstimate> {
+        let risk = risk_factor(py, factor, identifier)?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        if order != 1 && order != 2 {
+            return Err(domain_error(
+                py,
+                "invalid_market_sensitivity",
+                "/cross_currency/risk",
+                "order must be 1 or 2",
+            ));
+        }
+        py.detach(|| {
+            if order == 1 {
+                self.inner.sensitivity(risk, bump, engine.inner, policy)
+            } else {
+                self.inner.curvature(risk, bump, engine.inner, policy)
+            }
+        })
+        .map(PyDiagnosticEstimate::from_estimate)
+        .map_err(pricing_exception)
     }
 
     #[pyo3(signature=(engine,*,worker_threads=1,reduction_block_size=None))]
