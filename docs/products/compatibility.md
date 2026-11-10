@@ -25,8 +25,10 @@ limitations and risk semantics.
 
 - Single-stock European, Asian, lookback, digital, barrier, scheduled-exercise
   and custom graph payoffs support cross-currency pricing with deterministic
-  curves, continuous dividend carry and constant equity/FX volatilities and
-  correlation. [Quanto and FX-linked settlement](../models/cross-currency-equity.md)
+  curves, continuous dividend carry and constant FX volatility. Model selection
+  includes LV, Bass, Bergomi and the six rough families, with scheduled early
+  exercise and continuous barriers on the constant-volatility route.
+  [Quanto and FX-linked settlement](../models/cross-currency-equity.md)
 
 - The first column covers the standard single-asset `PricingRequest` path with
   `BlackScholes`, `Black76` or `LocalVolatility` models.

@@ -65,6 +65,9 @@ impl RoughFamilyLsvPlan {
     pub fn random_dimension(&self) -> u32 {
         self.driver.random_dimension()
     }
+    pub(crate) fn brownian_block_count(&self) -> usize {
+        self.driver.brownian_block_count()
+    }
     #[must_use]
     pub fn pseudo_shocks(&self, seed: u64, path: u64, domain: RandomDomain) -> Vec<f64> {
         self.driver.pseudo_shocks(seed, path, domain)

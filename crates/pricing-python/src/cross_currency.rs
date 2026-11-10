@@ -1,10 +1,14 @@
 use crate::builders::{
-    PyDiscountCurve, PyEngine, PyLsmConfig, PyMarket, PyProduct, date_from_python, domain_error,
+    PyDiscountCurve, PyEngine, PyLsmConfig, PyMarket, PyModel, PyProduct, date_from_python,
+    domain_error,
 };
+use crate::source_config::PyEquityModelSpec;
 use crate::{diagnostics::PyDiagnosticEstimate, pricing_exception};
+use pricing::EquityModelSpec;
 use pricing::core::PositiveF64;
-use pricing::cross_currency::{CrossCurrencyEquityOption, EquityFxDynamics, EquityFxSettlement};
+use pricing::cross_currency::{CrossCurrencyEquityOption, EquityFxSettlement};
 use pricing::mc::ExecutionPolicy;
+use pricing::models::{BlackScholesSpec, ModelSpec};
 use pyo3::prelude::*;
 
 /// A single-equity option or payoff graph settled in a different currency.
@@ -18,7 +22,8 @@ impl PyCrossCurrencyEquityOption {
     #[new]
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature=(valuation_date, product, foreign_market, settlement_curve, *, settlement, fx_spot,
-        equity_volatility, fx_volatility, correlation, fixed_fx_rate=None, payment_date=None))]
+        equity_volatility=None, fx_volatility, correlation, fixed_fx_rate=None, payment_date=None,
+        equity_model=None, maximum_step=0.02))]
     fn new(
         py: Python<'_>,
         valuation_date: &Bound<'_, PyAny>,
@@ -27,11 +32,13 @@ impl PyCrossCurrencyEquityOption {
         settlement_curve: &PyDiscountCurve,
         settlement: &str,
         fx_spot: f64,
-        equity_volatility: f64,
+        equity_volatility: Option<f64>,
         fx_volatility: f64,
         correlation: f64,
         fixed_fx_rate: Option<f64>,
         payment_date: Option<&Bound<'_, PyAny>>,
+        equity_model: Option<&Bound<'_, PyAny>>,
+        maximum_step: f64,
     ) -> PyResult<Self> {
         let invalid = |message: &str| {
             domain_error(
@@ -58,21 +65,39 @@ impl PyCrossCurrencyEquityOption {
                 ));
             }
         };
-        let dynamics = EquityFxDynamics::new(equity_volatility, fx_volatility, correlation)
-            .map_err(|e| invalid(&e.to_string()))?;
+        let model = match (equity_volatility, equity_model) {
+            (Some(sigma), None) => EquityModelSpec::Standard(ModelSpec::BlackScholes(
+                BlackScholesSpec::new(sigma).map_err(|e| invalid(&e.to_string()))?,
+            )),
+            (None, Some(m)) => {
+                if let Ok(m) = m.extract::<PyRef<PyModel>>() {
+                    EquityModelSpec::Standard(m.inner.clone())
+                } else {
+                    m.extract::<PyRef<PyEquityModelSpec>>()?.inner.clone()
+                }
+            }
+            _ => {
+                return Err(invalid(
+                    "supply exactly one of equity_model and equity_volatility",
+                ));
+            }
+        };
         let as_of = date_from_python(py, valuation_date, "/cross_currency/valuation_date")?;
         let payment = payment_date
             .map(|d| date_from_python(py, d, "/cross_currency/payment_date"))
             .transpose()?;
-        CrossCurrencyEquityOption::from_product(
+        CrossCurrencyEquityOption::from_model(
             as_of,
             product.inner.clone(),
             foreign_market.inner.equity(),
             settlement_curve.inner.clone(),
             fx_spot,
-            dynamics,
+            model,
+            fx_volatility,
+            correlation,
             settlement,
             payment,
+            maximum_step,
         )
         .map(|inner| Self { inner })
         .map_err(|e| invalid(&e.to_string()))

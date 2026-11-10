@@ -1,5 +1,8 @@
 //! Foreign-equity options paid in a different currency under joint GBM.
 mod exotic;
+mod model;
+mod model_path;
+mod sampling;
 use crate::analytical::{BlackForwardOracleInputs, evaluate_black_forward};
 use crate::core::{Date, DayCountConvention, PositiveF64, UnderlyingId};
 use crate::market::{
@@ -12,7 +15,7 @@ use crate::multi_asset::{MultiAssetError as Error, MultiAssetPricingPlan, MultiA
 use crate::product::{
     EuropeanVanillaSpec, ProductSpec, SourceGraphBuilder, SourceOpcode as Op, multi_asset::option,
 };
-use crate::{Estimate, EstimatorKind};
+use crate::{EquityModelSpec, Estimate, EstimatorKind};
 use std::sync::Arc;
 
 /// All exchange rates are units of settlement currency per unit of equity currency.
@@ -72,6 +75,7 @@ pub struct CrossCurrencyEquityOption {
     foreign_equity_forward: f64,
     fx_forward: PositiveF64,
     dynamics: EquityFxDynamics,
+    equity_model: Option<(EquityModelSpec, f64)>,
 }
 
 impl CrossCurrencyEquityOption {
@@ -168,7 +172,45 @@ impl CrossCurrencyEquityOption {
             foreign_equity_forward: equity.forward(time)?,
             fx_forward,
             dynamics,
+            equity_model: None,
         })
+    }
+
+    /// Use the foreign-market equity dynamics, with a lognormal FX rate.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_model(
+        valuation_date: Date,
+        product: ProductSpec,
+        foreign_market: &EquityMarket,
+        settlement_curve: Arc<LogLinearDiscountCurve>,
+        fx_spot: f64,
+        equity_model: EquityModelSpec,
+        fx_volatility: f64,
+        correlation: f64,
+        settlement: EquityFxSettlement,
+        payment_date: Option<Date>,
+        maximum_step: f64,
+    ) -> Result<Self, Error> {
+        PositiveF64::new(maximum_step, "maximum_step")?;
+        let sigma = match &equity_model {
+            EquityModelSpec::Standard(ModelSpec::BlackScholes(m)) => Some(m.volatility().get()),
+            EquityModelSpec::Standard(ModelSpec::Black76(m)) => Some(m.volatility().get()),
+            _ => None,
+        };
+        let mut option = Self::from_product(
+            valuation_date,
+            product,
+            foreign_market,
+            settlement_curve,
+            fx_spot,
+            EquityFxDynamics::new(sigma.unwrap_or(0.0), fx_volatility, correlation)?,
+            settlement,
+            payment_date,
+        )?;
+        if sigma.is_none() {
+            option.equity_model = Some((equity_model, maximum_step));
+        }
+        Ok(option)
     }
 
     fn domestic_equity_forward(&self) -> Result<PositiveF64, Error> {
@@ -184,6 +226,9 @@ impl CrossCurrencyEquityOption {
 
     /// Present value in the product's settlement currency.
     pub fn analytical_price(&self) -> Result<f64, Error> {
+        if self.equity_model.is_some() {
+            return Err(Error::Invalid("this equity model requires price_mc"));
+        }
         let ProductSpec::EuropeanVanilla(product) = &self.product else {
             return Err(Error::Invalid(
                 "analytical_price supports European vanilla only; use price_mc for exotics",
@@ -238,6 +283,9 @@ impl CrossCurrencyEquityOption {
         execution: ExecutionPolicy,
         lsm: Option<LsmConfig>,
     ) -> Result<Estimate, Error> {
+        if let Some((model, step)) = &self.equity_model {
+            return self.price_model(model, *step, engine, execution, lsm);
+        }
         let ProductSpec::EuropeanVanilla(product) = &self.product else {
             return self.price_exotic(engine, execution, lsm);
         };

@@ -24,7 +24,7 @@ Use deterministic ACT/365F curves for settlement discounting $D_d$, foreign
 discounting $D_f$ and continuous dividend carry $D_q$, under one consistent
 collateral convention. The input $X_0$ is cash FX for value on the valuation
 date. A market quote with a spot settlement lag must first be rolled to that
-date. Equity and FX follow joint GBM with constant annualized volatilities
+date. With the scalar `equity_volatility` input, equity and FX follow joint GBM with constant annualized volatilities
 $\sigma_S,\sigma_X$ and correlation $\rho$ in the stated FX direction.
 
 Write $F_S=S_0D_q(T)/D_f(T)$ and $F_X=X_0D_f(T)/D_d(T)$. The closed-form
@@ -125,3 +125,37 @@ replacement schedule. For a foreign amount $A$ determined by fixing date $F$
 and paid on $P$, the domestic PV is $X_0 D_f(F) D_d(P)/D_d(F)\,\mathbb{E}_f[A]$.
 The simulation aggregates all payments on the same paths before estimating the
 standard error. [Autocall validation cases](../../tests/python/test_cross_currency_autocall.py)
+
+### Selecting an equity model
+
+Pass a `Model` or `EquityModelSpec` through the `equity_model` keyword in
+place of `equity_volatility`. For example, the following selects a stochastic
+foreign-equity volatility for a quarterly note.
+
+```python
+factor = rp.VolatilityFactorSpec.bergomi(1.2, 0.3, -0.4)
+equity = rp.EquityModelSpec.stochastic_volatility(0.20, factor)
+note = rp.CrossCurrencyEquityOption(
+    valuation, rp.Product.from_graph(graph), market, jpy_curve, settlement="composite",
+    equity_model=equity, fx_spot=150., fx_volatility=.10, correlation=.35, maximum_step=.02,
+)
+```
+
+The model path covers Black–Scholes, Black-76, local volatility, Bass-LV,
+one- and two-factor Bergomi, rough Bergomi, rough and lifted Heston, quadratic
+rough Heston, mixed rough Bergomi, rough SABR and RFSV. The Bergomi and six
+rough-family models also accept their particle-calibrated LSV specifications.
+Rough SABR LSV uses the native lognormal (`beta=1`) calibration. Vanilla,
+Asian, lookback, digital, discretely monitored barriers and single-stock
+cash-flow graphs use the selected equity model. The original constant-volatility
+path also handles continuous barriers and scheduled early exercise.
+
+Equity parameters and leverage targets refer to the foreign market. FX is
+lognormal, with one input correlation to the equity Brownian increment. Its
+remaining innovation is independent of the equity model's orthogonal factors.
+For quanto and composite payoffs the native foreign-equity increments acquire
+the domestic-measure drift shift. Composite uses the joint FX path at each
+fixing. Floating-FX uses the foreign measure with the contractual fixing and
+payment dates. MC standard errors measure sampling uncertainty. Time-step and
+particle-calibration errors depend on the chosen numerical inputs.
+[Model comparisons and autocall tests](../../tests/python/test_cross_currency_models.py)

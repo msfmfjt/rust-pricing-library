@@ -4,8 +4,8 @@ CLASSES = {'CrossCurrencyEquityOption': {'bases': [], 'members': {
     '__init__': {'kind': 'method', 'declaration': (
         'def __init__(self, valuation_date: DateLike, product: Product, foreign_market: Market, '
         'settlement_curve: DiscountCurve, *, settlement: Literal["quanto", "floating_fx", "composite"], '
-        'fx_spot: float, equity_volatility: float, fx_volatility: float, correlation: float, '
-        'fixed_fx_rate: float | None = None, payment_date: DateLike | None = None) -> None: ...')},
+        'fx_spot: float, equity_volatility: float | None = None, fx_volatility: float, correlation: float, '
+        'fixed_fx_rate: float | None = None, payment_date: DateLike | None = None, equity_model: Model | EquityModelSpec | None = None, maximum_step: float = 0.02) -> None: ...')},
     'analytical_price': {'kind': 'method', 'declaration': 'def analytical_price(self) -> float: ...'},
     'with_payment_fx_fixings': {'kind': 'method', 'declaration': (
         'def with_payment_fx_fixings(self, schedule: Sequence[tuple[DateLike, DateLike]]) -> CrossCurrencyEquityOption: ...')},

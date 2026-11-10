@@ -98,7 +98,7 @@ impl PyLsvParticleConfig {
 #[pyclass(frozen, name = "EquityModelSpec")]
 #[derive(Clone, Debug)]
 pub struct PyEquityModelSpec {
-    inner: EquityModelSpec,
+    pub(super) inner: EquityModelSpec,
 }
 #[pymethods]
 impl PyEquityModelSpec {
