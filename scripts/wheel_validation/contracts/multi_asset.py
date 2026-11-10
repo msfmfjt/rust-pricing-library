@@ -2,6 +2,8 @@
 
 CLASSES = {'CrossCurrencyEquityBasket': {'bases': [], 'members': {
     '__init__': {'kind': 'method', 'declaration': 'def __init__(self, valuation_date: DateLike, product: GraphProduct, foreign_markets: Sequence[Market], settlement_curve: DiscountCurve, *, equity_models: Sequence[Model | EquityModelSpec], settlement: Literal["quanto", "floating_fx", "composite"], fx_spot: float, fx_volatility: float, correlations: Sequence[Sequence[float]], fixed_fx_rate: float | None = None, rates: tuple[HullWhiteModel, HullWhiteModel] | None = None, maximum_step: float = 0.02, dividend_models: Sequence[BuehlerDividendModel | None] | None = None) -> None: ...'},
+    'from_currencies': {'kind': 'staticmethod', 'declaration': '@staticmethod\n'
+        'def from_currencies(valuation_date: DateLike, product: GraphProduct, foreign_markets: Sequence[Market], settlement_curve: DiscountCurve, *, equity_models: Sequence[Model | EquityModelSpec], settlement: Literal["quanto", "floating_fx", "composite"], fx_quotes: Sequence[tuple[int, float, float]], correlations: Sequence[Sequence[float]], payout_currency_id: int | None = None, fixed_fx_rate: float | None = None, rates: Sequence[HullWhiteModel] | None = None, maximum_step: float = 0.02, dividend_models: Sequence[BuehlerDividendModel | None] | None = None) -> CrossCurrencyEquityBasket: ...'},
     'with_payment_fx_fixings': {'kind': 'method', 'declaration': 'def with_payment_fx_fixings(self, schedule: Sequence[tuple[DateLike, DateLike]]) -> CrossCurrencyEquityBasket: ...'},
     'price_mc': {'kind': 'method', 'declaration': 'def price_mc(self, engine: Engine, *, worker_threads: int = 1, reduction_block_size: int | None = None) -> DiagnosticEstimate: ...'},
 }},

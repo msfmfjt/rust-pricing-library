@@ -5,8 +5,11 @@ use crate::builders::{
 use crate::source_config::PyEquityModelSpec;
 use crate::{diagnostics::PyDiagnosticEstimate, pricing_exception};
 use pricing::EquityModelSpec;
-use pricing::core::PositiveF64;
-use pricing::cross_currency::{CrossCurrencyEquityOption, EquityFxSettlement};
+use pricing::core::{CurrencyId, PositiveF64};
+use pricing::cross_currency::{
+    BasketFxQuote, CrossCurrencyEquityBasket, CrossCurrencyEquityOption, EquityFxSettlement,
+    ForeignEquity,
+};
 use pricing::mc::ExecutionPolicy;
 use pricing::models::{BlackScholesSpec, ModelSpec};
 use pyo3::prelude::*;
@@ -201,7 +204,42 @@ impl PyCrossCurrencyEquityOption {
     }
 }
 
-/// Foreign stocks in one currency, observed jointly against a shared FX rate.
+fn basket_stocks(
+    py: Python<'_>,
+    foreign_markets: Vec<Py<PyMarket>>,
+    equity_models: Vec<Py<PyAny>>,
+    dividend_models: Option<Vec<Option<Py<crate::source_config::PyBuehlerDividendModel>>>>,
+) -> PyResult<Vec<ForeignEquity>> {
+    if equity_models.len() != foreign_markets.len()
+        || dividend_models
+            .as_ref()
+            .is_some_and(|d| d.len() != foreign_markets.len())
+    {
+        return Err(domain_error(
+            py,
+            "invalid_cross_currency_basket",
+            "/cross_currency/basket",
+            "markets, equity models and supplied dividend models must follow graph underlying order",
+        ));
+    }
+    foreign_markets
+        .iter()
+        .zip(equity_models)
+        .enumerate()
+        .map(|(i, (market, m))| {
+            Ok(pricing::cross_currency::ForeignEquity {
+                market: market.borrow(py).inner.equity().clone(),
+                model: parse_model(m.bind(py))?,
+                dividend_model: dividend_models
+                    .as_ref()
+                    .and_then(|ds| ds[i].as_ref())
+                    .map(|d| d.borrow(py).inner),
+            })
+        })
+        .collect()
+}
+
+/// Foreign stock baskets settled in one currency. Use from_currencies for mixed equity currencies.
 #[pyclass(frozen, name = "CrossCurrencyEquityBasket")]
 pub struct PyCrossCurrencyEquityBasket {
     inner: pricing::cross_currency::CrossCurrencyEquityBasket,
@@ -238,28 +276,7 @@ impl PyCrossCurrencyEquityBasket {
                 message,
             )
         };
-        if equity_models.len() != foreign_markets.len()
-            || dividend_models
-                .as_ref()
-                .is_some_and(|d| d.len() != foreign_markets.len())
-        {
-            return Err(invalid("markets, equity models and supplied dividend models must follow graph underlying order".into()));
-        }
-        let stocks = foreign_markets
-            .iter()
-            .zip(equity_models)
-            .enumerate()
-            .map(|(i, (market, m))| {
-                Ok(pricing::cross_currency::ForeignEquity {
-                    market: market.borrow(py).inner.equity().clone(),
-                    model: parse_model(m.bind(py))?,
-                    dividend_model: dividend_models
-                        .as_ref()
-                        .and_then(|ds| ds[i].as_ref())
-                        .map(|d| d.borrow(py).inner),
-                })
-            })
-            .collect::<PyResult<Vec<_>>>()?;
+        let stocks = basket_stocks(py, foreign_markets, equity_models, dividend_models)?;
         let rate_models =
             rates.map(|(d, f)| (d.borrow(py).inner.clone(), f.borrow(py).inner.clone()));
         pricing::cross_currency::CrossCurrencyEquityBasket::new(
@@ -272,6 +289,69 @@ impl PyCrossCurrencyEquityBasket {
             fx_volatility,
             correlations,
             rate_models,
+            maximum_step,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| invalid(e.to_string()))
+    }
+
+    /// FX quotes are (currency ID, domestic units per foreign unit, FX volatility).
+    /// Rate models are in settlement-currency order first, then FX quote order.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(valuation_date,product,foreign_markets,settlement_curve,*,equity_models,settlement,fx_quotes,correlations,payout_currency_id=None,fixed_fx_rate=None,rates=None,maximum_step=0.02,dividend_models=None))]
+    fn from_currencies(
+        py: Python<'_>,
+        valuation_date: &Bound<'_, PyAny>,
+        product: &crate::product_graph::PyGraphProduct,
+        foreign_markets: Vec<Py<PyMarket>>,
+        settlement_curve: &PyDiscountCurve,
+        equity_models: Vec<Py<PyAny>>,
+        settlement: &str,
+        fx_quotes: Vec<(u16, f64, f64)>,
+        correlations: Vec<Vec<f64>>,
+        payout_currency_id: Option<u16>,
+        fixed_fx_rate: Option<f64>,
+        rates: Option<Vec<Py<crate::hull_white::PyHullWhiteModel>>>,
+        maximum_step: f64,
+        dividend_models: Option<Vec<Option<Py<crate::source_config::PyBuehlerDividendModel>>>>,
+    ) -> PyResult<Self> {
+        let invalid = |message: String| {
+            domain_error(
+                py,
+                "invalid_cross_currency_basket",
+                "/cross_currency/basket",
+                message,
+            )
+        };
+        let domestic = product.inner.currency();
+        if settlement == "floating_fx" && payout_currency_id.is_none() {
+            return Err(invalid(
+                "floating_fx requires payout_currency_id for coupons and principal".into(),
+            ));
+        }
+        let payout = payout_currency_id.map(CurrencyId::new).unwrap_or(domestic);
+        let fixed = if settlement == "quanto" && payout == domestic {
+            Some(fixed_fx_rate.unwrap_or(1.))
+        } else {
+            fixed_fx_rate
+        };
+        let quotes = fx_quotes
+            .into_iter()
+            .map(|(c, x, v)| BasketFxQuote::new(CurrencyId::new(c), x, v))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| invalid(e.to_string()))?;
+        let rates = rates.map(|rs| rs.into_iter().map(|r| r.borrow(py).inner.clone()).collect());
+        CrossCurrencyEquityBasket::from_currencies(
+            date_from_python(py, valuation_date, "/cross_currency/valuation_date")?,
+            product.inner.clone(),
+            basket_stocks(py, foreign_markets, equity_models, dividend_models)?,
+            settlement_curve.inner.clone(),
+            parse_settlement(py, settlement, fixed)?,
+            payout,
+            quotes,
+            correlations,
+            rates,
             maximum_step,
         )
         .map(|inner| Self { inner })

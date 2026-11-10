@@ -237,3 +237,40 @@ stocks. In floating FX, payment-day fixing is the default. Use
 All cash flows sharing a payment date share the specified fixing. The result
 reports the sampling error of the complete note in the settlement currency.
 [Joint moments, foreign-currency equivalence and model tests](../../tests/python/test_cross_currency_basket.py)
+
+
+### Stocks in different foreign currencies
+
+`CrossCurrencyEquityBasket.from_currencies` prices a graph of US dollar and
+euro shares in JPY. Supply one market per stock in graph order. Each market’s
+currency ID selects its discount curve and FX quote. Stocks in the same
+currency share that curve and FX path. Each stock keeps its own dividend
+carry and model. [Runnable USD/EUR worst-of autocall in JPY](../../examples/python/cross_currency_usd_eur_autocall.py)
+
+| Settlement | Performance for coupon and call triggers | Principal and coupon amounts |
+| --- | --- | --- |
+| `quanto` | Each share price divided by its reference in its own currency | JPY by default. For a foreign amount, supply its `payout_currency_id` and a contractual `fixed_fx_rate`. |
+| `floating_fx` | The same local-currency performances | Specify USD or EUR as the `payout_currency_id`. Each amount converts once at that currency’s contractual FX fixing. |
+| `composite` | Each share price times its own contemporaneous JPY exchange rate, divided by its JPY reference | JPY. Use JPY amounts and references throughout the graph. |
+
+The graph currency identifies settlement. One payout currency applies to all
+coupons and principal, including a recovered coupon or early redemption.
+The worst performer can change across observations. For floating FX the
+cash denomination continues to follow the term sheet whichever name is worst.
+Use `with_payment_fx_fixings` for fixing-to-payment lags.
+
+Each `fx_quotes` entry gives the currency ID, cash FX in settlement units per
+foreign unit, and annual FX volatility. For US and European stocks in that
+order and quotes ordered USD then EUR, the correlation order is US stock,
+European stock, JPY per USD, JPY per EUR. Supply the four-by-four matrix for
+deterministic rates. To simulate stochastic rates, pass
+`rates=[jpy_hw, usd_hw, eur_hw]` and append the JPY, USD and EUR rate
+drivers to make a seven-by-seven matrix. The two yen FX quotes determine
+the implied USD/EUR cross on each path.
+
+Simulation uses the JPY pricing measure. Each stock and foreign short rate
+receives the drift adjustment for its own yen exchange rate. All FX paths
+use the same JPY short-rate integral and their own foreign-rate integral.
+The pricing tests check discounted minima against a joint lognormal formula,
+as well as foreign bonds and early redemption with coupon memory.
+[Mixed-currency benchmarks](../../tests/python/test_cross_currency_mixed_basket.py)

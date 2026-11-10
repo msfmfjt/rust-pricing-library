@@ -23,9 +23,11 @@ limitations and risk semantics.
 
 ## Boundary notes
 
-- A basket, worst-of or memory autocall on stocks sharing one foreign currency
-  supports quanto, floating-FX and composite settlement with two Hull–White
-  rates. [Multi-stock settlement](../models/cross-currency-equity.md#several-stocks-in-one-foreign-currency)
+- Baskets, worst-of options and memory autocalls can combine stocks from
+  several foreign currencies. Quanto, floating-FX and composite settlement
+  share one domestic discount curve, with one FX quote and foreign discount
+  curve per stock currency. Each currency can have a Hull–White short rate.
+  [Mixed-currency settlement](../models/cross-currency-equity.md#stocks-in-different-foreign-currencies)
 
 - Single-stock European, Asian, lookback, digital, barrier, scheduled-exercise
   and custom graph payoffs support quanto, floating-FX and composite settlement.
