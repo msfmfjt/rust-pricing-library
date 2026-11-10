@@ -1,4 +1,4 @@
-use super::joint_path::{JointPath, JointPlan};
+use super::joint_path::{JointPath, JointPlan, PathUse};
 use super::{CrossCurrencyEquityOption, CrossCurrencyHullWhite, EquityFxSettlement, sampling};
 use crate::core::{Date, DayCountConvention};
 use crate::mc::{EngineConfig, ExecutionPolicy, LsmConfig};
@@ -77,7 +77,7 @@ impl CrossCurrencyEquityOption {
                 fx,
                 discounts,
                 ..
-            } = plan.simulate(normals, false)?;
+            } = plan.simulate(normals, PathUse::Cashflows)?;
             let observed = |d, pre| {
                 dates.get(&d).map(|&i| {
                     let (post, before) = spots[i];

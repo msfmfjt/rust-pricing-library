@@ -1,5 +1,5 @@
 //! Out-of-sample Longstaff–Schwartz valuation with pathwise currency and discount factors.
-use super::joint_path::JointPlan;
+use super::joint_path::{JointPlan, PathUse};
 use super::{CrossCurrencyEquityOption, EquityFxSettlement, sampling};
 use crate::mc::{
     EngineConfig, ExecutionPolicy, ExerciseDecisionModel, LsmConfig, LsmStateVariable,
@@ -102,7 +102,7 @@ impl CrossCurrencyEquityOption {
         let plan = JointPlan::for_option(self, dates.iter().copied(), p.expiry(), vec![])?;
         let indices: Vec<_> = dates.iter().map(|d| plan.dates[d]).collect();
         let observations = |z: &[f64]| -> Result<Vec<ExerciseNode>, Error> {
-            let path = plan.simulate(z, true)?;
+            let path = plan.simulate(z, PathUse::Exercise)?;
             Ok(indices
                 .iter()
                 .map(|&i| {

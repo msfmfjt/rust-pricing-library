@@ -268,15 +268,15 @@ impl BassVegaKtRiskPlan {
                 ));
             }
             self.simulation
-                .fill_path(|d| normals[d], &mut full, &mut output)?;
+                .fill_path(|d| normals[d], &mut full, &mut output, None)?;
             price.push(discount_factor * payoff(&output), p + 1)?;
             let mut bucket_sum = 0.0;
             for (j, ((up, down), moments)) in self.pairs.iter().zip(&mut risks).enumerate() {
                 let index = (j < count).then_some(j);
-                up.fill_path(|d| normals[d], &mut full, &mut output)
+                up.fill_path(|d| normals[d], &mut full, &mut output, None)
                     .map_err(|e| scenario_error(&scenario_label(index, self.bump_size), e))?;
                 let up_value = discount_factor * payoff(&output);
-                down.fill_path(|d| normals[d], &mut full, &mut output)
+                down.fill_path(|d| normals[d], &mut full, &mut output, None)
                     .map_err(|e| scenario_error(&scenario_label(index, -self.bump_size), e))?;
                 let down_value = discount_factor * payoff(&output);
                 let derivative = (up_value - down_value) / (2.0 * self.bump_size);

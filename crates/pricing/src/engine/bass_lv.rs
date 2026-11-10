@@ -485,6 +485,7 @@ impl BassLvModel {
             });
         }
         Ok(BassSimulationPlan {
+            initial_map: self.intervals[0].initial.clone(),
             spot: self.spot,
             initial_w: self.initial_w,
             observation_times,
@@ -538,6 +539,7 @@ struct Step {
 
 #[derive(Clone, Debug)]
 pub struct BassSimulationPlan {
+    initial_map: Table,
     spot: f64,
     initial_w: f64,
     observation_times: Vec<f64>,
@@ -567,6 +569,13 @@ impl BassSimulationPlan {
     /// One independent standard normal per augmented time step. Supplying
     /// correlated arrays allows external multi-asset coupling on a common grid.
     pub fn path_from_normals(&self, normals: &[f64]) -> Result<Vec<f64>, BassError> {
+        self.path_with_variances(normals, None)
+    }
+    pub(in crate::engine) fn path_with_variances(
+        &self,
+        normals: &[f64],
+        variances: Option<&mut Vec<f64>>,
+    ) -> Result<Vec<f64>, BassError> {
         if normals.len() != self.normal_count() || normals.iter().any(|z| !z.is_finite()) {
             return Err(BassError::InvalidInput(
                 "normals must be finite and match the augmented time grid".into(),
@@ -574,7 +583,7 @@ impl BassSimulationPlan {
         }
         let mut full = vec![0.0; self.time_nodes.len()];
         let mut output = vec![0.0; self.observation_times.len()];
-        self.fill_path(|d| normals[d], &mut full, &mut output)?;
+        self.fill_path(|d| normals[d], &mut full, &mut output, variances)?;
         Ok(output)
     }
     fn fill_path<F: FnMut(usize) -> f64>(
@@ -582,10 +591,20 @@ impl BassSimulationPlan {
         mut normal: F,
         full: &mut [f64],
         output: &mut [f64],
+        mut variances: Option<&mut Vec<f64>>,
     ) -> Result<(), BassError> {
         full[0] = self.spot;
         let mut w = self.initial_w;
         for (d, step) in self.steps.iter().enumerate() {
+            if let Some(trace) = &mut variances {
+                let left_map = if d == 0 {
+                    &self.initial_map
+                } else {
+                    let prev = &self.steps[d - 1];
+                    prev.reset.as_ref().unwrap_or(&prev.map)
+                };
+                trace.push((left_map.slope(w) / full[d]).powi(2));
+            }
             w += step.sqrt_dt * normal(d);
             // Never silently clip a simulated tail to an endpoint value.
             if w < step.map.x[0] || w > *step.map.x.last().unwrap() {
@@ -621,6 +640,7 @@ impl BassSimulationPlan {
                     },
                     &mut full,
                     &mut output,
+                    None,
                 )?;
                 Ok(output)
             })
@@ -656,6 +676,7 @@ impl BassSimulationPlan {
                 },
                 &mut full,
                 &mut output,
+                None,
             )?;
             let x = discount_factor * payoff(&output);
             if !x.is_finite() {

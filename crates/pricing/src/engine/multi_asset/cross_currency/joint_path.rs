@@ -24,11 +24,19 @@ pub(super) struct JointPlan {
     dividends: bool,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub(super) enum PathUse {
+    Cashflows,
+    Exercise,
+    ContinuousBarrier,
+}
+
 pub(super) struct JointPath {
     pub spots: Vec<(f64, Option<f64>)>,
     pub fx: Vec<f64>,
     pub discounts: Vec<f64>,
     pub factors: Vec<[f64; 2]>,
+    pub loadings: Vec<[f64; 3]>,
 }
 
 impl JointPlan {
@@ -155,13 +163,12 @@ impl JointPlan {
         })
     }
 
-    pub fn simulate(&self, normals: &[f64], exercise: bool) -> Result<JointPath, Error> {
+    pub fn simulate(&self, normals: &[f64], usage: PathUse) -> Result<JointPath, Error> {
         let times = &self.times;
         let n = self.rate_steps.len();
         let equity_steps = self.layout.equity_steps;
         let dim = self.layout.equity_dimension;
         let (rho, sigma, spot) = (self.rho, self.sigma, self.spot);
-        let retain_factors = self.dividends || exercise;
         let extra = &normals[dim..];
         let mut shocks = normals[..dim].to_vec();
         for (z, interval) in shocks.iter_mut().zip(times[..=equity_steps].windows(2)) {
@@ -205,21 +212,25 @@ impl JointPlan {
             }
             if i <= equity_steps {
                 rate_carry.push(foreign);
-                if retain_factors {
+                if usage == PathUse::Exercise {
                     factors.push(state.factors);
+                }
+                if self.dividends {
                     foreign_factors.push(state.factors[1]);
                 }
             }
             fx.push(x);
             discounts.push(discount);
         }
+        let mut loadings = Vec::new();
         let spots = match &self.path {
-            Some(p) => p.spots(
+            Some(p) => p.spots_with_loadings(
                 spot,
                 &shocks,
                 &self.stock_carry,
                 Some(&rate_carry),
                 &foreign_factors,
+                (usage == PathUse::ContinuousBarrier).then_some(&mut loadings),
             )?,
             None => vec![(spot, None)],
         };
@@ -229,6 +240,7 @@ impl JointPlan {
             fx,
             discounts,
             factors,
+            loadings,
         })
     }
 }

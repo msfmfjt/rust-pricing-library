@@ -45,6 +45,7 @@ pub(super) enum DividendPath {
         volatility: f64,
         path: StochasticDividendHullWhitePathPlan,
         half_variances: Vec<f64>,
+        rate_vols: Vec<f64>,
     },
 }
 
@@ -101,6 +102,17 @@ impl DividendPath {
                 volatility: vol,
                 path,
                 half_variances,
+                rate_vols: grid
+                    .nodes()
+                    .windows(2)
+                    .map(|w| {
+                        rates.foreign.volatilities()[rates
+                            .foreign
+                            .volatility_times()
+                            .partition_point(|&t| t <= w[0])
+                            - 1]
+                    })
+                    .collect(),
             });
         }
         let base = StochasticDividendPathPlan::compile(market, dividend, vol, grid)
@@ -179,6 +191,7 @@ impl DividendPath {
         shocks: &[f64],
         rate_carry: &[f64],
         rate_factors: &[f64],
+        mut loadings: Option<&mut Vec<[f64; 3]>>,
     ) -> Result<Vec<(f64, Option<f64>)>, Error> {
         match self {
             Self::DeterministicForeignRate(path) => {
@@ -187,8 +200,24 @@ impl DividendPath {
                 for i in 0..steps {
                     step_major.extend(shocks.chunks_exact(steps).map(|block| block[i]));
                 }
-                path.evolve_path(&step_major)
-                    .map_err(Error::numerical)?
+                let states = if let Some(out) = loadings {
+                    let (states, vols) = path
+                        .path_with_equity_volatilities(&step_major)
+                        .map_err(Error::numerical)?;
+                    for ((node, &s), sigma) in path.nodes().iter().zip(&states).zip(vols) {
+                        let [a, b, _] = node.coefficients();
+                        out.push(dividend_loadings(
+                            path.model(),
+                            a * s.equity() * sigma,
+                            b * s.dividend(),
+                            0.,
+                        ));
+                    }
+                    states
+                } else {
+                    path.evolve_path(&step_major).map_err(Error::numerical)?
+                };
+                states
                     .into_iter()
                     .zip(path.nodes())
                     .map(|(s, node)| node.spots(s).map_err(Error::numerical))
@@ -199,6 +228,7 @@ impl DividendPath {
                 volatility,
                 path,
                 half_variances,
+                rate_vols,
             } => {
                 let steps = path.times().len() - 1;
                 let mut factors = BuehlerDividendState::initial();
@@ -222,10 +252,34 @@ impl DividendPath {
                         rate_carry[i] - half_variances[i],
                     )
                     .map_err(Error::numerical)?;
+                    if let Some(out) = &mut loadings
+                        && i < steps
+                    {
+                        let [e, d, r] = path
+                            .spot_factor_loadings(i, state)
+                            .map_err(Error::numerical)?;
+                        out.push(dividend_loadings(
+                            *model,
+                            e * volatility,
+                            d,
+                            r * rate_vols[i],
+                        ));
+                    }
                     spots.push(path.spots(i, state).map_err(Error::numerical)?);
                 }
                 Ok(spots)
             }
         }
     }
+}
+
+fn dividend_loadings(
+    model: BuehlerDividendModel,
+    stock: f64,
+    dividend_factor: f64,
+    rate: f64,
+) -> [f64; 3] {
+    let rho = model.equity_dividend_correlation();
+    let d = dividend_factor * model.dividend_volatility();
+    [stock + rho * d, ((1. - rho) * (1. + rho)).sqrt() * d, rate]
 }

@@ -13,6 +13,10 @@ use crate::models::{HullWhite1Factor, HybridCorrelation};
 use crate::multi_asset::MultiAssetError as Error;
 use crate::{EquityModelSpec, VolatilityFactorSpec};
 
+/// Instantaneous physical share-price loadings on the stock Brownian,
+/// the orthogonal dividend Brownian and the foreign-rate Brownian.
+pub(super) type StockLoadings = [f64; 3];
+
 pub(super) enum StockPath {
     Equity(EquityPath),
     Dividend(DividendPath),
@@ -54,19 +58,55 @@ impl StockPath {
         log_rate_carry: Option<&[f64]>,
         rate_factors: &[f64],
     ) -> Result<Vec<(f64, Option<f64>)>, Error> {
+        self.spots_with_loadings(spot, shocks, carry, log_rate_carry, rate_factors, None)
+    }
+
+    pub(super) fn spots_with_loadings(
+        &self,
+        spot: f64,
+        shocks: &[f64],
+        carry: &[f64],
+        log_rate_carry: Option<&[f64]>,
+        rate_factors: &[f64],
+        mut loadings: Option<&mut Vec<StockLoadings>>,
+    ) -> Result<Vec<(f64, Option<f64>)>, Error> {
         match self {
-            Self::Dividend(p) => p.spots(shocks, log_rate_carry.unwrap_or_default(), rate_factors),
-            Self::Equity(p) => Ok(p
-                .states(spot, shocks, log_rate_carry)?
-                .into_iter()
-                .enumerate()
-                .map(|(i, s)| {
-                    (
-                        s * carry[i] * log_rate_carry.map_or(1., |r| r[i].exp()),
-                        None,
-                    )
-                })
-                .collect()),
+            Self::Dividend(p) => p.spots(
+                shocks,
+                log_rate_carry.unwrap_or_default(),
+                rate_factors,
+                loadings,
+            ),
+            Self::Equity(p) => {
+                let mut variances = Vec::new();
+                let states = p.states(
+                    spot,
+                    shocks,
+                    log_rate_carry,
+                    loadings.as_ref().map(|_| &mut variances),
+                )?;
+                let beta = match p {
+                    EquityPath::Rough(path) => match path.model() {
+                        crate::models::RoughVolatilityModel::RoughSabr(m) => m.beta,
+                        _ => 1.,
+                    },
+                    _ => 1.,
+                };
+                Ok(states
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, s)| {
+                        let growth = carry[i] * log_rate_carry.map_or(1., |r| r[i].exp());
+                        if let Some(out) = &mut loadings
+                            && i < variances.len()
+                        {
+                            let stock = if beta == 1. { s } else { s.powf(beta) };
+                            out.push([growth * stock * variances[i].sqrt(), 0., 0.]);
+                        }
+                        (s * growth, None)
+                    })
+                    .collect())
+            }
         }
     }
 }
@@ -392,10 +432,14 @@ impl EquityPath {
         spot: f64,
         shocks: &[f64],
         log_carry: Option<&[f64]>,
+        mut variances: Option<&mut Vec<f64>>,
     ) -> Result<Vec<f64>, Error> {
         let mut states = Vec::new();
         match self {
             Self::Black(vol, dt) => {
+                if let Some(v) = &mut variances {
+                    v.resize(dt.len(), vol * vol);
+                }
                 let mut state = spot;
                 states.push(state);
                 for (&h, &z) in dt.iter().zip(shocks) {
@@ -404,41 +448,62 @@ impl EquityPath {
                 }
             }
             Self::Pure(p) => {
-                return Ok(p
-                    .evolve_path(spot, shocks)
-                    .map_err(Error::numerical)?
-                    .into_iter()
-                    .map(|s| s.normalized_equity)
-                    .collect());
+                let path = p.evolve_path(spot, shocks).map_err(Error::numerical)?;
+                if let Some(v) = &mut variances {
+                    let initial = p
+                        .volatility
+                        .direct_volatility()
+                        .expect("unlevered equity volatility");
+                    let nu = p.volatility.log_vol_coefficient();
+                    v.extend(
+                        path[..path.len() - 1]
+                            .iter()
+                            .map(|s| initial.powi(2) * (2. * nu * s.volatility_factor).exp()),
+                    );
+                }
+                return Ok(path.into_iter().map(|s| s.normalized_equity).collect());
             }
-            Self::Local(p, g) => p
-                .evolve_with_rate_carry(g, spot, shocks, &mut states, log_carry)
-                .map_err(Error::numerical)?,
+            Self::Local(p, g) => {
+                p.evolve_with_rate_carry(g, spot, shocks, &mut states, log_carry)
+                    .map_err(Error::numerical)?;
+                if let Some(v) = &mut variances {
+                    for (i, &s) in states[..shocks.len()].iter().enumerate() {
+                        v.push(
+                            g.interpolate(
+                                p.time_grid().nodes()[i],
+                                (s / spot).ln() + log_carry.map_or(0., |r| r[i]),
+                            )?
+                            .value,
+                        );
+                    }
+                }
+            }
             Self::Bass(p) => {
                 return Ok(p
-                    .path_from_normals(shocks)
+                    .path_with_variances(shocks, variances)
                     .map_err(Error::numerical)?
                     .into_iter()
                     .map(|s| s * spot)
                     .collect());
             }
             Self::Bergomi(p) => p
-                .evolve_with_rate_carry(spot, shocks, &mut states, log_carry)
+                .evolve_with_variances(spot, shocks, &mut states, log_carry, variances)
                 .map_err(Error::numerical)?,
             Self::TwoFactor(p) => p
-                .evolve_with_rate_carry(spot, shocks, &mut states, log_carry)
+                .evolve_with_variances(spot, shocks, &mut states, log_carry, variances)
                 .map_err(Error::numerical)?,
             Self::RoughBergomi(p) => p
-                .evolve_with_rate_carry(spot, shocks, &mut states, log_carry)
+                .evolve_with_variances(spot, shocks, &mut states, log_carry, variances)
                 .map_err(Error::numerical)?,
             Self::Rough(p) => {
-                return Ok(p
-                    .evolve_path(spot, shocks)
-                    .map_err(Error::numerical)?
-                    .forwards);
+                let path = p.evolve_path(spot, shocks).map_err(Error::numerical)?;
+                if let Some(v) = &mut variances {
+                    v.extend_from_slice(&path.variances[..path.forwards.len() - 1]);
+                }
+                return Ok(path.forwards);
             }
             Self::RoughLsv(p) => p
-                .evolve_with_rate_carry(spot, shocks, &mut states, log_carry)
+                .evolve_with_variances(spot, shocks, &mut states, log_carry, variances)
                 .map_err(Error::numerical)?,
         }
         Ok(states)

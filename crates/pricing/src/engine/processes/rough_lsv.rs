@@ -239,6 +239,17 @@ impl RoughBergomiLsvPlan {
         states: &mut Vec<f64>,
         log_carry: Option<&[f64]>,
     ) -> Result<(), LsvError> {
+        self.evolve_with_variances(initial_f, shocks, states, log_carry, None)
+    }
+
+    pub(in crate::engine) fn evolve_with_variances(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+        log_carry: Option<&[f64]>,
+        mut variances: Option<&mut Vec<f64>>,
+    ) -> Result<(), LsvError> {
         let log_multipliers = self.log_multipliers(initial_f, shocks)?;
         states.clear();
         states.push(initial_f);
@@ -251,6 +262,9 @@ impl RoughBergomiLsvPlan {
                 (f / self.surface.initial_f()).ln() + log_carry.map_or(0., |carry| carry[i]),
                 &mut cell,
             );
+            if let Some(v) = &mut variances {
+                v.push(lookup.value * m.exp());
+            }
             f = advance(f, lookup.value * m.exp(), dt, shocks[i], i, 0)?;
             states.push(f);
         }

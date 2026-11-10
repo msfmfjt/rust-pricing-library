@@ -2,6 +2,7 @@
 mod basket;
 mod basket_leg;
 mod basket_rates;
+mod continuous_barrier;
 pub use basket::{
     BasketCurrencyMarkets, BasketFxQuote, BasketRiskFactor, CrossCurrencyEquityBasket,
     ForeignEquity,
@@ -413,6 +414,15 @@ impl CrossCurrencyEquityOption {
                 "scheduled exercise requires an LSM configuration",
             ))?;
             return self.price_joint_exercise(p, engine, execution, config);
+        }
+        if let ProductSpec::Barrier(p) = &self.product
+            && p.monitoring() == crate::product::BarrierMonitoring::Continuous
+            && (self.rates.is_some() || self.equity_model.is_some() || self.dividends.is_some())
+        {
+            if lsm.is_some() {
+                return Err(Error::Invalid("LSM settings apply only to early exercise"));
+            }
+            return self.price_joint_barrier(p, engine, execution);
         }
         if let Some(rates) = &self.rates {
             return self.price_with_rates(rates, engine, execution, lsm);

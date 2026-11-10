@@ -548,6 +548,17 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
         states: &mut Vec<f64>,
         log_carry: Option<&[f64]>,
     ) -> Result<(), LsvError> {
+        self.evolve_with_variances(initial_f, shocks, states, log_carry, None)
+    }
+
+    pub(in crate::engine) fn evolve_with_variances(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+        log_carry: Option<&[f64]>,
+        mut variances: Option<&mut Vec<f64>>,
+    ) -> Result<(), LsvError> {
         let n = self.transitions.len();
         length("shocks", (1 + F::FACTOR_COUNT) * n, shocks.len())?;
         for (i, &z) in shocks.iter().enumerate() {
@@ -567,6 +578,9 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
                 &mut cell,
             );
             let variance = lookup.value * self.factor.multiplier_squared(factor_state);
+            if let Some(v) = &mut variances {
+                v.push(variance);
+            }
             f = advance(f, variance, dt, shocks[i], i, 0)?;
             factor_state = self.factor.evolve_normals(
                 self.transitions[i],

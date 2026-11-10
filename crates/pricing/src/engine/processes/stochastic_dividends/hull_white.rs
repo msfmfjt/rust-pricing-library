@@ -302,6 +302,31 @@ impl StochasticDividendHullWhitePathPlan {
         self.spots_with_risky_spot(index, state, self.risky_spot)
     }
 
+    /// Post-cash physical spot gradients w.r.t. log equity factor, log dividend
+    /// factor, and the foreign short-rate factor. Integrated carry has no diffusion.
+    pub(in crate::engine) fn spot_factor_loadings(
+        &self,
+        index: usize,
+        s: StochasticDividendHullWhiteState,
+    ) -> Result<[f64; 3], StochasticDividendError> {
+        let node = self.nodes.get(index).ok_or(invalid("time_node_index"))?;
+        let equity = s.factors.equity();
+        let dividend = s.factors.dividend();
+        let mut e = self.risky_spot
+            * node.residual_growth
+            * (s.integrated_rate_factor + node.half_integral_variance).exp()
+            * equity;
+        let (mut d, mut r) = (0., 0.);
+        for claim in &node.claims {
+            let w = claim.carry_weight * claim.amount * (-claim.duration * s.rate_factor).exp();
+            let [a, b, c] = claim.coefficients;
+            e += w * a * equity;
+            d += w * b * dividend;
+            r -= claim.duration * w * (a * equity + b * dividend + c);
+        }
+        Ok([e, d, r])
+    }
+
     /// Initial funding at another Spot, with every Q cash mean and conditional
     /// claim fixed. Sum in the original compile order, including future cash.
     pub(in crate::engine) fn risky_spot_at(

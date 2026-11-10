@@ -147,8 +147,15 @@ rough Heston, mixed rough Bergomi, rough SABR and RFSV. The Bergomi and six
 rough-family models also accept their particle-calibrated LSV specifications.
 Rough SABR LSV uses the native lognormal (`beta=1`) calibration. Vanilla,
 Asian, lookback, digital, discretely monitored barriers and single-stock
-cash-flow graphs use the selected equity model. The original constant-volatility
-path also handles continuous barriers and scheduled early exercise.
+cash-flow graphs, continuously monitored barriers and scheduled exercise use the
+selected equity model. On joint paths a continuous barrier uses the left-end
+instantaneous diffusion for each interval, including the covariances of stock,
+FX and the reserve for future cash dividends. Diffusion arrives at the pre-cash
+spot and the post-cash jump can also hit the barrier. Non-lognormal rough SABR
+uses an arithmetic bridge in price units. The bridge with variable coefficients
+or stochastic rates is a time-discretized approximation. Check convergence
+in `maximum_step` separately from the reported sampling error.
+[Joint monitoring tests](../../tests/python/test_cross_currency_joint_barrier.py)
 
 Equity parameters and leverage targets refer to the foreign market. FX is
 lognormal, with one input correlation to the equity Brownian increment. Its
