@@ -42,6 +42,23 @@ impl BasketFxQuote {
     }
 }
 
+/// Ordered FX quotes with optional explicit foreign discount curves. Equity
+/// markets supply their own currency curves; cash-only currencies supply one here.
+#[derive(Clone, Debug)]
+pub struct BasketCurrencyMarkets {
+    pub fx_quotes: Vec<BasketFxQuote>,
+    pub discount_curves: BTreeMap<CurrencyId, Arc<LogLinearDiscountCurve>>,
+}
+
+impl From<Vec<BasketFxQuote>> for BasketCurrencyMarkets {
+    fn from(fx_quotes: Vec<BasketFxQuote>) -> Self {
+        Self {
+            fx_quotes,
+            discount_curves: BTreeMap::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 struct ForeignCurrency {
     quote: BasketFxQuote,
@@ -70,7 +87,7 @@ pub struct CrossCurrencyEquityBasket {
     domestic_curve: Arc<LogLinearDiscountCurve>,
     composite: bool,
     currencies: Vec<ForeignCurrency>,
-    stock_currency: Vec<usize>,
+    stock_rate: Vec<usize>,
     maximum_step: f64,
     // Brownian driver order is identical to the public correlation matrix.
     drivers: CorrelationFactor,
@@ -141,12 +158,16 @@ impl CrossCurrencyEquityBasket {
         domestic_curve: Arc<LogLinearDiscountCurve>,
         settlement: EquityFxSettlement,
         payout_currency: CurrencyId,
-        fx_quotes: Vec<BasketFxQuote>,
+        currency_markets: impl Into<BasketCurrencyMarkets>,
         correlations: Vec<Vec<f64>>,
         rate_models: Option<Vec<HullWhite1Factor>>,
         maximum_step: f64,
     ) -> Result<Self, Error> {
-        let foreign_payout = fx_quotes.iter().position(|q| q.currency == payout_currency);
+        let markets = currency_markets.into();
+        let foreign_payout = markets
+            .fx_quotes
+            .iter()
+            .position(|q| q.currency == payout_currency);
         let domestic_payout = payout_currency == product.currency();
         let conversion = match settlement {
             EquityFxSettlement::Composite if domestic_payout => CashConversion::Fixed(1.),
@@ -172,7 +193,7 @@ impl CrossCurrencyEquityBasket {
             domestic,
             domestic_curve,
             matches!(settlement, EquityFxSettlement::Composite),
-            fx_quotes,
+            markets,
             correlations,
             rate_models,
             maximum_step,
@@ -189,18 +210,20 @@ impl CrossCurrencyEquityBasket {
         settlement_currency: CurrencyId,
         domestic_curve: Arc<LogLinearDiscountCurve>,
         composite: bool,
-        fx_quotes: Vec<BasketFxQuote>,
+        currency_markets: impl Into<BasketCurrencyMarkets>,
         correlations: Vec<Vec<f64>>,
         rate_models: Option<Vec<HullWhite1Factor>>,
         maximum_step: f64,
     ) -> Result<Self, Error> {
+        let markets = currency_markets.into();
         let legs = products
             .into_iter()
             .map(|product| {
                 let conversion = if product.currency() == settlement_currency {
                     CashConversion::Fixed(1.)
                 } else {
-                    let k = fx_quotes
+                    let k = markets
+                        .fx_quotes
                         .iter()
                         .position(|q| q.currency == product.currency())
                         .ok_or(Error::Invalid(
@@ -218,7 +241,7 @@ impl CrossCurrencyEquityBasket {
             settlement_currency,
             domestic_curve,
             composite,
-            fx_quotes,
+            markets,
             correlations,
             rate_models,
             maximum_step,
@@ -233,13 +256,17 @@ impl CrossCurrencyEquityBasket {
         settlement_currency: CurrencyId,
         domestic_curve: Arc<LogLinearDiscountCurve>,
         composite: bool,
-        fx_quotes: Vec<BasketFxQuote>,
+        markets: BasketCurrencyMarkets,
         correlations: Vec<Vec<f64>>,
         rate_models: Option<Vec<HullWhite1Factor>>,
         maximum_step: f64,
     ) -> Result<Self, Error> {
         PositiveF64::new(maximum_step, "maximum_step")?;
         let n = stocks.len();
+        let BasketCurrencyMarkets {
+            fx_quotes,
+            discount_curves,
+        } = markets;
         let m = fx_quotes.len();
         let underlyings = legs
             .first()
@@ -261,7 +288,7 @@ impl CrossCurrencyEquityBasket {
             .enumerate()
             .map(|(i, q)| (q.currency, i))
             .collect();
-        if m == 0 || indices.len() != m || indices.contains_key(&settlement_currency) {
+        if indices.len() != m || indices.contains_key(&settlement_currency) {
             return Err(Error::Invalid(
                 "FX quotes must name distinct foreign currencies",
             ));
@@ -272,17 +299,27 @@ impl CrossCurrencyEquityBasket {
             ));
         }
         let mut curves = vec![None; m];
-        let mut stock_currency = Vec::with_capacity(n);
+        for (ccy, curve) in &discount_curves {
+            let k = indices.get(ccy).ok_or(Error::Invalid(
+                "currency curve requires a corresponding FX quote",
+            ))?;
+            curves[*k] = Some(curve.as_ref());
+        }
+        let mut stock_rate = Vec::with_capacity(n);
         for (stock, &id) in stocks.iter().zip(underlyings) {
             let market = stock.market.forward();
             if market.underlying() != id {
                 return Err(Error::Invalid("markets must follow graph underlying order"));
             }
-            let &k = indices
-                .get(&stock.market.currency())
-                .ok_or(Error::Invalid("missing FX quote for stock currency"))?;
-            stock_currency.push(k);
-            let df = curves[k].get_or_insert(market.discount_curve());
+            let (rate, df) = if stock.market.currency() == settlement_currency {
+                (0, domestic_curve.as_ref())
+            } else {
+                let &k = indices
+                    .get(&stock.market.currency())
+                    .ok_or(Error::Invalid("missing FX quote for stock currency"))?;
+                (k + 1, *curves[k].get_or_insert(market.discount_curve()))
+            };
+            stock_rate.push(rate);
             if df.times() != market.discount_curve().times()
                 || df.discount_factors() != market.discount_curve().discount_factors()
             {
@@ -294,7 +331,7 @@ impl CrossCurrencyEquityBasket {
                 dividend_path::validate(&stock.model, market)?;
                 if rate_models
                     .as_ref()
-                    .is_some_and(|r| !r[k + 1].is_deterministic())
+                    .is_some_and(|r| !r[rate].is_deterministic())
                     && !matches!(
                         stock.model,
                         EquityModelSpec::Standard(
@@ -321,7 +358,7 @@ impl CrossCurrencyEquityBasket {
             .map(|(quote, curve)| {
                 let discount = curve
                     .ok_or(Error::Invalid(
-                        "each FX quote must correspond to a stock currency",
+                        "each FX quote needs a discount curve from an equity market or currency_curves",
                     ))?
                     .clone();
                 Ok(ForeignCurrency { quote, discount })
@@ -335,11 +372,13 @@ impl CrossCurrencyEquityBasket {
             ));
         }
         let factor = CorrelationFactor::compile(correlations, TOLERANCE)?;
-        let quanto_drift = stock_currency
+        let quanto_drift = stock_rate
             .iter()
             .enumerate()
-            .map(|(i, &k)| {
-                factor.canonical()[i * width + n + k] * currencies[k].quote.volatility.get()
+            .map(|(i, &rate)| {
+                rate.checked_sub(1).map_or(0., |k| {
+                    factor.canonical()[i * width + n + k] * currencies[k].quote.volatility.get()
+                })
             })
             .collect();
         let rates = rate_models.filter(|r| r.iter().any(|m| !m.is_deterministic()));
@@ -371,7 +410,7 @@ impl CrossCurrencyEquityBasket {
             domestic_curve,
             composite,
             currencies,
-            stock_currency,
+            stock_rate,
             maximum_step,
             drivers,
             quanto_drift,
@@ -384,16 +423,27 @@ impl CrossCurrencyEquityBasket {
         let Some(rates) = &self.rates else {
             return Ok(None);
         };
-        let k = self.stock_currency[stock];
-        if rates[0].is_deterministic() && rates[k + 1].is_deterministic() {
+        let rate = self.stock_rate[stock];
+        if rates[0].is_deterministic() && rates[rate].is_deterministic() {
             return Ok(None);
         }
         let n = self.stocks.len();
         let r = n + self.currencies.len();
-        let order = [stock, n + k, r, r + k + 1];
         let width = self.drivers.dimension();
-        let matrix = order.map(|i| order.map(|j| self.drivers.canonical()[i * width + j]));
-        CrossCurrencyHullWhite::new(rates[0].clone(), rates[k + 1].clone(), matrix).map(Some)
+        let matrix = if let Some(k) = rate.checked_sub(1) {
+            let order = [stock, n + k, r, r + rate];
+            order.map(|i| order.map(|j| self.drivers.canonical()[i * width + j]))
+        } else {
+            // The domestic stock uses the settlement rate, with no FX exposure.
+            let rho = self.drivers.canonical()[stock * width + r];
+            [
+                [1., 0., rho, rho],
+                [0., 1., 0., 0.],
+                [rho, 0., 1., 1.],
+                [rho, 0., 1., 1.],
+            ]
+        };
+        CrossCurrencyHullWhite::new(rates[0].clone(), rates[rate].clone(), matrix).map(Some)
     }
 
     /// Each pair is (payment, FX fixing). Unlisted payments fix on payment.
@@ -490,7 +540,9 @@ impl CrossCurrencyEquityBasket {
                 asset_index.get(&id).map(|&i| {
                     self.stocks[i].market.forward().spot().get()
                         * if composite {
-                            self.currencies[self.stock_currency[i]].quote.spot.get()
+                            self.stock_rate[i]
+                                .checked_sub(1)
+                                .map_or(1., |k| self.currencies[k].quote.spot.get())
                         } else {
                             1.
                         }
@@ -604,8 +656,8 @@ impl CrossCurrencyEquityBasket {
                 .map(|c| vec![c.quote.spot.get()])
                 .collect();
             let mut discounts = vec![1.];
-            let mut carry = vec![vec![0.]; m];
-            let mut factors = vec![vec![0.]; m];
+            let mut carry = vec![vec![0.]; m + 1];
+            let mut factors = vec![vec![0.]; m + 1];
             // Rate slot zero is the settlement currency. FX slot k uses rate k+1.
             let mut rate_state = vec![0.; m + 1];
             let mut integrated = vec![0.; m + 1];
@@ -644,9 +696,11 @@ impl CrossCurrencyEquityBasket {
                     ));
                 }
                 discounts.push(dd);
+                for k in 0..=m {
+                    carry[k].push(integrated[k]);
+                    factors[k].push(rate_state[k]);
+                }
                 for k in 0..m {
-                    carry[k].push(integrated[k + 1]);
-                    factors[k].push(rate_state[k + 1]);
                     fx_brownian[k] += root * brownian[fx_index + k];
                     let sigma = vols[k];
                     let x = fx_forwards[k][j + 1]
@@ -660,9 +714,7 @@ impl CrossCurrencyEquityBasket {
                 }
             }
             let mut spots = Vec::with_capacity(stocks.len());
-            for ((stock, mut shocks), &k) in
-                stocks.iter().zip(innovations).zip(&self.stock_currency)
-            {
+            for ((stock, mut shocks), &k) in stocks.iter().zip(innovations).zip(&self.stock_rate) {
                 shocks.extend_from_slice(&normals[stock.residuals.clone()]);
                 spots.push(match &stock.path {
                     Some(path) => path.spots(
@@ -682,7 +734,7 @@ impl CrossCurrencyEquityBasket {
                 Some(
                     (if pre { before.unwrap_or(post) } else { post })
                         * if composite {
-                            fx[self.stock_currency[i]][j]
+                            self.stock_rate[i].checked_sub(1).map_or(1., |k| fx[k][j])
                         } else {
                             1.
                         },

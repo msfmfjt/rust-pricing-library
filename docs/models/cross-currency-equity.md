@@ -243,7 +243,8 @@ reports the sampling error of the complete note in the settlement currency.
 
 `CrossCurrencyEquityBasket.from_currencies` prices a graph of US dollar and
 euro shares in JPY. Supply one market per stock in graph order. Each market’s
-currency ID selects its discount curve and FX quote. Stocks in the same
+currency ID selects its discount curve and FX quote. A settlement-currency
+share uses the settlement short rate and observes FX at one. Stocks in the same
 currency share that curve and FX path. Each stock keeps its own dividend
 carry and model. [Runnable USD/EUR worst-of autocall in JPY](../../examples/python/cross_currency_usd_eur_autocall.py)
 
@@ -258,6 +259,12 @@ With `from_currencies`, the graph currency identifies settlement and
 The worst performer can change across observations. For floating FX the
 cash denomination continues to follow the term sheet whichever name is worst.
 Use `with_payment_fx_fixings` for fixing-to-payment lags.
+
+A cash leg may use a currency that has no share in the basket. Supply its
+quote and its discount curve, for example `currency_curves={GBP: gbp_curve}`
+for a GBP coupon on JPY and USD shares. An explicit curve for a share currency
+must agree with the stock market. No FX quote is needed for a JPY share in a
+JPY settlement. A wholly domestic basket accepts `fx_quotes=[]`.
 
 Each `fx_quotes` entry gives the currency ID, cash FX in settlement units per
 foreign unit, and annual FX volatility. For US and European stocks in that

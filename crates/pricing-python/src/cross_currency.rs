@@ -7,8 +7,8 @@ use crate::{diagnostics::PyDiagnosticEstimate, pricing_exception};
 use pricing::EquityModelSpec;
 use pricing::core::{CurrencyId, PositiveF64};
 use pricing::cross_currency::{
-    BasketFxQuote, CrossCurrencyEquityBasket, CrossCurrencyEquityOption, EquityFxSettlement,
-    ForeignEquity,
+    BasketCurrencyMarkets, BasketFxQuote, CrossCurrencyEquityBasket, CrossCurrencyEquityOption,
+    EquityFxSettlement, ForeignEquity,
 };
 use pricing::mc::ExecutionPolicy;
 use pricing::models::{BlackScholesSpec, ModelSpec};
@@ -204,8 +204,12 @@ impl PyCrossCurrencyEquityOption {
     }
 }
 
-fn basket_quotes(py: Python<'_>, fx_quotes: Vec<(u16, f64, f64)>) -> PyResult<Vec<BasketFxQuote>> {
-    fx_quotes
+fn basket_quotes(
+    py: Python<'_>,
+    fx_quotes: Vec<(u16, f64, f64)>,
+    currency_curves: Option<std::collections::BTreeMap<u16, Py<PyDiscountCurve>>>,
+) -> PyResult<BasketCurrencyMarkets> {
+    let fx_quotes = fx_quotes
         .into_iter()
         .map(|(c, x, v)| BasketFxQuote::new(CurrencyId::new(c), x, v))
         .collect::<Result<_, _>>()
@@ -216,7 +220,16 @@ fn basket_quotes(py: Python<'_>, fx_quotes: Vec<(u16, f64, f64)>) -> PyResult<Ve
                 "/cross_currency/basket",
                 e,
             )
-        })
+        })?;
+    let discount_curves = currency_curves
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(c, curve)| (CurrencyId::new(c), curve.borrow(py).inner.clone()))
+        .collect();
+    Ok(BasketCurrencyMarkets {
+        fx_quotes,
+        discount_curves,
+    })
 }
 
 fn basket_stocks(
@@ -314,7 +327,7 @@ impl PyCrossCurrencyEquityBasket {
     /// Rate models are in settlement-currency order first, then FX quote order.
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(valuation_date,product,foreign_markets,settlement_curve,*,equity_models,settlement,fx_quotes,correlations,payout_currency_id=None,fixed_fx_rate=None,rates=None,maximum_step=0.02,dividend_models=None))]
+    #[pyo3(signature=(valuation_date,product,foreign_markets,settlement_curve,*,equity_models,settlement,fx_quotes,correlations,payout_currency_id=None,fixed_fx_rate=None,rates=None,maximum_step=0.02,dividend_models=None,currency_curves=None))]
     fn from_currencies(
         py: Python<'_>,
         valuation_date: &Bound<'_, PyAny>,
@@ -330,6 +343,7 @@ impl PyCrossCurrencyEquityBasket {
         rates: Option<Vec<Py<crate::hull_white::PyHullWhiteModel>>>,
         maximum_step: f64,
         dividend_models: Option<Vec<Option<Py<crate::source_config::PyBuehlerDividendModel>>>>,
+        currency_curves: Option<std::collections::BTreeMap<u16, Py<PyDiscountCurve>>>,
     ) -> PyResult<Self> {
         let invalid = |message: String| {
             domain_error(
@@ -351,7 +365,7 @@ impl PyCrossCurrencyEquityBasket {
         } else {
             fixed_fx_rate
         };
-        let quotes = basket_quotes(py, fx_quotes)?;
+        let quotes = basket_quotes(py, fx_quotes, currency_curves)?;
         let rates = rates.map(|rs| rs.into_iter().map(|r| r.borrow(py).inner.clone()).collect());
         CrossCurrencyEquityBasket::from_currencies(
             date_from_python(py, valuation_date, "/cross_currency/valuation_date")?,
@@ -372,7 +386,7 @@ impl PyCrossCurrencyEquityBasket {
     /// Value denominated graph legs jointly; foreign cash fixes on payment unless overridden.
     #[staticmethod]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature=(valuation_date,legs,foreign_markets,settlement_curve,*,settlement_currency_id,equity_models,fx_quotes,correlations,performance="local",rates=None,maximum_step=0.02,dividend_models=None))]
+    #[pyo3(signature=(valuation_date,legs,foreign_markets,settlement_curve,*,settlement_currency_id,equity_models,fx_quotes,correlations,performance="local",rates=None,maximum_step=0.02,dividend_models=None,currency_curves=None))]
     fn from_legs(
         py: Python<'_>,
         valuation_date: &Bound<'_, PyAny>,
@@ -387,6 +401,7 @@ impl PyCrossCurrencyEquityBasket {
         rates: Option<Vec<Py<crate::hull_white::PyHullWhiteModel>>>,
         maximum_step: f64,
         dividend_models: Option<Vec<Option<Py<crate::source_config::PyBuehlerDividendModel>>>>,
+        currency_curves: Option<std::collections::BTreeMap<u16, Py<PyDiscountCurve>>>,
     ) -> PyResult<Self> {
         let invalid = |message: String| {
             domain_error(
@@ -412,7 +427,7 @@ impl PyCrossCurrencyEquityBasket {
             CurrencyId::new(settlement_currency_id),
             settlement_curve.inner.clone(),
             composite,
-            basket_quotes(py, fx_quotes)?,
+            basket_quotes(py, fx_quotes, currency_curves)?,
             correlations,
             rates.map(|rs| rs.into_iter().map(|r| r.borrow(py).inner.clone()).collect()),
             maximum_step,
