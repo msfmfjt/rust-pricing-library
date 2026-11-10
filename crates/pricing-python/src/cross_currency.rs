@@ -108,6 +108,29 @@ impl PyCrossCurrencyEquityOption {
         self.inner.analytical_price().map_err(pricing_exception)
     }
 
+    /// Brownian correlation order is equity, quoted FX, domestic rate, foreign rate.
+    #[pyo3(signature=(domestic, foreign, *, correlations=None))]
+    fn with_hull_white_rates(
+        &self,
+        py: Python<'_>,
+        domestic: &crate::hull_white::PyHullWhiteModel,
+        foreign: &crate::hull_white::PyHullWhiteModel,
+        correlations: Option<[[f64; 4]; 4]>,
+    ) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_hull_white_rates(domestic.inner.clone(), foreign.inner.clone(), correlations)
+            .map(|inner| Self { inner })
+            .map_err(|e| {
+                domain_error(
+                    py,
+                    "invalid_cross_currency_rates",
+                    "/cross_currency/rates",
+                    e,
+                )
+            })
+    }
+
     /// Return a floating-FX graph option with the given (payment, FX fixing) dates.
     fn with_payment_fx_fixings(
         &self,

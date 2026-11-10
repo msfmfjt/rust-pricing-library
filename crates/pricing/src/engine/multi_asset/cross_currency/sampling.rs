@@ -6,19 +6,29 @@ use crate::mc::{
 use crate::multi_asset::MultiAssetError as Error;
 use crate::{Estimate, EstimatorKind};
 
-/// The equity kernels have factor-major Brownian blocks followed by model-specific
-/// Gaussian residuals. The optional independent currency Brownian is appended last.
+/// Factor-major equity Brownian blocks precede the model's orthogonal residuals.
+/// Additional currency and rate shocks may extend beyond the last equity fixing.
+pub(super) struct Layout {
+    pub equity_steps: usize,
+    pub equity_dimension: usize,
+    pub brownian_blocks: usize,
+    pub extra_blocks: usize,
+}
 pub(super) fn estimate(
     times: &[f64],
-    equity_dimension: usize,
-    brownian_blocks: usize,
-    extra_fx: bool,
+    layout: Layout,
     engine: EngineConfig,
     policy: ExecutionPolicy,
     value: impl Fn(&[f64]) -> Result<f64, Error> + Sync,
 ) -> Result<Estimate, Error> {
     let steps = times.len() - 1;
-    let dimension = u32::try_from(equity_dimension + if extra_fx { steps } else { 0 })
+    let Layout {
+        equity_steps,
+        equity_dimension,
+        brownian_blocks,
+        extra_blocks,
+    } = layout;
+    let dimension = u32::try_from(equity_dimension + extra_blocks * steps)
         .map_err(|_| Error::Invalid("equity/FX random dimension is too large"))?;
     let (vr, units) = match engine {
         EngineConfig::PseudoMonteCarlo(c) => {
@@ -33,18 +43,22 @@ pub(super) fn estimate(
             "at least two independent sampling units are required",
         ));
     }
-    let bridge = vr
-        .brownian_bridge()
-        .then(|| BrownianBridgePlan::compile(times.to_vec(), 1))
-        .transpose()
-        .map_err(Error::numerical)?;
+    let bridge_for = |active: bool, nodes: &[f64]| {
+        (active && vr.brownian_bridge())
+            .then(|| BrownianBridgePlan::compile(nodes.to_vec(), 1))
+            .transpose()
+            .map_err(Error::numerical)
+    };
+    let equity_bridge = bridge_for(equity_steps > 0, &times[..=equity_steps])?;
+    let extra_bridge = bridge_for(extra_blocks > 0, times)?;
     let sample = |mut normals: Vec<f64>| {
-        if let Some(b) = &bridge {
-            for block in normals[..brownian_blocks * steps].chunks_exact_mut(steps) {
+        if let Some(b) = &equity_bridge {
+            for block in normals[..brownian_blocks * equity_steps].chunks_exact_mut(equity_steps) {
                 block.copy_from_slice(&b.apply_one_factor(block).map_err(Error::numerical)?);
             }
-            if extra_fx {
-                let block = &mut normals[equity_dimension..];
+        }
+        if let Some(b) = &extra_bridge {
+            for block in normals[equity_dimension..].chunks_exact_mut(steps) {
                 block.copy_from_slice(&b.apply_one_factor(block).map_err(Error::numerical)?);
             }
         }

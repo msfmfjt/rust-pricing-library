@@ -24,10 +24,11 @@ limitations and risk semantics.
 ## Boundary notes
 
 - Single-stock European, Asian, lookback, digital, barrier, scheduled-exercise
-  and custom graph payoffs support cross-currency pricing with deterministic
-  curves, continuous dividend carry and constant FX volatility. Model selection
-  includes LV, Bass, Bergomi and the six rough families, with scheduled early
-  exercise and continuous barriers on the constant-volatility route.
+  and custom graph payoffs support quanto, floating-FX and composite settlement.
+  Dated cash flows can use separate correlated domestic and foreign Hull–White
+  rates with Black, LV, Bass, Bergomi and the six rough equity families.
+  Scheduled early exercise and continuous barriers use constant equity and FX
+  volatility and deterministic rates.
   [Quanto and FX-linked settlement](../models/cross-currency-equity.md)
 
 - The first column covers the standard single-asset `PricingRequest` path with

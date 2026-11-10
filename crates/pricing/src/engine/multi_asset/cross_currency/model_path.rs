@@ -11,6 +11,7 @@ use crate::multi_asset::MultiAssetError as Error;
 use crate::{EquityModelSpec, VolatilityFactorSpec};
 
 pub(super) enum EquityPath {
+    Black(f64, Vec<f64>),
     Pure(Box<HullWhiteEquityPlan>),
     Local(LocalVolLogEulerPlan, LocalVarianceGrid),
     Bass(BassSimulationPlan),
@@ -56,6 +57,73 @@ fn refined_target(
 }
 
 impl EquityPath {
+    pub(super) fn compile_for_rates(
+        model: &EquityModelSpec,
+        grid: &LocalVolTimeGrid,
+        market: &crate::market::EquityForward,
+        rates: &super::CrossCurrencyHullWhite,
+    ) -> Result<Self, Error> {
+        use crate::mc::hull_white::{HybridVolatilityFactor, calibrate_hybrid_lsv_with_dividends};
+        use crate::models::hull_white_dividends::HullWhiteDividendPlan;
+        let EquityModelSpec::LocalStochasticVolatility {
+            target,
+            factor,
+            particles,
+            forward_density: Some(density),
+        } = model
+        else {
+            return Self::compile(model, grid, market.spot().get());
+        };
+        if !crate::engine::risk::hull_white::matching_target_grid(
+            target.local_variance_grid(),
+            density.grid(),
+        ) {
+            return Err(Error::Invalid(
+                "foreign forward-density and local variance target grids must agree",
+            ));
+        }
+        let equity_rate = rates.correlations[0][3];
+        let driver = match factor {
+            VolatilityFactorSpec::Bergomi(f) => (*f).into(),
+            VolatilityFactorSpec::RoughBergomi(f) => (*f).into(),
+            VolatilityFactorSpec::BergomiTwoFactor(f) => HybridVolatilityFactor::BergomiTwoFactor {
+                factor: *f,
+                second_vol_rate_correlation: equity_rate * f.spot_correlations()[1],
+            },
+        };
+        let correlation = HybridCorrelation::new(
+            driver.correlation(),
+            equity_rate,
+            driver.correlation() * equity_rate,
+        )
+        .map_err(Error::numerical)?;
+        let dividends =
+            HullWhiteDividendPlan::new(&rates.foreign, market, density.grid().time_nodes())
+                .map_err(Error::numerical)?;
+        let surface = calibrate_hybrid_lsv_with_dividends(
+            density,
+            driver,
+            &rates.foreign,
+            correlation,
+            market.spot().get(),
+            particles,
+            Some(&dividends),
+        )
+        .map_err(Error::numerical)?
+        .surface;
+        Ok(match factor {
+            VolatilityFactorSpec::Bergomi(f) => {
+                Self::Bergomi(BergomiLsvPlan::new(*f, surface, grid).map_err(Error::numerical)?)
+            }
+            VolatilityFactorSpec::BergomiTwoFactor(f) => {
+                Self::TwoFactor(BergomiLsvPlan::new(*f, surface, grid).map_err(Error::numerical)?)
+            }
+            VolatilityFactorSpec::RoughBergomi(f) => Self::RoughBergomi(
+                RoughBergomiLsvPlan::new(*f, surface, grid).map_err(Error::numerical)?,
+            ),
+        })
+    }
+
     pub(super) fn compile(
         model: &EquityModelSpec,
         grid: &LocalVolTimeGrid,
@@ -172,11 +240,14 @@ impl EquityPath {
                         .map_err(e)?,
                 )
             }
-            M::Standard(_) => {
-                return Err(Error::Invalid(
-                    "constant volatility uses the Black pricing path",
-                ));
-            }
+            M::Standard(ModelSpec::BlackScholes(m)) => Self::Black(
+                m.volatility().get(),
+                grid.nodes().windows(2).map(|w| w[1] - w[0]).collect(),
+            ),
+            M::Standard(ModelSpec::Black76(m)) => Self::Black(
+                m.volatility().get(),
+                grid.nodes().windows(2).map(|w| w[1] - w[0]).collect(),
+            ),
         })
     }
 
@@ -184,7 +255,7 @@ impl EquityPath {
     pub(super) fn layout(&self, steps: usize) -> (usize, usize) {
         match self {
             Self::Pure(p) => (p.random_factor_count() * steps, p.random_factor_count()),
-            Self::Local(..) | Self::Bass(_) => (steps, 1),
+            Self::Black(..) | Self::Local(..) | Self::Bass(_) => (steps, 1),
             Self::Bergomi(_) => (2 * steps, 2),
             Self::TwoFactor(_) => (3 * steps, 3),
             Self::RoughBergomi(_) => (3 * steps, 2),
@@ -193,9 +264,22 @@ impl EquityPath {
         }
     }
 
-    pub(super) fn states(&self, spot: f64, shocks: &[f64]) -> Result<Vec<f64>, Error> {
+    pub(super) fn states(
+        &self,
+        spot: f64,
+        shocks: &[f64],
+        log_carry: Option<&[f64]>,
+    ) -> Result<Vec<f64>, Error> {
         let mut states = Vec::new();
         match self {
+            Self::Black(vol, dt) => {
+                let mut state = spot;
+                states.push(state);
+                for (&h, &z) in dt.iter().zip(shocks) {
+                    state *= (vol * h.sqrt() * z - 0.5 * vol * vol * h).exp();
+                    states.push(state);
+                }
+            }
             Self::Pure(p) => {
                 return Ok(p
                     .evolve_path(spot, shocks)
@@ -205,7 +289,7 @@ impl EquityPath {
                     .collect());
             }
             Self::Local(p, g) => p
-                .evolve_states(g, spot, shocks, &mut states)
+                .evolve_with_rate_carry(g, spot, shocks, &mut states, log_carry)
                 .map_err(Error::numerical)?,
             Self::Bass(p) => {
                 return Ok(p
@@ -216,13 +300,13 @@ impl EquityPath {
                     .collect());
             }
             Self::Bergomi(p) => p
-                .evolve_states(spot, shocks, &mut states)
+                .evolve_with_rate_carry(spot, shocks, &mut states, log_carry)
                 .map_err(Error::numerical)?,
             Self::TwoFactor(p) => p
-                .evolve_states(spot, shocks, &mut states)
+                .evolve_with_rate_carry(spot, shocks, &mut states, log_carry)
                 .map_err(Error::numerical)?,
             Self::RoughBergomi(p) => p
-                .evolve_states(spot, shocks, &mut states)
+                .evolve_with_rate_carry(spot, shocks, &mut states, log_carry)
                 .map_err(Error::numerical)?,
             Self::Rough(p) => {
                 return Ok(p
@@ -231,7 +315,7 @@ impl EquityPath {
                     .forwards);
             }
             Self::RoughLsv(p) => p
-                .evolve_states(spot, shocks, &mut states)
+                .evolve_with_rate_carry(spot, shocks, &mut states, log_carry)
                 .map_err(Error::numerical)?,
         }
         Ok(states)

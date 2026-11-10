@@ -17,7 +17,7 @@ surface, correlation or cash-flow component.
 | Component family | Main topics |
 | --- | --- |
 | Equity dynamics | Black–Scholes/Black-76, Local Volatility, LSV, Bergomi, rough Bergomi and [six additional experimental rough families](rough-volatility-families.md) |
-| Equity and FX | [Foreign equity options under correlated lognormal equity and FX](cross-currency-equity.md) |
+| Equity and FX | [Foreign equity models with FX and domestic and foreign Hull–White rates](cross-currency-equity.md) |
 | Multi-marginal local volatility | [Bass-LV calibration and simulation](bass-local-volatility.md) |
 | Rate dynamics | Hull–White short-rate model and integrated-rate simulation |
 | Volatility surfaces | SVI/SSVI/eSSVI, Dupire local variance and market-IV coordinates |

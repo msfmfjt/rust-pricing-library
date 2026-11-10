@@ -9,6 +9,8 @@ CLASSES = {'CrossCurrencyEquityOption': {'bases': [], 'members': {
     'analytical_price': {'kind': 'method', 'declaration': 'def analytical_price(self) -> float: ...'},
     'with_payment_fx_fixings': {'kind': 'method', 'declaration': (
         'def with_payment_fx_fixings(self, schedule: Sequence[tuple[DateLike, DateLike]]) -> CrossCurrencyEquityOption: ...')},
+    'with_hull_white_rates': {'kind': 'method', 'declaration': (
+        'def with_hull_white_rates(self, domestic: HullWhiteModel, foreign: HullWhiteModel, *, correlations: Sequence[Sequence[float]] | None = None) -> CrossCurrencyEquityOption: ...')},
     'price_mc': {'kind': 'method', 'declaration': (
         'def price_mc(self, engine: Engine, *, worker_threads: int = 1, '
         'reduction_block_size: int | None = None, lsm: LsmConfig | None = None) -> DiagnosticEstimate: ...')},

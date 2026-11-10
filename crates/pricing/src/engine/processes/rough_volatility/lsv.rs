@@ -155,6 +155,16 @@ impl RoughFamilyLsvPlan {
         normals: &[f64],
         states: &mut Vec<f64>,
     ) -> Result<(), LsvError> {
+        self.evolve_with_rate_carry(initial_forward, normals, states, None)
+    }
+
+    pub(in crate::engine) fn evolve_with_rate_carry(
+        &self,
+        initial_forward: f64,
+        normals: &[f64],
+        states: &mut Vec<f64>,
+        log_carry: Option<&[f64]>,
+    ) -> Result<(), LsvError> {
         // Same primal operations as the recorded path, without retaining a tape.
         valid(initial_forward, "initial_forward", 0, true)?;
         let history = self.driver.variance_history(normals)?;
@@ -162,9 +172,10 @@ impl RoughFamilyLsvPlan {
         states.push(initial_forward);
         let mut f = initial_forward;
         for (j, &normal) in normals.iter().enumerate().take(self.times().len() - 1) {
-            let lookup = self
-                .surface
-                .lookup_row(self.rows[j], (f / self.surface.initial_f()).ln());
+            let lookup = self.surface.lookup_row(
+                self.rows[j],
+                (f / self.surface.initial_f()).ln() + log_carry.map_or(0., |carry| carry[j]),
+            );
             f = if history.variances[j] == 0.0 {
                 f
             } else {

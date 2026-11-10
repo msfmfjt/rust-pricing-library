@@ -45,12 +45,20 @@ def autocall(settlement):
 
 if __name__ == "__main__":
     floating = autocall("floating_fx")
+    # Short-rate volatility is in absolute annual rate units. Matrix order is
+    # USD equity, JPY per USD, JPY short rate, USD short rate.
+    jpy_rates = rp.HullWhiteModel(.25, [0.], [.008])
+    usd_rates = rp.HullWhiteModel(.15, [0., .5], [.014, .017])
+    floating_hw = floating.with_hull_white_rates(jpy_rates, usd_rates, correlations=[
+        [1., .35, .1, .2], [.35, 1., -.2, .15], [.1, -.2, 1., .3], [.2, .15, .3, 1.],
+    ]).with_payment_fx_fixings(list(zip(payments, observations)))
     for label, note in [
         ("Quanto, fixed at 150 JPY/USD", autocall("quanto")),
         ("Floating FX, fixed on each payment", floating),
         ("Floating FX, fixed on each observation", floating.with_payment_fx_fixings(
             list(zip(payments, observations)))),
         ("Composite, observed in JPY", autocall("composite")),
+        ("Floating FX on observation, JPY/USD HW", floating_hw),
     ]:
         estimate = note.price_mc(engine)
         print(f"{label:40} PV {estimate.value:12,.2f} JPY   SE {estimate.standard_error:6.2f} JPY")

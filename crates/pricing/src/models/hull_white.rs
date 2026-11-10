@@ -345,7 +345,7 @@ fn checked_positive(value: f64, field: &'static str) -> Result<f64, HullWhiteErr
 pub fn b(a: f64, h: f64) -> f64 {
     if a == 0.0 { h } else { -(-a * h).exp_m1() / a }
 }
-fn integrated_b(a: f64, h: f64) -> f64 {
+pub(crate) fn integrated_b(a: f64, h: f64) -> f64 {
     let z = a * h;
     if z.abs() < 0.1 {
         let mut term = 0.5;
@@ -394,7 +394,7 @@ fn exponential_moment(n: usize, z: f64) -> f64 {
         value
     }
 }
-fn mixed_b(k: f64, a: f64, h: f64) -> f64 {
+pub(crate) fn mixed_b(k: f64, a: f64, h: f64) -> f64 {
     if a * h < 0.001 {
         let mut term = 1.0;
         let mut sum = exponential_moment(1, k * h);

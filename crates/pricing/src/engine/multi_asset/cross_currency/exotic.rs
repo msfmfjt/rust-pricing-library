@@ -46,6 +46,7 @@ impl CrossCurrencyEquityOption {
                 ));
             }
         }
+        self.payment_fx_fixings = schedule.iter().copied().collect();
         if schedule.iter().all(|(payment, fixing)| payment == fixing) {
             self.foreign_fixing_product = None;
             return Ok(self);

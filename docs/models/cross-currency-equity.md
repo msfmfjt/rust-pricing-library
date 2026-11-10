@@ -159,3 +159,33 @@ fixing. Floating-FX uses the foreign measure with the contractual fixing and
 payment dates. MC standard errors measure sampling uncertainty. Time-step and
 particle-calibration errors depend on the chosen numerical inputs.
 [Model comparisons and autocall tests](../../tests/python/test_cross_currency_models.py)
+
+### Domestic and foreign Hull–White rates
+
+Call `option.with_hull_white_rates(domestic, foreign, correlations=matrix)`
+before `price_mc`. Both models use their own input discount curve, mean
+reversion and piecewise-constant rate volatilities. The indices of the
+four-by-four Brownian correlation matrix are equity, FX quoted in domestic
+units per foreign unit, domestic rate and foreign rate. The equity/FX entry
+must match the option. Omitting the matrix makes both rate drivers independent
+of each other, the stock and FX. A zero-volatility rate model fixes that
+currency's rates. [USD/JPY autocall with two short rates](../../examples/python/cross_currency_autocall.py)
+
+Simulation uses the domestic pricing measure. Each step jointly samples the
+equity and FX Brownian increments, both OU endpoints and both rate integrals.
+The foreign rate carries the drift adjustment from its covariance with FX.
+Each coupon is discounted on its own payment date using the simulated domestic
+money-market account. The stock, FX and discount factor all use the same
+realization of the rate integrals, including between fixing and payment.
+Local-volatility and leverage lookups include realized foreign rate carry.
+A Bergomi LSV specification with a foreign forward-density target uses the
+native Hull–White particle calibration. A specification with a local-variance
+target alone uses its foreign deterministic-rate leverage surface.
+[Bond, delayed FX and option price benchmarks](../../tests/python/test_cross_currency_rates.py)
+
+The four-factor input specifies rate correlations with equity and FX. Other
+equity-model innovations are independent of the rate innovations conditional
+on the simulated stock increments. The equity model retains its own
+equity/volatility correlations. The asset dynamics use their native time
+discretization. The rate endpoint and integral covariances use exact Gaussian
+transitions on each piecewise-constant rate-volatility interval.

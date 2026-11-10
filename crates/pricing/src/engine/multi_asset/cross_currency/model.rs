@@ -130,9 +130,12 @@ impl CrossCurrencyEquityOption {
         let extra_fx = composite && sigma != 0. && independent != 0.;
         sampling::estimate(
             times,
-            dimension,
-            brownian_blocks,
-            extra_fx,
+            sampling::Layout {
+                equity_steps: steps,
+                equity_dimension: dimension,
+                brownian_blocks,
+                extra_blocks: usize::from(extra_fx),
+            },
             engine,
             execution,
             |normals| {
@@ -145,7 +148,7 @@ impl CrossCurrencyEquityOption {
                         *z -= rho * sigma * dt;
                     }
                 }
-                let mut spots = equity.states(equity_spot, &shocks)?;
+                let mut spots = equity.states(equity_spot, &shocks, None)?;
                 let mut brownian = 0.;
                 for (i, s) in spots.iter_mut().enumerate() {
                     *s *= carry[i];

@@ -1,7 +1,9 @@
-//! Foreign-equity options paid in a different currency under joint GBM.
+//! Foreign-equity options paid in a different currency with correlated FX and optional domestic and foreign short rates.
 mod exotic;
 mod model;
 mod model_path;
+mod rate_pricing;
+mod rates;
 mod sampling;
 use crate::analytical::{BlackForwardOracleInputs, evaluate_black_forward};
 use crate::core::{Date, DayCountConvention, PositiveF64, UnderlyingId};
@@ -16,6 +18,7 @@ use crate::product::{
     EuropeanVanillaSpec, ProductSpec, SourceGraphBuilder, SourceOpcode as Op, multi_asset::option,
 };
 use crate::{EquityModelSpec, Estimate, EstimatorKind};
+use rates::CrossCurrencyHullWhite;
 use std::sync::Arc;
 
 /// All exchange rates are units of settlement currency per unit of equity currency.
@@ -75,7 +78,10 @@ pub struct CrossCurrencyEquityOption {
     foreign_equity_forward: f64,
     fx_forward: PositiveF64,
     dynamics: EquityFxDynamics,
-    equity_model: Option<(EquityModelSpec, f64)>,
+    equity_model: Option<EquityModelSpec>,
+    maximum_step: f64,
+    rates: Option<CrossCurrencyHullWhite>,
+    payment_fx_fixings: std::collections::BTreeMap<Date, Date>,
 }
 
 impl CrossCurrencyEquityOption {
@@ -173,6 +179,9 @@ impl CrossCurrencyEquityOption {
             fx_forward,
             dynamics,
             equity_model: None,
+            maximum_step: 0.02,
+            rates: None,
+            payment_fx_fixings: Default::default(),
         })
     }
 
@@ -208,9 +217,41 @@ impl CrossCurrencyEquityOption {
             payment_date,
         )?;
         if sigma.is_none() {
-            option.equity_model = Some((equity_model, maximum_step));
+            option.equity_model = Some(equity_model);
         }
+        option.maximum_step = maximum_step;
         Ok(option)
+    }
+
+    /// Add domestic and foreign short-rate dynamics under the settlement measure.
+    pub fn with_hull_white_rates(
+        mut self,
+        domestic: crate::models::HullWhite1Factor,
+        foreign: crate::models::HullWhite1Factor,
+        correlations: Option<[[f64; 4]; 4]>,
+    ) -> Result<Self, Error> {
+        let rho = self.dynamics.correlation;
+        let rates = CrossCurrencyHullWhite::new(
+            domestic,
+            foreign,
+            correlations.unwrap_or([
+                [1., rho, 0., 0.],
+                [rho, 1., 0., 0.],
+                [0., 0., 1., 0.],
+                [0., 0., 0., 1.],
+            ]),
+        )?;
+        if (rates.correlations[0][1] - self.dynamics.correlation).abs() > 1e-12 {
+            return Err(Error::Invalid(
+                "stock/FX correlation must agree with the rate correlation matrix",
+            ));
+        }
+        self.rates = if rates.domestic.is_deterministic() && rates.foreign.is_deterministic() {
+            None
+        } else {
+            Some(rates)
+        };
+        Ok(self)
     }
 
     fn domestic_equity_forward(&self) -> Result<PositiveF64, Error> {
@@ -226,7 +267,7 @@ impl CrossCurrencyEquityOption {
 
     /// Present value in the product's settlement currency.
     pub fn analytical_price(&self) -> Result<f64, Error> {
-        if self.equity_model.is_some() {
+        if self.equity_model.is_some() || self.rates.is_some() {
             return Err(Error::Invalid("this equity model requires price_mc"));
         }
         let ProductSpec::EuropeanVanilla(product) = &self.product else {
@@ -283,8 +324,11 @@ impl CrossCurrencyEquityOption {
         execution: ExecutionPolicy,
         lsm: Option<LsmConfig>,
     ) -> Result<Estimate, Error> {
-        if let Some((model, step)) = &self.equity_model {
-            return self.price_model(model, *step, engine, execution, lsm);
+        if let Some(rates) = &self.rates {
+            return self.price_with_rates(rates, engine, execution, lsm);
+        }
+        if let Some(model) = &self.equity_model {
+            return self.price_model(model, self.maximum_step, engine, execution, lsm);
         }
         let ProductSpec::EuropeanVanilla(product) = &self.product else {
             return self.price_exotic(engine, execution, lsm);
