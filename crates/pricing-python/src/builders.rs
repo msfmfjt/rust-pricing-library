@@ -339,6 +339,28 @@ impl PyProduct {
             .map_err(|e| domain_error(py, "invalid_cashflow_graph", path, e))
     }
 
+    /// Confirm past lapses or an exercise on the original contractual schedule.
+    #[pyo3(signature = (as_of, *, lapsed_dates, exercised_on=None))]
+    fn after_exercise_history(
+        &self,
+        py: Python<'_>,
+        as_of: &Bound<'_, PyAny>,
+        lapsed_dates: &Bound<'_, PyAny>,
+        exercised_on: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let path = "/product/exercise_history";
+        self.inner
+            .after_exercise_history(
+                date_from_python(py, as_of, path)?,
+                &copied_date_array(py, lapsed_dates, path)?,
+                exercised_on
+                    .map(|d| date_from_python(py, d, path))
+                    .transpose()?,
+            )
+            .map(|inner| Self { inner })
+            .map_err(|e| domain_error(py, "invalid_exercise_history", path, e))
+    }
+
     /// Build a European vanilla call or put.
     #[staticmethod]
     fn european_vanilla(

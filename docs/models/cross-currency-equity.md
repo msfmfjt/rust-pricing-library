@@ -408,5 +408,16 @@ dated payoff. A vanilla can also specify `payment_date`. Freeze history on
 that graph with `remaining_cashflows`, then value the outstanding leg with
 `from_legs`. A floating single-stock payoff originally fixing at expiry
 should retain that fixing in the leg schedule, including after expiry.
-Native continuous monitoring and exercise decisions use their own product
-engines. [Dated-product replay](../../tests/python/test_cross_currency_seasoned.py)
+A continuously monitored barrier accepts a confirmed `historical_hit` when
+its original monitoring schedule includes dates before valuation. After a hit,
+or once the monitoring window has ended with a confirmed no-hit, use
+`to_graph(as_of, currency_id=...)` and freeze the final stock fixing to value
+a payment outstanding after expiry.
+
+For a scheduled-exercise right call
+`product.after_exercise_history(as_of, lapsed_dates=[...], exercised_on=...)`.
+Explicitly lapse each past decision preceding exercise or valuation. With
+outstanding rights the result retains the remaining schedule. A confirmed
+exercise returns the payoff at the actual exercise date. Export it in its
+contractual amount currency and replay its equity fixing, FX fixing and
+settlement just as for a vanilla. A fully lapsed right is worth zero. [Dated-product replay](../../tests/python/test_cross_currency_seasoned.py)

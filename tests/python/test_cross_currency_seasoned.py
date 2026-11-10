@@ -21,9 +21,11 @@ class SeasonedNoteTests(unittest.TestCase):
         self.first = [(10,FIRST,100.),(20,FIRST,80.)]
 
     def price(self, residual, historical_fx=False):
-        basket = rp.CrossCurrencyEquityBasket.from_legs(self.as_of,residual,self.stocks,self.domestic,
-            settlement_currency_id=JPY,equity_models=[rp.Model.black_scholes(0.)]*2,
-            fx_quotes=self.quotes,correlations=[[float(i==j) for j in range(4)] for i in range(4)])
+        count = len(residual[0].underlying_ids)
+        factors = 2*count
+        basket = rp.CrossCurrencyEquityBasket.from_legs(self.as_of,residual,self.stocks[:count],self.domestic,
+            settlement_currency_id=JPY,equity_models=[rp.Model.black_scholes(0.)]*count,
+            fx_quotes=self.quotes[:count],correlations=[[float(i==j) for j in range(factors)] for i in range(factors)])
         if historical_fx:
             basket = basket.with_leg_fx(0,schedule=[(PAY,OBS)],known_fixings=[(OBS,141.)])
         return basket.price_mc(self.engine).value
@@ -104,3 +106,35 @@ class SeasonedNoteTests(unittest.TestCase):
                                            "continuous",[FIRST,END],PAY)]:
             with self.assertRaises(ValueError):
                 special.to_graph("2026-01-01")
+
+    def test_replay_of_lapsed_and_exercised_rights(self):
+        issue = rp.Product.american_vanilla(10,JPY,END,105.,3.,"put",[FIRST,OBS,END])
+        live = issue.after_exercise_history(self.as_of,lapsed_dates=[FIRST,OBS])
+        native = rp.CrossCurrencyEquityOption(self.as_of,live,self.stocks[0],self.domestic,
+            settlement="floating_fx",fx_spot=150.,fx_volatility=0.,correlation=0.,equity_volatility=0.)
+        self.assertEqual(native.price_mc(self.engine,lsm=rp.LsmConfig(self.engine)).value,2250.)
+        exercised = issue.after_exercise_history(FIRST,lapsed_dates=[],exercised_on=FIRST)
+        due = exercised.to_graph(FIRST,currency_id=USD).remaining_cashflows(
+            FIRST,fixings=[(10,FIRST,92.)])
+        basket = rp.CrossCurrencyEquityBasket.from_legs(FIRST,[due],self.stocks[:1],self.domestic,
+            settlement_currency_id=JPY,equity_models=[rp.Model.black_scholes(.2)],
+            fx_quotes=self.quotes[:1],correlations=[[1.,0.],[0.,1.]])
+        basket = basket.with_leg_fx(0,schedule=[(FIRST,FIRST)],known_fixings=[(FIRST,147.)])
+        self.assertEqual(basket.price_mc(self.engine).value,3.*(105.-92.)*147.)
+        settled = due.remaining_cashflows(self.as_of,settled_outputs=[0])
+        self.assertEqual(self.price([settled]),0.)
+        lapsed = issue.after_exercise_history(END,lapsed_dates=[FIRST,OBS,END])
+        self.assertEqual(lapsed.to_graph(END).payment_dates,[END])
+        for kwargs in [dict(lapsed_dates=[FIRST]),dict(lapsed_dates=[FIRST,FIRST,OBS]),
+                       dict(lapsed_dates=[FIRST,OBS,END]),dict(lapsed_dates=[FIRST],exercised_on=FIRST)]:
+            with self.assertRaises(ValueError):
+                issue.after_exercise_history(self.as_of,**kwargs)
+
+    def test_resolved_continuous_barrier_between_expiry_and_payment(self):
+        for style, hit, cash in [("knock_out",True,4.),("knock_in",True,30.),
+                                 ("knock_out",False,30.),("knock_in",False,4.)]:
+            p = rp.Product.barrier(10,JPY,OBS,100.,120.,2.,"call","up",style,"continuous",
+                                   [FIRST,OBS],PAY,rebate=4.,historical_hit=hit)
+            remaining = p.to_graph(self.as_of,currency_id=USD).remaining_cashflows(
+                self.as_of,fixings=[(10,OBS,115.)])
+            self.assertEqual(self.price([remaining],historical_fx=True),cash*141.)
