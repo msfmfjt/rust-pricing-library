@@ -1,9 +1,7 @@
-use super::model_path::{StockPath, simulation_grid};
-use super::rates::RateState;
+use super::joint_path::{JointPath, JointPlan};
 use super::{CrossCurrencyEquityOption, CrossCurrencyHullWhite, EquityFxSettlement, sampling};
 use crate::core::{Date, DayCountConvention};
-use crate::market::DiscountCurve;
-use crate::mc::{EngineConfig, ExecutionPolicy, LocalVolTimeGrid, LsmConfig};
+use crate::mc::{EngineConfig, ExecutionPolicy, LsmConfig};
 use crate::models::ModelSpec;
 use crate::multi_asset::MultiAssetError as Error;
 use crate::product::{BarrierMonitoring, GraphLimitPolicy, ProductSpec};
@@ -66,129 +64,20 @@ impl CrossCurrencyEquityOption {
         if end == 0. {
             return self.price_model(model, self.maximum_step, engine, execution, None);
         }
-        let equity_end = time(last_equity);
-        let mut events: Vec<_> = dates.keys().map(|&d| time(d)).collect();
-        let foreign = self.foreign_market.forward();
-        events.extend(
-            rates
-                .domestic
-                .volatility_times()
-                .iter()
-                .chain(rates.foreign.volatility_times())
-                .copied()
-                .filter(|&t| t <= end),
-        );
-        let grid = simulation_grid(model, foreign, events, equity_end, self.maximum_step)?;
-        let times = grid.nodes();
-        for (&d, index) in &mut dates {
-            *index = times
-                .binary_search_by(|t| t.total_cmp(&time(d)))
-                .map_err(|_| Error::Invalid("missing rate or fixing date"))?;
-        }
-        let equity_steps = dates.get(&last_equity).copied().unwrap_or(0);
-        let spot = foreign.spot().get();
-        let path = if equity_steps == 0 {
-            None
-        } else {
-            let prefix = LocalVolTimeGrid::compile(times[..=equity_steps].to_vec(), f64::MAX)
-                .map_err(Error::numerical)?;
-            Some(StockPath::compile(
-                model,
-                &prefix,
-                foreign,
-                Some(rates),
-                self.dividends,
-            )?)
-        };
-        let (dim, blocks) = path.as_ref().map_or((0, 0), |p| p.layout(equity_steps));
-        let sigma = self.dynamics.fx.volatility().get();
-        let rho = self.dynamics.correlation;
-        let rate_steps = rates.steps(times, sigma)?;
-        let n = rate_steps.len();
-        let mut dd = Vec::new();
-        let mut fx_forward = Vec::new();
-        let mut stock_carry = Vec::new();
-        for &t in times {
-            dd.push(self.domestic_curve.discount(t)?);
-            let df = foreign.discount_curve().discount(t)?;
-            fx_forward.push(self.fx_spot.get() * df / dd.last().unwrap());
-            stock_carry.push(foreign.dividend_curve().discount(t)? / df);
-        }
+        let plan = JointPlan::new(self, model, rates, dates, last_equity, Vec::new())?;
+        let dates = &plan.dates;
         let cashflows: Vec<_> = payments
             .iter()
             .zip(fx_dates)
             .map(|(p, f)| (dates[p], dates[&f]))
             .collect();
-        // Five extra normal blocks condition FX and both rates on the equity
-        // Brownian. After the last equity observation a sixth supplies its tail.
-        let tail = equity_steps < n;
-        let layout = sampling::Layout {
-            equity_steps,
-            equity_dimension: dim,
-            brownian_blocks: blocks,
-            extra_blocks: 5 + usize::from(tail),
-        };
-        sampling::estimate(times, layout, engine, execution, |normals| {
-            let extra = &normals[dim..];
-            let mut shocks = normals[..dim].to_vec();
-            for (z, interval) in shocks.iter_mut().zip(times[..=equity_steps].windows(2)) {
-                *z -= rho * sigma * (interval[1] - interval[0]).sqrt();
-            }
-            let mut rate_carry = Vec::with_capacity(equity_steps + 1);
-            let mut foreign_factors = Vec::with_capacity(equity_steps + 1);
-            let mut state = RateState::default();
-            let mut fx = Vec::with_capacity(n + 1);
-            let mut discounts = Vec::with_capacity(n + 1);
-            for i in 0..=n {
-                if i > 0 {
-                    let j = i - 1;
-                    let stock_normal = if j < equity_steps {
-                        normals[j]
-                    } else {
-                        extra[5 * n + j]
-                    };
-                    rate_steps[j].advance(
-                        &mut state,
-                        [
-                            stock_normal,
-                            extra[j],
-                            extra[n + j],
-                            extra[2 * n + j],
-                            extra[3 * n + j],
-                            extra[4 * n + j],
-                        ],
-                    );
-                }
-                let [domestic, foreign] = state.integrated;
-                let x = fx_forward[i]
-                    * (domestic - foreign - 0.5 * sigma * sigma * times[i]
-                        + sigma * state.fx_brownian)
-                        .exp();
-                let discount = dd[i] * (-domestic).exp();
-                if !x.is_finite() || x <= 0. || !discount.is_finite() || discount <= 0. {
-                    return Err(Error::Invalid(
-                        "nonfinite or nonpositive simulated FX or discount",
-                    ));
-                }
-                if i <= equity_steps {
-                    rate_carry.push(foreign);
-                    if self.dividends.is_some() {
-                        foreign_factors.push(state.factors[1]);
-                    }
-                }
-                fx.push(x);
-                discounts.push(discount);
-            }
-            let spots = match &path {
-                Some(p) => p.spots(
-                    spot,
-                    &shocks,
-                    &stock_carry,
-                    Some(&rate_carry),
-                    &foreign_factors,
-                )?,
-                None => vec![(spot, None)],
-            };
+        sampling::estimate(&plan.times, plan.layout, engine, execution, |normals| {
+            let JointPath {
+                spots,
+                fx,
+                discounts,
+                ..
+            } = plan.simulate(normals, false)?;
             let observed = |d, pre| {
                 dates.get(&d).map(|&i| {
                     let (post, before) = spots[i];

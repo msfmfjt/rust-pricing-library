@@ -190,6 +190,18 @@ equity/volatility correlations. The asset dynamics use their native time
 discretization. The rate endpoint and integral covariances use exact Gaussian
 transitions on each piecewise-constant rate-volatility interval.
 
+Scheduled-exercise options use independent policy-training and valuation
+paths. For domestic and foreign stochastic rates, for example, pass
+`rp.LsmConfig(training_engine, state_variables=["spot", "domestic_rate_factor",
+"foreign_rate_factor"], max_degree=2)`. The initial configuration uses only
+the monitored spot. The optional `fx_spot` is quoted in settlement-currency
+units. At each decision the regression target includes the realized discount
+to the future stopping time. A floating option compares exercise in local
+currency and converts at its actual stopping time. Sampling error on a price is
+conditional on the fitted policy. Finite training samples, the selected basis
+and the model time step can also affect that value.
+[Exercise benchmarks](../../tests/python/test_cross_currency_joint_exercise.py)
+
 
 ### Stochastic foreign cash dividends
 

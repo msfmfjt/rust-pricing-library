@@ -1025,6 +1025,9 @@ impl PyLsmConfig {
             .iter()
             .map(|variable| match variable {
                 LsmStateVariable::Spot => "spot",
+                LsmStateVariable::FxSpot => "fx_spot",
+                LsmStateVariable::DomesticRateFactor => "domestic_rate_factor",
+                LsmStateVariable::ForeignRateFactor => "foreign_rate_factor",
             })
             .collect()
     }
@@ -1222,11 +1225,14 @@ fn lsm_state_variables_from_python(
         .enumerate()
         .map(|(index, name)| match name.as_str() {
             "spot" => Ok(LsmStateVariable::Spot),
+            "fx_spot" => Ok(LsmStateVariable::FxSpot),
+            "domestic_rate_factor" => Ok(LsmStateVariable::DomesticRateFactor),
+            "foreign_rate_factor" => Ok(LsmStateVariable::ForeignRateFactor),
             _ => Err(domain_error(
                 py,
                 "invalid_lsm_state_variable",
                 &format!("/lsm/state_variables/{index}"),
-                format!("expected 'spot', received {name:?}"),
+                format!("unknown exercise state variable {name:?}"),
             )),
         })
         .collect()

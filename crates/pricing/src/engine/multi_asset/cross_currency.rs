@@ -7,7 +7,9 @@ pub use basket::{
     ForeignEquity,
 };
 mod dividend_path;
+mod exercise;
 mod exotic;
+mod joint_path;
 mod model;
 mod model_path;
 mod option_risk;
@@ -399,6 +401,19 @@ impl CrossCurrencyEquityOption {
         execution: ExecutionPolicy,
         lsm: Option<LsmConfig>,
     ) -> Result<Estimate, Error> {
+        if let ProductSpec::AmericanVanilla(p) = &self.product
+            && (self.rates.is_some()
+                || self.equity_model.is_some()
+                || self.dividends.is_some()
+                || lsm
+                    .as_ref()
+                    .is_some_and(|c| c.state_variables() != [crate::mc::LsmStateVariable::Spot]))
+        {
+            let config = lsm.as_ref().ok_or(Error::Invalid(
+                "scheduled exercise requires an LSM configuration",
+            ))?;
+            return self.price_joint_exercise(p, engine, execution, config);
+        }
         if let Some(rates) = &self.rates {
             return self.price_with_rates(rates, engine, execution, lsm);
         }
