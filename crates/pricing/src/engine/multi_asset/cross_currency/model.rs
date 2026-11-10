@@ -1,8 +1,8 @@
-use super::model_path::{EquityPath, model_times};
+use super::model_path::{StockPath, simulation_grid};
 use super::{CrossCurrencyEquityOption, EquityFxSettlement, sampling};
 use crate::core::{Date, DayCountConvention};
 use crate::market::DiscountCurve;
-use crate::mc::{EngineConfig, ExecutionPolicy, LocalVolTimeGrid, LsmConfig};
+use crate::mc::{EngineConfig, ExecutionPolicy, LsmConfig};
 use crate::multi_asset::MultiAssetError as Error;
 use crate::product::{BarrierMonitoring, GraphLimitPolicy, ProductSpec};
 use crate::{EquityModelSpec, Estimate, EstimatorKind};
@@ -91,21 +91,15 @@ impl CrossCurrencyEquityOption {
             return Estimate::new(v, 0., v, v, EstimatorKind::Analytical, 1)
                 .map_err(Error::numerical);
         }
-        let mut events: Vec<_> = observations.keys().map(|&d| time(d)).collect();
-        events.extend(
-            model_times(model)
-                .iter()
-                .copied()
-                .filter(|&t| t > 0. && t <= horizon),
-        );
-        let grid = LocalVolTimeGrid::compile(events, maximum_step).map_err(Error::numerical)?;
+        let events = observations.keys().map(|&d| time(d)).collect();
+        let grid = simulation_grid(model, foreign, events, horizon, maximum_step)?;
         let times = grid.nodes();
         for (&date, index) in &mut observations {
             *index = times
                 .binary_search_by(|t| t.total_cmp(&time(date)))
                 .map_err(|_| Error::Invalid("equity fixing absent from simulation grid"))?;
         }
-        let equity = EquityPath::compile(model, &grid, equity_spot)?;
+        let equity = StockPath::compile(model, &grid, foreign, None, self.dividends)?;
         let steps = times.len() - 1;
         let (dimension, brownian_blocks) = equity.layout(steps);
         let carry = times
@@ -148,11 +142,10 @@ impl CrossCurrencyEquityOption {
                         *z -= rho * sigma * dt;
                     }
                 }
-                let mut spots = equity.states(equity_spot, &shocks, None)?;
+                let mut spots = equity.spots(equity_spot, &shocks, &carry, None, &[])?;
                 let mut brownian = 0.;
-                for (i, s) in spots.iter_mut().enumerate() {
-                    *s *= carry[i];
-                    if composite {
+                if composite {
+                    for (i, (post, pre)) in spots.iter_mut().enumerate() {
                         if i > 0 {
                             let j = i - 1;
                             let residual = if extra_fx {
@@ -162,12 +155,21 @@ impl CrossCurrencyEquityOption {
                             };
                             brownian += root_dt[j] * (rho * normals[j] + residual);
                         }
-                        *s *= fx_forwards[i]
+                        let fx = fx_forwards[i]
                             * (sigma * brownian - 0.5 * sigma * sigma * times[i]).exp();
+                        *post *= fx;
+                        if let Some(value) = pre {
+                            *value *= fx;
+                        }
                     }
                 }
-                let observation = |_, d| observations.get(&d).map(|&i| spots[i]);
-                total(payoff.evaluate_with_pre_dividend_spots(observation, observation)?)
+                let post = |_, d| observations.get(&d).map(|&i| spots[i].0);
+                let pre = |_, d| {
+                    observations
+                        .get(&d)
+                        .map(|&i| spots[i].1.unwrap_or(spots[i].0))
+                };
+                total(payoff.evaluate_with_pre_dividend_spots(post, pre)?)
             },
         )
     }

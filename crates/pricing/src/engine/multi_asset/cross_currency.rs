@@ -1,4 +1,5 @@
 //! Foreign-equity options paid in a different currency with correlated FX and optional domestic and foreign short rates.
+mod dividend_path;
 mod exotic;
 mod model;
 mod model_path;
@@ -12,7 +13,7 @@ use crate::market::{
     EquityMarket, LogLinearDiscountCurve,
 };
 use crate::mc::{EngineConfig, ExecutionPolicy, LsmConfig};
-use crate::models::{BlackScholesSpec, ModelSpec};
+use crate::models::{BlackScholesSpec, BuehlerDividendModel, ModelSpec};
 use crate::multi_asset::{MultiAssetError as Error, MultiAssetPricingPlan, MultiAssetProduct};
 use crate::product::{
     EuropeanVanillaSpec, ProductSpec, SourceGraphBuilder, SourceOpcode as Op, multi_asset::option,
@@ -81,6 +82,7 @@ pub struct CrossCurrencyEquityOption {
     equity_model: Option<EquityModelSpec>,
     maximum_step: f64,
     rates: Option<CrossCurrencyHullWhite>,
+    dividends: Option<BuehlerDividendModel>,
     payment_fx_fixings: std::collections::BTreeMap<Date, Date>,
 }
 
@@ -123,6 +125,31 @@ impl CrossCurrencyEquityOption {
         settlement: EquityFxSettlement,
         payment_date: Option<Date>,
     ) -> Result<Self, Error> {
+        Self::build(
+            valuation_date,
+            product,
+            foreign_market,
+            settlement_curve,
+            fx_spot,
+            dynamics,
+            settlement,
+            payment_date,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn build(
+        valuation_date: Date,
+        product: ProductSpec,
+        foreign_market: &EquityMarket,
+        settlement_curve: Arc<LogLinearDiscountCurve>,
+        fx_spot: f64,
+        dynamics: EquityFxDynamics,
+        settlement: EquityFxSettlement,
+        payment_date: Option<Date>,
+        dividends: Option<BuehlerDividendModel>,
+    ) -> Result<Self, Error> {
         let payment_date = payment_date.unwrap_or_else(|| product.payment_date());
         if !matches!(product, ProductSpec::EuropeanVanilla(_))
             && payment_date != product.payment_date()
@@ -152,12 +179,13 @@ impl CrossCurrencyEquityOption {
                 "require valuation date <= expiry <= payment date",
             ));
         }
-        if equity
-            .discrete_dividends()
-            .is_some_and(|d| !d.events().is_empty())
+        if dividends.is_none()
+            && equity
+                .discrete_dividends()
+                .is_some_and(|d| !d.events().is_empty())
         {
             return Err(Error::Invalid(
-                "joint lognormal equity/FX requires continuous dividend carry",
+                "discrete cash dividends require a dividend_model",
             ));
         }
         let fx_spot = PositiveF64::new(fx_spot, "fx_spot")?;
@@ -181,6 +209,7 @@ impl CrossCurrencyEquityOption {
             equity_model: None,
             maximum_step: 0.02,
             rates: None,
+            dividends,
             payment_fx_fixings: Default::default(),
         })
     }
@@ -200,13 +229,45 @@ impl CrossCurrencyEquityOption {
         payment_date: Option<Date>,
         maximum_step: f64,
     ) -> Result<Self, Error> {
+        Self::from_model_with_dividends(
+            valuation_date,
+            product,
+            foreign_market,
+            settlement_curve,
+            fx_spot,
+            equity_model,
+            fx_volatility,
+            correlation,
+            settlement,
+            payment_date,
+            maximum_step,
+            None,
+        )
+    }
+
+    /// Supply a Buehler factor for foreign cash dividend means.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_model_with_dividends(
+        valuation_date: Date,
+        product: ProductSpec,
+        foreign_market: &EquityMarket,
+        settlement_curve: Arc<LogLinearDiscountCurve>,
+        fx_spot: f64,
+        equity_model: EquityModelSpec,
+        fx_volatility: f64,
+        correlation: f64,
+        settlement: EquityFxSettlement,
+        payment_date: Option<Date>,
+        maximum_step: f64,
+        dividends: Option<BuehlerDividendModel>,
+    ) -> Result<Self, Error> {
         PositiveF64::new(maximum_step, "maximum_step")?;
         let sigma = match &equity_model {
             EquityModelSpec::Standard(ModelSpec::BlackScholes(m)) => Some(m.volatility().get()),
             EquityModelSpec::Standard(ModelSpec::Black76(m)) => Some(m.volatility().get()),
             _ => None,
         };
-        let mut option = Self::from_product(
+        let mut option = Self::build(
             valuation_date,
             product,
             foreign_market,
@@ -215,7 +276,11 @@ impl CrossCurrencyEquityOption {
             EquityFxDynamics::new(sigma.unwrap_or(0.0), fx_volatility, correlation)?,
             settlement,
             payment_date,
+            dividends,
         )?;
+        if dividends.is_some() {
+            dividend_path::validate(&equity_model, foreign_market.forward())?;
+        }
         if sigma.is_none() {
             option.equity_model = Some(equity_model);
         }
@@ -231,16 +296,18 @@ impl CrossCurrencyEquityOption {
         correlations: Option<[[f64; 4]; 4]>,
     ) -> Result<Self, Error> {
         let rho = self.dynamics.correlation;
-        let rates = CrossCurrencyHullWhite::new(
-            domestic,
-            foreign,
-            correlations.unwrap_or([
-                [1., rho, 0., 0.],
-                [rho, 1., 0., 0.],
-                [0., 0., 1., 0.],
-                [0., 0., 0., 1.],
-            ]),
-        )?;
+        let rates = match correlations {
+            Some(c) => CrossCurrencyHullWhite::new(domestic, foreign, c)?,
+            None => CrossCurrencyHullWhite::independent(domestic, foreign, rho)?,
+        };
+        if self.dividends.is_some()
+            && !rates.foreign.is_deterministic()
+            && self.equity_model.is_some()
+        {
+            return Err(Error::Invalid(
+                "stochastic cash dividends with a stochastic foreign rate require constant equity volatility",
+            ));
+        }
         if (rates.correlations[0][1] - self.dynamics.correlation).abs() > 1e-12 {
             return Err(Error::Invalid(
                 "stock/FX correlation must agree with the rate correlation matrix",
@@ -267,7 +334,7 @@ impl CrossCurrencyEquityOption {
 
     /// Present value in the product's settlement currency.
     pub fn analytical_price(&self) -> Result<f64, Error> {
-        if self.equity_model.is_some() || self.rates.is_some() {
+        if self.equity_model.is_some() || self.rates.is_some() || self.dividends.is_some() {
             return Err(Error::Invalid("this equity model requires price_mc"));
         }
         let ProductSpec::EuropeanVanilla(product) = &self.product else {
@@ -329,6 +396,10 @@ impl CrossCurrencyEquityOption {
         }
         if let Some(model) = &self.equity_model {
             return self.price_model(model, self.maximum_step, engine, execution, lsm);
+        }
+        if self.dividends.is_some() {
+            let model = EquityModelSpec::Standard(ModelSpec::BlackScholes(self.dynamics.equity));
+            return self.price_model(&model, self.maximum_step, engine, execution, lsm);
         }
         let ProductSpec::EuropeanVanilla(product) = &self.product else {
             return self.price_exotic(engine, execution, lsm);

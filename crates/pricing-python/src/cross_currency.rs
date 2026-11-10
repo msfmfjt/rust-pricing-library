@@ -23,7 +23,7 @@ impl PyCrossCurrencyEquityOption {
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature=(valuation_date, product, foreign_market, settlement_curve, *, settlement, fx_spot,
         equity_volatility=None, fx_volatility, correlation, fixed_fx_rate=None, payment_date=None,
-        equity_model=None, maximum_step=0.02))]
+        equity_model=None, maximum_step=0.02, dividend_model=None))]
     fn new(
         py: Python<'_>,
         valuation_date: &Bound<'_, PyAny>,
@@ -39,6 +39,7 @@ impl PyCrossCurrencyEquityOption {
         payment_date: Option<&Bound<'_, PyAny>>,
         equity_model: Option<&Bound<'_, PyAny>>,
         maximum_step: f64,
+        dividend_model: Option<&crate::source_config::PyBuehlerDividendModel>,
     ) -> PyResult<Self> {
         let invalid = |message: &str| {
             domain_error(
@@ -86,7 +87,7 @@ impl PyCrossCurrencyEquityOption {
         let payment = payment_date
             .map(|d| date_from_python(py, d, "/cross_currency/payment_date"))
             .transpose()?;
-        CrossCurrencyEquityOption::from_model(
+        CrossCurrencyEquityOption::from_model_with_dividends(
             as_of,
             product.inner.clone(),
             foreign_market.inner.equity(),
@@ -98,6 +99,7 @@ impl PyCrossCurrencyEquityOption {
             settlement,
             payment,
             maximum_step,
+            dividend_model.map(|d| d.inner),
         )
         .map(|inner| Self { inner })
         .map_err(|e| invalid(&e.to_string()))

@@ -20,11 +20,11 @@ the subtraction inside the positive part.
 
 ## Inputs and pricing
 
-Use deterministic ACT/365F curves for settlement discounting $D_d$, foreign
+Supply initial ACT/365F curves for settlement discounting $D_d$, foreign
 discounting $D_f$ and continuous dividend carry $D_q$, under one consistent
 collateral convention. The input $X_0$ is cash FX for value on the valuation
 date. A market quote with a spot settlement lag must first be rolled to that
-date. With the scalar `equity_volatility` input, equity and FX follow joint GBM with constant annualized volatilities
+date. With the scalar `equity_volatility` input, equity and FX follow joint GBM under deterministic rates with constant annualized volatilities
 $\sigma_S,\sigma_X$ and correlation $\rho$ in the stated FX direction.
 
 Write $F_S=S_0D_q(T)/D_f(T)$ and $F_X=X_0D_f(T)/D_d(T)$. The closed-form
@@ -48,8 +48,8 @@ engine. The returned estimate includes its standard error. On the fixing date
 the current spots supply the fixings and the result is exact. Valuation after
 expiry requires historical fixings and is outside this entry point.
 
-This API covers price with continuous dividend carry. A supplied discrete
-dividend schedule raises a validation error. The regression suite checks
+The analytical formula uses continuous dividend carry and deterministic rates.
+For simulated cash dividends, select the Buehler model described below. The regression suite checks
 the published quanto benchmark, put–call parity with delayed payment, limiting
 cases and both sampling engines. [Tests](../../tests/python/test_cross_currency_equity.py) · [QuantLib quanto benchmark](https://github.com/lballabio/QuantLib/blob/master/test-suite/quantooption.cpp)
 
@@ -122,7 +122,7 @@ that depend on earlier coupon or call events. Unlisted payments use payment-day 
 The fixing date must be on or after valuation and the last equity observation
 that determines the payment, and on or before payment. Each call supplies a
 replacement schedule. For a foreign amount $A$ determined by fixing date $F$
-and paid on $P$, the domestic PV is $X_0 D_f(F) D_d(P)/D_d(F)\,\mathbb{E}_f[A]$.
+and paid on $P$, under deterministic rates the domestic PV is $X_0 D_f(F) D_d(P)/D_d(F)\,\mathbb{E}_f[A]$.
 The simulation aggregates all payments on the same paths before estimating the
 standard error. [Autocall validation cases](../../tests/python/test_cross_currency_autocall.py)
 
@@ -189,3 +189,23 @@ on the simulated stock increments. The equity model retains its own
 equity/volatility correlations. The asset dynamics use their native time
 discretization. The rate endpoint and integral covariances use exact Gaussian
 transitions on each piecewise-constant rate-volatility interval.
+
+
+### Stochastic foreign cash dividends
+
+Supply a foreign market with dated fixed-cash means and pass a
+`BuehlerDividendModel` through the option’s `dividend_model` keyword.
+Cash amounts are in the stock currency and specify expectations under its
+money-market measure. The model funds every supplied future cash dividend,
+including those after the final equity observation. A graph can observe both
+sides of a dividend event using `builder.spot(..., pre_dividend=True)` and
+`builder.spot(...)`. Composite settlement converts both at that observation’s FX.
+
+With deterministic foreign rates, use Black, one-factor or two-factor Bergomi,
+rough Bergomi, or any of their three residual-equity LSV calibrations. The
+domestic rate can be deterministic or Hull–White. With stochastic foreign
+rates the Buehler/Hull–White combination uses constant residual-equity
+volatility and the native discounted conditional dividend reserve. Dividend
+correlations with FX, rates and volatility factors are the product of their
+respective correlations with the residual-equity driver. Pricing requires
+strictly future fixed-cash events. [Dividend-claim and native-price comparisons](../../tests/python/test_cross_currency_dividends.py)

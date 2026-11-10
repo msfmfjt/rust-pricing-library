@@ -60,6 +60,17 @@ class CrossCurrencyModelTests(unittest.TestCase):
                     result=self.price(product,model,settlement,payment_date=PAY).price_mc(engine)
                     self.assertAlmostEqual(result.value,oracle,delta=6*result.standard_error + (6. if name=="Bass" else .01))
 
+    def test_rough_grid_limit_checked_before_allocating_paths(self):
+        product = rp.Product.european_vanilla(10, 2, END, 100., 1., "call")
+        engine = rp.Engine.pseudo_monte_carlo(2, 32)
+        option = rp.CrossCurrencyEquityOption(TODAY, product, self.market, self.jpy,
+            settlement="floating_fx", equity_model=dict(models(True))["roughHeston"],
+            fx_spot=150., fx_volatility=.15, correlation=-.45, maximum_step=1e-8)
+        hw = rp.HullWhiteModel(.2, [0.], [.01])
+        for pricer in (option, option.with_hull_white_rates(hw, hw)):
+            with self.assertRaisesRegex(rp.PricingError, "step limit"):
+                pricer.price_mc(engine)
+
     def test_stochastic_autocall_in_all_settlements(self):
         engine=rp.Engine.pseudo_monte_carlo(9817,128,antithetic=True)
         for mode in SETTLEMENTS:

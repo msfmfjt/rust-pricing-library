@@ -1,14 +1,121 @@
 //! Native foreign-equity processes. The first normal block drives the equity.
+use super::CrossCurrencyHullWhite;
+use super::dividend_path::DividendPath;
 use crate::bass_lv::{BassMarketIvModel, BassSimulationPlan};
 use crate::engine::processes::rough_volatility::{RoughFamilyLsvPlan, RoughVolatilityPathPlan};
-use crate::market::LocalVarianceGrid;
+use crate::market::{EquityForward, LocalVarianceGrid};
 use crate::mc::hull_white::{HullWhiteEquityPlan, HybridEquityVolatility};
 use crate::mc::lsv::*;
 use crate::mc::{LocalVolLogEulerPlan, LocalVolTimeGrid};
+use crate::models::BuehlerDividendModel;
 use crate::models::{Bergomi2Factor, ModelSpec};
 use crate::models::{HullWhite1Factor, HybridCorrelation};
 use crate::multi_asset::MultiAssetError as Error;
 use crate::{EquityModelSpec, VolatilityFactorSpec};
+
+pub(super) enum StockPath {
+    Equity(EquityPath),
+    Dividend(DividendPath),
+}
+
+impl StockPath {
+    pub(super) fn compile(
+        model: &EquityModelSpec,
+        grid: &LocalVolTimeGrid,
+        market: &EquityForward,
+        rates: Option<&CrossCurrencyHullWhite>,
+        dividend: Option<BuehlerDividendModel>,
+    ) -> Result<Self, Error> {
+        if let Some(d) = dividend {
+            return Ok(Self::Dividend(DividendPath::compile(
+                model, d, grid, market, rates,
+            )?));
+        }
+        let equity = match rates {
+            Some(r) => EquityPath::compile_for_rates(model, grid, market, r)?,
+            None => EquityPath::compile(model, grid, market.spot().get())?,
+        };
+        Ok(Self::Equity(equity))
+    }
+
+    pub(super) fn layout(&self, steps: usize) -> (usize, usize) {
+        match self {
+            Self::Equity(e) => e.layout(steps),
+            Self::Dividend(d) => d.layout(steps),
+        }
+    }
+
+    /// Post-event spot and optional pre-event spot, both in the foreign currency.
+    pub(super) fn spots(
+        &self,
+        spot: f64,
+        shocks: &[f64],
+        carry: &[f64],
+        log_rate_carry: Option<&[f64]>,
+        rate_factors: &[f64],
+    ) -> Result<Vec<(f64, Option<f64>)>, Error> {
+        match self {
+            Self::Dividend(p) => p.spots(shocks, log_rate_carry.unwrap_or_default(), rate_factors),
+            Self::Equity(p) => Ok(p
+                .states(spot, shocks, log_rate_carry)?
+                .into_iter()
+                .enumerate()
+                .map(|(i, s)| {
+                    (
+                        s * carry[i] * log_rate_carry.map_or(1., |r| r[i].exp()),
+                        None,
+                    )
+                })
+                .collect()),
+        }
+    }
+}
+
+pub(super) fn simulation_grid(
+    model: &EquityModelSpec,
+    market: &EquityForward,
+    mut events: Vec<f64>,
+    equity_end: f64,
+    maximum_step: f64,
+) -> Result<LocalVolTimeGrid, Error> {
+    events.extend(
+        model_times(model)
+            .iter()
+            .copied()
+            .filter(|&t| t > 0. && t <= equity_end),
+    );
+    if let Some(schedule) = market.discrete_dividends() {
+        events.extend(
+            schedule
+                .events()
+                .iter()
+                .map(|e| e.ex_time())
+                .filter(|&t| t <= equity_end),
+        );
+    }
+    events.push(0.);
+    events.sort_by(f64::total_cmp);
+    events.dedup();
+    let steps = |pair: &[f64]| ((pair[1] - pair[0]) / maximum_step).ceil().max(1.);
+    if events.windows(2).map(steps).sum::<f64>() > u32::MAX as f64 {
+        return Err(Error::Invalid("equity/FX random dimension is too large"));
+    }
+    if let EquityModelSpec::RoughVolatility(m)
+    | EquityModelSpec::RoughLocalStochasticVolatility { model: m, .. } = model
+    {
+        let count = events
+            .windows(2)
+            .take_while(|w| w[1] <= equity_end)
+            .map(steps)
+            .sum::<f64>();
+        if count > RoughVolatilityPathPlan::maximum_time_steps(m) as f64 {
+            return Err(Error::Invalid(
+                "rough equity time grid exceeds the model step limit",
+            ));
+        }
+    }
+    LocalVolTimeGrid::compile(events, maximum_step).map_err(Error::numerical)
+}
 
 pub(super) enum EquityPath {
     Black(f64, Vec<f64>),
@@ -36,7 +143,7 @@ pub(super) fn model_times(model: &EquityModelSpec) -> &[f64] {
     }
 }
 
-fn refined_target(
+pub(super) fn refined_target(
     target: &LocalVarianceGrid,
     grid: &LocalVolTimeGrid,
 ) -> Result<LocalVarianceGrid, Error> {

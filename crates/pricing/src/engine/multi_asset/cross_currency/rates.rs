@@ -38,6 +38,23 @@ impl CrossCurrencyHullWhite {
         })
     }
 
+    pub(super) fn independent(
+        domestic: HullWhite1Factor,
+        foreign: HullWhite1Factor,
+        rho: f64,
+    ) -> Result<Self, Error> {
+        Self::new(
+            domestic,
+            foreign,
+            [
+                [1., rho, 0., 0.],
+                [rho, 1., 0., 0.],
+                [0., 0., 1., 0.],
+                [0., 0., 0., 1.],
+            ],
+        )
+    }
+
     pub(super) fn steps(&self, times: &[f64], sigma_fx: f64) -> Result<Vec<RateStep>, Error> {
         let zero = HybridCorrelation::new(0., 0., 0.).map_err(Error::numerical)?;
         times
@@ -123,7 +140,7 @@ pub(super) struct RateStep {
 }
 #[derive(Default)]
 pub(super) struct RateState {
-    factors: [f64; 2],
+    pub(super) factors: [f64; 2],
     /// Integrated short rates in excess of their input forward curves.
     pub integrated: [f64; 2],
     pub fx_brownian: f64,

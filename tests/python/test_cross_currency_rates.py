@@ -122,6 +122,43 @@ class CrossCurrencyRateTests(unittest.TestCase):
                     self.assertTrue(11000.<result.value<17000.)
                     self.assertGreater(result.standard_error,0.)
 
+    def test_memory_autocall_at_payment_fx_matches_foreign_hull_white_price(self):
+        observations = [
+            rp.AutocallObservation("2026-04-01", "2026-04-15", coupon_amount=2., coupon_level=1.05),
+            rp.AutocallObservation(MID, "2026-07-15", coupon_amount=3., coupon_level=.9, call_level=1.03),
+        ]
+        def product(currency):
+            note = rp.MultiAssetProduct.autocallable([10], [100.], observations, END, PAY,
+                notional=100., final_barrier=.7, memory=True, on_autocall="pay",
+                on_maturity="forfeit", currency_id=currency)
+            return note.to_graph()
+
+        engine = rp.Engine.randomized_quasi_monte_carlo(1024, 873, scramble_count=12,
+                                                       antithetic=True, brownian_bridge=True)
+        actual = self.option(rp.Product.from_graph(product(2)), "floating_fx").with_hull_white_rates(
+            self.d, self.f, correlations=C).price_mc(engine)
+        correlation = rp.CorrelationSchedule([10], [TODAY], [[[1.]]],
+            symmetry_abs_tol=1e-12, diagonal_abs_tol=1e-12, psd_abs_tol=1e-12, psd_rel_tol=1e-12,
+            zero_pivot_abs_tol=1e-14, zero_pivot_rel_tol=1e-14)
+        foreign_hw = rp.MultiAssetHullWhiteConfig(self.f, [C[0][3]])
+        model = rp.MultiAssetModelSpec([rp.Model.black_scholes(S_VOL)], correlation, hull_white=foreign_hw)
+        source = rp.MultiAssetSpecification(TODAY, product(1), [self.market], model, engine,
+                                            maximum_step=.25, worker_threads=1)
+        native = rp.PricingTask.from_source(source).compile().evaluate().native_result
+        self.assertAlmostEqual(actual.value / 150., native.value,
+                               delta=6*math.hypot(actual.standard_error / 150., native.standard_error))
+
+    def test_zero_rate_volatility_recovers_existing_prices(self):
+        zero = rp.HullWhiteModel(.2, [0., .5], [0., 0.])
+        engine = rp.Engine.pseudo_monte_carlo(91, 128, antithetic=True)
+        for mode in ["quanto", "floating_fx", "composite"]:
+            with self.subTest(mode=mode):
+                strike = 15000. if mode == "composite" else 100.
+                option = self.option(rp.Product.european_vanilla(10, 2, END, strike, 1., "call"), mode)
+                base = option.price_mc(engine)
+                result = option.with_hull_white_rates(zero, zero, correlations=C).price_mc(engine)
+                self.assertEqual((result.value, result.standard_error), (base.value, base.standard_error))
+
     def test_reject_inconsistent_driver_correlations(self):
         option=self.option(rp.Product.european_vanilla(10,2,END,100.,1.,"call"),"quanto")
         for matrix in ([[1.]*4]*4, [row[:] for row in C]):

@@ -28,7 +28,9 @@ limitations and risk semantics.
   Dated cash flows can use separate correlated domestic and foreign Hull–White
   rates with Black, LV, Bass, Bergomi and the six rough equity families.
   Scheduled early exercise and continuous barriers use constant equity and FX
-  volatility and deterministic rates.
+  volatility and deterministic rates. For stochastic foreign cash dividends,
+  Black supports both Hull–White rates and Bergomi variants support a
+  deterministic foreign rate.
   [Quanto and FX-linked settlement](../models/cross-currency-equity.md)
 
 - The first column covers the standard single-asset `PricingRequest` path with

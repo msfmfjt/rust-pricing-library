@@ -1,4 +1,4 @@
-use super::model_path::{EquityPath, model_times};
+use super::model_path::{StockPath, simulation_grid};
 use super::rates::RateState;
 use super::{CrossCurrencyEquityOption, CrossCurrencyHullWhite, EquityFxSettlement, sampling};
 use crate::core::{Date, DayCountConvention};
@@ -68,12 +68,7 @@ impl CrossCurrencyEquityOption {
         }
         let equity_end = time(last_equity);
         let mut events: Vec<_> = dates.keys().map(|&d| time(d)).collect();
-        events.extend(
-            model_times(model)
-                .iter()
-                .copied()
-                .filter(|&t| t > 0. && t <= equity_end),
-        );
+        let foreign = self.foreign_market.forward();
         events.extend(
             rates
                 .domestic
@@ -83,8 +78,7 @@ impl CrossCurrencyEquityOption {
                 .copied()
                 .filter(|&t| t <= end),
         );
-        let grid =
-            LocalVolTimeGrid::compile(events, self.maximum_step).map_err(Error::numerical)?;
+        let grid = simulation_grid(model, foreign, events, equity_end, self.maximum_step)?;
         let times = grid.nodes();
         for (&d, index) in &mut dates {
             *index = times
@@ -92,15 +86,18 @@ impl CrossCurrencyEquityOption {
                 .map_err(|_| Error::Invalid("missing rate or fixing date"))?;
         }
         let equity_steps = dates.get(&last_equity).copied().unwrap_or(0);
-        let foreign = self.foreign_market.forward();
         let spot = foreign.spot().get();
         let path = if equity_steps == 0 {
             None
         } else {
             let prefix = LocalVolTimeGrid::compile(times[..=equity_steps].to_vec(), f64::MAX)
                 .map_err(Error::numerical)?;
-            Some(EquityPath::compile_for_rates(
-                model, &prefix, foreign, rates,
+            Some(StockPath::compile(
+                model,
+                &prefix,
+                foreign,
+                Some(rates),
+                self.dividends,
             )?)
         };
         let (dim, blocks) = path.as_ref().map_or((0, 0), |p| p.layout(equity_steps));
@@ -138,6 +135,7 @@ impl CrossCurrencyEquityOption {
                 *z -= rho * sigma * (interval[1] - interval[0]).sqrt();
             }
             let mut rate_carry = Vec::with_capacity(equity_steps + 1);
+            let mut foreign_factors = Vec::with_capacity(equity_steps + 1);
             let mut state = RateState::default();
             let mut fx = Vec::with_capacity(n + 1);
             let mut discounts = Vec::with_capacity(n + 1);
@@ -174,22 +172,38 @@ impl CrossCurrencyEquityOption {
                 }
                 if i <= equity_steps {
                     rate_carry.push(foreign);
+                    if self.dividends.is_some() {
+                        foreign_factors.push(state.factors[1]);
+                    }
                 }
                 fx.push(x);
                 discounts.push(discount);
             }
-            let mut spots = match &path {
-                Some(p) => p.states(spot, &shocks, Some(&rate_carry))?,
-                None => vec![spot],
+            let spots = match &path {
+                Some(p) => p.spots(
+                    spot,
+                    &shocks,
+                    &stock_carry,
+                    Some(&rate_carry),
+                    &foreign_factors,
+                )?,
+                None => vec![(spot, None)],
             };
-            for (i, s) in spots.iter_mut().enumerate() {
-                *s *= stock_carry[i] * rate_carry[i].exp();
-                if matches!(self.settlement, EquityFxSettlement::Composite) {
-                    *s *= fx[i];
-                }
-            }
-            let observation = |_, d| dates.get(&d).map(|&i| spots[i]);
-            let flows = payoff.evaluate_with_pre_dividend_spots(observation, observation)?;
+            let observed = |d, pre| {
+                dates.get(&d).map(|&i| {
+                    let (post, before) = spots[i];
+                    let s = if pre { before.unwrap_or(post) } else { post };
+                    if matches!(self.settlement, EquityFxSettlement::Composite) {
+                        s * fx[i]
+                    } else {
+                        s
+                    }
+                })
+            };
+            let flows = payoff.evaluate_with_pre_dividend_spots(
+                |_, d| observed(d, false),
+                |_, d| observed(d, true),
+            )?;
             Ok(flows
                 .iter()
                 .zip(&cashflows)
