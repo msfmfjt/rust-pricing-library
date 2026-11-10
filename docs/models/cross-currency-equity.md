@@ -367,7 +367,7 @@ was already published, use `with_leg_fx` on the residual with its fixing date
 and published rate. The runnable example rolls the USD-coupon, JPY-principal
 note to April 10. Its first USD 20 coupon fixed at 147 JPY/USD, so it still
 pays JPY 2,940 on April 14. It reports the remaining JPY PV, both equity
-deltas, USD/JPY delta and JPY rate sensitivity with sampling errors.
+and FX deltas, and sensitivities to all three rate curves with sampling errors.
 [Worked note and risk example](../../examples/python/cross_currency_usd_eur_autocall.py) · [Seasoned note tests](../../tests/python/test_cross_currency_seasoned.py)
 
 ### Market sensitivities and scenario P&L

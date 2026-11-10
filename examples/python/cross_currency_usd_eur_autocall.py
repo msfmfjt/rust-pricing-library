@@ -122,9 +122,12 @@ if __name__ == "__main__":
     print(f"April 10 remaining PV          {pv.value:12,.2f} JPY   SE {pv.standard_error:6.2f} JPY")
     for factor, identifier, bump, unit in [
         ("fx_spot", USD, .5, "USD/JPY up 1 JPY per USD"),
+        ("fx_spot", EUR, .5, "EUR/JPY up 1 JPY per EUR"),
         ("equity_spot", 10, .5, "US stock up 1 USD"),
         ("equity_spot", 20, .5, "European stock up 1 EUR"),
         ("discount_rate", JPY, .0001, "JPY curve up 1 bp"),
+        ("discount_rate", USD, .0001, "USD curve up 1 bp"),
+        ("discount_rate", EUR, .0001, "EUR curve up 1 bp"),
     ]:
         risk = live.sensitivity(factor, identifier, bump, engine)
         scale = .0001 if factor == "discount_rate" else 1.
