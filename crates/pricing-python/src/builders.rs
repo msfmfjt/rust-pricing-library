@@ -1566,7 +1566,12 @@ fn smile_dynamics_from_str(py: Python<'_>, value: &str) -> PyResult<SmileDynamic
     }
 }
 
-fn domain_error(py: Python<'_>, code: &str, pointer: &str, error: impl ToString) -> PyErr {
+pub(crate) fn domain_error(
+    py: Python<'_>,
+    code: &str,
+    pointer: &str,
+    error: impl ToString,
+) -> PyErr {
     validation_exception(
         py,
         PyValidationIssue::domain(pointer, code, error.to_string()),

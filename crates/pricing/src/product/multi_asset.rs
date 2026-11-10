@@ -168,7 +168,7 @@ fn check_option(
     }
     Ok(())
 }
-fn option(
+pub(crate) fn option(
     b: &mut SourceGraphBuilder,
     value: NodeId,
     side: OptionSide,

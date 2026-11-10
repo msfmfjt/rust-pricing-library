@@ -1,6 +1,17 @@
 """Independent frozen multi asset API expectations, migrated from the release gate."""
 
-CLASSES = {'AutocallObservation': {'bases': [],
+CLASSES = {'CrossCurrencyEquityOption': {'bases': [], 'members': {
+    '__init__': {'kind': 'method', 'declaration': (
+        'def __init__(self, valuation_date: DateLike, product: Product, foreign_market: Market, '
+        'settlement_curve: DiscountCurve, *, settlement: Literal["quanto", "floating_fx", "composite"], '
+        'fx_spot: float, equity_volatility: float, fx_volatility: float, correlation: float, '
+        'fixed_fx_rate: float | None = None, payment_date: DateLike | None = None) -> None: ...')},
+    'analytical_price': {'kind': 'method', 'declaration': 'def analytical_price(self) -> float: ...'},
+    'price_mc': {'kind': 'method', 'declaration': (
+        'def price_mc(self, engine: Engine, *, worker_threads: int = 1, '
+        'reduction_block_size: int | None = None) -> DiagnosticEstimate: ...')},
+}},
+ 'AutocallObservation': {'bases': [],
                          'members': {'__init__': {'kind': 'method',
                                                   'signature': {'keyword_only': ['coupon_amount',
                                                                                  'coupon_level',

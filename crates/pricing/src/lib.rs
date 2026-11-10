@@ -4,6 +4,7 @@
 
 mod api;
 pub mod bass_lv;
+pub use engine::multi_asset::cross_currency;
 mod engine;
 use api::{error, request, result};
 pub mod hull_white;
