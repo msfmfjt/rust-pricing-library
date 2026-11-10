@@ -12,5 +12,6 @@ pub(crate) mod valuation;
 pub(crate) mod contract;
 
 mod registers;
+mod seasoned;
 
 mod option_task;

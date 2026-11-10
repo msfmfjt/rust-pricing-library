@@ -305,7 +305,7 @@ estimate = note.price_mc(engine)
 Each foreign leg uses its own JPY exchange rate. A recovered coupon converts
 in full at the fixing for the payment that releases it. By default each foreign
 payment fixes on its payment date. To fix earlier, supply one entry per distinct
-foreign payment date. Foreign payments on the same date share the fixing date.
+foreign payment date. This common schedule applies to all floating legs.
 JPY principal can depend on a later equity observation even when it shares a
 payment date with an earlier-fixed USD coupon.
 
@@ -313,3 +313,36 @@ Use `performance="local"` for local stock references or `performance="composite"
 for JPY stock references. Under either convention, both legs follow the same
 equity, FX and rate paths. The engine discounts their sum in JPY and estimates
 the standard error for the whole note. [Runnable split-currency note](../../examples/python/cross_currency_usd_eur_autocall.py)
+
+`with_leg_fx` replaces the terms of a single foreign leg by index in the
+list passed to `from_legs`. For example, fix a USD coupon and EUR redemption
+independently even when both pay in JPY on the same date:
+
+```python
+note = note.with_leg_fx(0, schedule=[(payment, coupon_fixing)])
+note = note.with_leg_fx(1, fixed_fx_rate=160.0)  # contractual JPY per EUR
+```
+
+A leg-specific fixing can precede equity determination. The joint simulation
+values both dates on the same path. For a fixing before valuation, supply
+`known_fixings=[(fixing_date, published_fx)]` with the corresponding schedule.
+A supplied valuation-day fixing also takes precedence over current spot.
+Unlisted payments use payment-day FX. Calling `with_leg_fx(index)` restores
+that leg's payment-day convention.
+
+### Valuation after issue
+
+For a previously issued autocall, call `remaining_cashflows(as_of, ...)` on
+each original leg before passing the residual graphs to `from_legs`. Pass
+published `fixings=[(underlying_id, observation_date, value), ...]` in the
+observation units of the note. For composite performance use the historical
+share price times the historical settlement-currency FX at that observation.
+Pre-dividend observations have a separate `pre_dividend_fixings` input.
+
+Pass `settled_outputs` as zero-based indices of confirmed payments in that
+graph. The residual carries missed coupons forward, removes cash flows
+cancelled by an observed call, and retains determined payments still due.
+A nonzero overdue amount needs explicit settlement or closeout. A fully
+redeemed and settled note has zero residual value. If FX for an unpaid amount
+was already published, use `with_leg_fx` on the residual with its fixing date
+and published rate. [Seasoned note tests](../../tests/python/test_cross_currency_seasoned.py)

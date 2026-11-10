@@ -1,4 +1,5 @@
 //! Multi-stock payoff graphs valued jointly in the settlement currency.
+use super::basket_leg::{BasketLeg, CashConversion};
 use super::basket_rates::BasketRateStep;
 use super::exotic::payment_fx_schedule;
 use super::model_path::{StockPath, joint_grid};
@@ -65,24 +66,10 @@ struct ForeignCurrency {
     discount: LogLinearDiscountCurve,
 }
 
-#[derive(Clone, Copy, Debug)]
-enum CashConversion {
-    Fixed(f64),
-    Floating(usize),
-}
-impl CashConversion {
-    fn conversion(self, quote: impl FnOnce(usize) -> f64) -> f64 {
-        match self {
-            Self::Fixed(f) => f,
-            Self::Floating(currency) => quote(currency),
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct CrossCurrencyEquityBasket {
     valuation: Date,
-    legs: Vec<(GraphProduct, CashConversion)>,
+    legs: Vec<BasketLeg>,
     stocks: Vec<ForeignEquity>,
     domestic_curve: Arc<LogLinearDiscountCurve>,
     composite: bool,
@@ -93,7 +80,6 @@ pub struct CrossCurrencyEquityBasket {
     drivers: CorrelationFactor,
     quanto_drift: Vec<f64>,
     rates: Option<Vec<HullWhite1Factor>>,
-    fixings: BTreeMap<Date, Date>,
 }
 
 pub(super) const TOLERANCE: CorrelationToleranceConfig = CorrelationToleranceConfig {
@@ -188,7 +174,7 @@ impl CrossCurrencyEquityBasket {
         let domestic = product.currency();
         Self::build(
             valuation,
-            vec![(product, conversion)],
+            vec![BasketLeg::new(product, conversion)],
             stocks,
             domestic,
             domestic_curve,
@@ -231,7 +217,7 @@ impl CrossCurrencyEquityBasket {
                         ))?;
                     CashConversion::Floating(k)
                 };
-                Ok((product, conversion))
+                Ok(BasketLeg::new(product, conversion))
             })
             .collect::<Result<_, Error>>()?;
         Self::build(
@@ -251,7 +237,7 @@ impl CrossCurrencyEquityBasket {
     #[allow(clippy::too_many_arguments)]
     fn build(
         valuation: Date,
-        legs: Vec<(GraphProduct, CashConversion)>,
+        legs: Vec<BasketLeg>,
         stocks: Vec<ForeignEquity>,
         settlement_currency: CurrencyId,
         domestic_curve: Arc<LogLinearDiscountCurve>,
@@ -271,9 +257,12 @@ impl CrossCurrencyEquityBasket {
         let underlyings = legs
             .first()
             .ok_or(Error::Invalid("at least one cash-flow leg is required"))?
-            .0
+            .graph
             .underlyings();
-        if legs.iter().any(|(g, _)| g.underlyings() != underlyings) {
+        if legs
+            .iter()
+            .any(|leg| leg.graph.underlyings() != underlyings)
+        {
             return Err(Error::Invalid(
                 "cash-flow legs must declare the same ordered underlyings",
             ));
@@ -397,7 +386,7 @@ impl CrossCurrencyEquityBasket {
         };
         if legs
             .iter()
-            .any(|(g, _)| g.payment_dates().iter().any(|&p| p < valuation))
+            .any(|leg| leg.graph.payment_dates().iter().any(|&p| p < valuation))
         {
             return Err(Error::Invalid(
                 "historical payments require realized cash flows",
@@ -415,7 +404,6 @@ impl CrossCurrencyEquityBasket {
             drivers,
             quanto_drift,
             rates,
-            fixings: BTreeMap::new(),
         })
     }
 
@@ -450,9 +438,8 @@ impl CrossCurrencyEquityBasket {
     pub fn with_payment_fx_fixings(mut self, schedule: &[(Date, Date)]) -> Result<Self, Error> {
         let floating: Vec<_> = self
             .legs
-            .iter()
-            .filter(|(_, c)| matches!(c, CashConversion::Floating(_)))
-            .map(|(g, _)| g)
+            .iter_mut()
+            .filter(|leg| leg.is_floating())
             .collect();
         if floating.is_empty() {
             return Err(Error::Invalid(
@@ -460,21 +447,27 @@ impl CrossCurrencyEquityBasket {
             ));
         }
         let fixings = payment_fx_schedule(
-            floating.iter().flat_map(|g| g.payment_dates()),
+            floating.iter().flat_map(|leg| leg.graph.payment_dates()),
             self.valuation,
             schedule,
         )?;
-        if fixings.iter().any(|(p, f)| p != f) {
-            for graph in floating {
-                let dates = graph
+        for leg in floating {
+            let schedule: Vec<_> = fixings
+                .iter()
+                .filter(|(pay, _)| leg.graph.payment_dates().contains(pay))
+                .map(|(&p, &f)| (p, f))
+                .collect();
+            if schedule.iter().any(|(p, f)| p != f) {
+                let g = &leg.graph;
+                let dates = g
                     .payment_dates()
                     .iter()
                     .map(|p| *fixings.get(p).unwrap_or(p))
                     .collect();
                 GraphProduct::new(
-                    graph.currency(),
-                    graph.underlyings().to_vec(),
-                    graph.source_graph().clone(),
+                    g.currency(),
+                    g.underlyings().to_vec(),
+                    g.source_graph().clone(),
                     dates,
                 )
                 .map_err(|_| {
@@ -483,8 +476,24 @@ impl CrossCurrencyEquityBasket {
                     )
                 })?;
             }
+            leg.set_terms(self.valuation, None, &schedule, &[])?;
         }
-        self.fixings = fixings;
+        Ok(self)
+    }
+
+    /// Replace one foreign leg's conversion independently. Each fixing can
+    /// precede the amount determination; already published rates are explicit.
+    pub fn with_leg_fx(
+        mut self,
+        leg_index: usize,
+        fixed_fx_rate: Option<f64>,
+        schedule: &[(Date, Date)],
+        known_fixings: &[(Date, f64)],
+    ) -> Result<Self, Error> {
+        self.legs
+            .get_mut(leg_index)
+            .ok_or(Error::Invalid("unknown cash-flow leg index"))?
+            .set_terms(self.valuation, fixed_fx_rate, schedule, known_fixings)?;
         Ok(self)
     }
 
@@ -496,16 +505,26 @@ impl CrossCurrencyEquityBasket {
         let payoffs = self
             .legs
             .iter()
-            .map(|(g, conversion)| {
+            .map(|leg| {
+                let payments: Vec<_> = leg
+                    .graph
+                    .payment_dates()
+                    .iter()
+                    .map(|&pay| {
+                        let (fixing, conversion) = leg.conversion(pay);
+                        (pay, fixing, conversion)
+                    })
+                    .collect();
                 Ok((
-                    g.source_graph().compile(GraphLimitPolicy::DEFAULT)?,
-                    g.payment_dates(),
-                    *conversion,
+                    leg.graph
+                        .source_graph()
+                        .compile(GraphLimitPolicy::DEFAULT)?,
+                    payments,
                 ))
             })
             .collect::<Result<Vec<_>, Error>>()?;
         let asset_index: BTreeMap<_, _> = self.legs[0]
-            .0
+            .graph
             .underlyings()
             .iter()
             .copied()
@@ -513,15 +532,19 @@ impl CrossCurrencyEquityBasket {
             .map(|(i, u)| (u, i))
             .collect();
         let mut ends = vec![self.valuation; self.stocks.len()];
-        let mut dates: BTreeMap<Date, usize> = self.fixings.values().map(|&d| (d, 0)).collect();
+        let mut dates: BTreeMap<Date, usize> = payoffs
+            .iter()
+            .flat_map(|(_, flows)| flows.iter().map(|&(_, f, _)| (f, 0)))
+            .collect();
         dates.insert(self.valuation, 0);
         let last_payment = self
             .legs
             .iter()
-            .map(|(g, _)| g.last_payment_date())
+            .map(|leg| leg.graph.last_payment_date())
             .max()
             .expect("nonempty legs");
-        for (graph, _) in &self.legs {
+        for leg in &self.legs {
+            let graph = &leg.graph;
             dates.extend(graph.payment_dates().iter().map(|&p| (p, 0)));
             for &(id, d) in graph.observations() {
                 if d < self.valuation {
@@ -549,12 +572,15 @@ impl CrossCurrencyEquityBasket {
                 })
             };
             let mut total = 0.;
-            for (payoff, _, conversion) in &payoffs {
-                let amount: f64 = payoff
-                    .evaluate_with_pre_dividend_spots(spot, spot)?
+            for (payoff, payments) in &payoffs {
+                let amounts = payoff.evaluate_with_pre_dividend_spots(spot, spot)?;
+                total += amounts
                     .iter()
-                    .sum();
-                total += amount * conversion.conversion(|k| self.currencies[k].quote.spot.get());
+                    .zip(payments)
+                    .map(|(a, &(_, _, c))| {
+                        a * c.conversion(|k| self.currencies[k].quote.spot.get())
+                    })
+                    .sum::<f64>();
             }
             return Estimate::new(total, 0., total, total, EstimatorKind::Analytical, 1)
                 .map_err(Error::numerical);
@@ -623,12 +649,12 @@ impl CrossCurrencyEquityBasket {
             .collect::<Result<Vec<_>, Error>>()?;
         let payoffs: Vec<_> = payoffs
             .into_iter()
-            .map(|(payoff, payments, conversion)| {
+            .map(|(payoff, payments)| {
                 let indices: Vec<_> = payments
                     .iter()
-                    .map(|p| (dates[p], dates[self.fixings.get(p).unwrap_or(p)]))
+                    .map(|&(p, f, c)| (dates[&p], dates[&f], c))
                     .collect();
-                (payoff, indices, conversion)
+                (payoff, indices)
             })
             .collect();
         let roots: Vec<_> = times.windows(2).map(|w| (w[1] - w[0]).sqrt()).collect();
@@ -741,7 +767,7 @@ impl CrossCurrencyEquityBasket {
                 )
             };
             let mut total = 0.;
-            for (payoff, cashflows, conversion) in &payoffs {
+            for (payoff, cashflows) in &payoffs {
                 let flows = payoff.evaluate_with_pre_dividend_spots(
                     |u, d| observed(u, d, false),
                     |u, d| observed(u, d, true),
@@ -749,7 +775,7 @@ impl CrossCurrencyEquityBasket {
                 total += flows
                     .iter()
                     .zip(cashflows)
-                    .map(|(a, &(p, f))| a * discounts[p] * conversion.conversion(|k| fx[k][f]))
+                    .map(|(a, &(p, f, c))| a * discounts[p] * c.conversion(|k| fx[k][f]))
                     .sum::<f64>();
             }
             Ok(total)

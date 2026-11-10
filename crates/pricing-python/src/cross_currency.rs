@@ -455,6 +455,31 @@ impl PyCrossCurrencyEquityBasket {
             })
     }
 
+    /// Replace the FX terms of one zero-based leg. Schedule entries are
+    /// (payment, fixing); historical entries supply (fixing, published rate).
+    #[pyo3(signature=(leg_index, *, fixed_fx_rate=None, schedule=None, known_fixings=None))]
+    fn with_leg_fx(
+        &self,
+        py: Python<'_>,
+        leg_index: usize,
+        fixed_fx_rate: Option<f64>,
+        schedule: Option<Vec<(Py<PyAny>, Py<PyAny>)>>,
+        known_fixings: Option<Vec<(Py<PyAny>, f64)>>,
+    ) -> PyResult<Self> {
+        let path = "/cross_currency/leg_fx";
+        let dates = payment_dates(py, schedule.unwrap_or_default())?;
+        let known = known_fixings
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(date, rate)| Ok((date_from_python(py, date.bind(py), path)?, rate)))
+            .collect::<PyResult<Vec<_>>>()?;
+        self.inner
+            .clone()
+            .with_leg_fx(leg_index, fixed_fx_rate, &dates, &known)
+            .map(|inner| Self { inner })
+            .map_err(|e| domain_error(py, "invalid_leg_fx", path, e))
+    }
+
     #[pyo3(signature=(engine,*,worker_threads=1,reduction_block_size=None))]
     fn price_mc(
         &self,

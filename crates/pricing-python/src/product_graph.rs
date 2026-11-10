@@ -51,6 +51,32 @@ impl PyGraphProduct {
             .map(|inner| Self { inner })
             .map_err(|e| wire_error(py, e))
     }
+    /// Freeze available stock observations and remove confirmed settlements.
+    #[pyo3(signature=(as_of, *, fixings=None, pre_dividend_fixings=None, settled_outputs=None))]
+    fn remaining_cashflows(
+        &self,
+        py: Python<'_>,
+        as_of: &Bound<'_, PyAny>,
+        fixings: Option<Vec<(u32, Py<PyAny>, f64)>>,
+        pre_dividend_fixings: Option<Vec<(u32, Py<PyAny>, f64)>>,
+        settled_outputs: Option<Vec<usize>>,
+    ) -> PyResult<Self> {
+        let path = "/product/fixings";
+        let as_of = graph_date(py, as_of, path)?;
+        let records = |items: Option<Vec<(u32, Py<PyAny>, f64)>>| {
+            items
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(id, d, v)| Ok((UnderlyingId::new(id), graph_date(py, d.bind(py), path)?, v)))
+                .collect::<PyResult<Vec<_>>>()
+        };
+        let fixings = records(fixings)?;
+        let pre = records(pre_dividend_fixings)?;
+        self.inner
+            .remaining_cashflows(as_of, &fixings, &pre, &settled_outputs.unwrap_or_default())
+            .map(|inner| Self { inner })
+            .map_err(|e| invalid(py, e))
+    }
     fn to_json(&self) -> PyResult<String> {
         pricing::product_graph_to_json(&self.inner).map_err(crate::errors::serialize_exception)
     }

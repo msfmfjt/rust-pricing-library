@@ -137,6 +137,43 @@ class AutocallLegTests(unittest.TestCase):
         expected = NOTIONAL*self.discount(PAY) + 20.*150.*math.exp(-.09*years(PAY))
         self.assertAlmostEqual(result.value, expected, delta=6.*result.standard_error+1.e-8)
 
+    def test_different_fixing_dates_on_one_payment_and_foreign_quanto_principal(self):
+        obs = [rp.AutocallObservation(OBS, PAY, coupon_amount=13., coupon_level=.9)]
+        products = legs(note_terms(obs, notional=900., on_maturity="forfeit"), USD, EUR)
+        base = self.basket(products)
+        floating = base.with_leg_fx(0, schedule=[(PAY, FIRST)]).with_leg_fx(1, schedule=[(PAY, END)])
+        both = floating.price_mc(self.engine)
+        expected = self.discount(PAY)*(13.*self.fx(USD,FIRST) + 900.*self.fx(EUR,END))
+        self.assertAlmostEqual(both.value, expected, places=7)
+        fixed = floating.with_leg_fx(1, fixed_fx_rate=160.).price_mc(self.engine)
+        self.assertAlmostEqual(fixed.value,self.discount(PAY)*(13.*self.fx(USD,FIRST)+900.*160.),places=7)
+        # Replacing a leg's terms restores payment-day FX on that leg only.
+        restored = floating.with_leg_fx(1, fixed_fx_rate=160.).with_leg_fx(1).price_mc(self.engine)
+        self.assertAlmostEqual(restored.value,self.discount(PAY)*(13.*self.fx(USD,FIRST)+900.*self.fx(EUR,PAY)),places=7)
+
+    def test_published_fx_applies_to_the_right_leg_and_payment(self):
+        obs = [rp.AutocallObservation(OBS, PAY, coupon_amount=13., coupon_level=.9)]
+        products = legs(note_terms(obs, notional=900., on_maturity="forfeit"), USD, EUR)
+        base = self.basket(products)
+        past = "2025-12-29"
+        for day in [past,TODAY]:
+            priced = base.with_leg_fx(0,schedule=[(PAY,day)],known_fixings=[(day,121.)])
+            priced = priced.with_leg_fx(1,schedule=[(PAY,day)],known_fixings=[(day,175.)])
+            self.assertAlmostEqual(priced.price_mc(self.engine).value,
+                                   self.discount(PAY)*(13.*121.+900.*175.),places=7)
+        due_today = note_terms([rp.AutocallObservation(TODAY,TODAY,coupon_amount=13.,coupon_level=.9)],
+                               maturity=TODAY,maturity_payment=TODAY,notional=900.)
+        immediate = self.basket(legs(due_today,USD,JPY)).with_leg_fx(
+            0,schedule=[(TODAY,past)],known_fixings=[(past,121.)]).price_mc(self.engine)
+        self.assertEqual((immediate.value, immediate.standard_error),(13.*121.+900.,0.))
+        for invalid in [dict(schedule=[(PAY,past)]), dict(known_fixings=[(past,17.)]),
+                        dict(schedule=[(PAY,FIX)],known_fixings=[(FIX,121.)]),
+                        dict(schedule=[(PAY,past)],known_fixings=[(past,0.)]),
+                        dict(schedule=[(PAY,OBS),(PAY,FIX)]),
+                        dict(fixed_fx_rate=1.,schedule=[(PAY,OBS)]),dict(fixed_fx_rate=0.)]:
+            with self.assertRaises(ValueError):
+                base.with_leg_fx(0,**invalid)
+
     def test_invalid_currency_underlyings_and_fx_fixings(self):
         obs = [rp.AutocallObservation(OBS,FIX,coupon_amount=1.,coupon_level=.8)]
         terms = note_terms(obs, on_maturity="forfeit")
