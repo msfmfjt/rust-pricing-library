@@ -64,13 +64,13 @@ carries its payment dates in its product definition.
 | Settlement | Path and cash-flow convention |
 | --- | --- |
 | `quanto` | Observe the stock in foreign units. Multiply every cash flow, including any rebate, by the fixed FX rate. |
-| `floating_fx` | Observe the stock in foreign units. Asian, lookback, digital and barrier payoffs fix FX at expiry. A payoff graph fixes FX on each output's payment date. Early exercise fixes and pays at exercise. |
+| `floating_fx` | Observe the stock in foreign units. Asian, lookback, digital and barrier payoffs fix FX at expiry. A payoff graph defaults to FX on each payment date and accepts an earlier fixing for each payment. Early exercise fixes and pays at exercise. |
 | `composite` | Every observation is the contemporaneous product of FX and stock price. Supply strikes, barrier levels, cash rebates and historical stock fixings in settlement-currency units. |
 
 For example, a composite arithmetic Asian averages $X_i S_i$ on its observation
 dates. A floating-FX Asian averages $S_i$, applies the foreign strike and
-converts the result at expiry. An FX fixing before the final observation, or a
-barrier on FX alone, requires an explicit equity/FX payoff model outside this API.
+converts the result at expiry. An FX fixing before the last equity observation
+needed for the same cash flow, or a barrier on FX alone, requires a joint equity/FX payoff model.
 
 With deterministic rates and constant volatilities, each convention reduces to
 a one-factor equity path. The quanto uses the domestic-measure foreign-stock
@@ -78,8 +78,8 @@ drift. Its forward on **each** observation date includes the covariance adjustme
 The composite follows the domestic equity law with the combined volatility
 above. A floating-FX cash flow fixed at $T$ and paid at $P$ uses the foreign
 equity law and multiplies the native foreign PV by $F_X(T)D_d(P)/D_f(P)$.
-When FX fixes on payment, the multiplier is $X_0$, including for each graph
-output and at an exercise stopping time. The reported standard error and
+When FX fixes on payment, the multiplier is $X_0$, including at an exercise
+stopping time. The reported standard error and
 confidence interval use the same currency conversion. [Kwok and Wong, path-dependent foreign equity options](https://www.math.hkust.edu.hk/~maykwok/piblications/wongcurrency.pdf)
 
 Continuous barriers use a conditional Brownian bridge split at changes of
@@ -90,3 +90,38 @@ policy. Single-stock autocalls use `Product.from_graph(graph)`, with
 the graph obtained from `contract.to_graphs(valuation_date, [stock_id])`.
 Arithmetic and geometric averages, knock states and early-redemption conditions
 in these graphs use the original contractual operations. [Exotic pricing tests](../../tests/python/test_cross_currency_exotics.py)
+
+### Multi-payment autocalls
+
+The quarterly USD/JPY example pays a 2% coupon when the observation meets
+the coupon barrier. Missed coupons lapse. A call pays the principal and any coupon due that period.
+If the note reaches maturity below 70% of its initial reference, redemption
+is proportional to final performance. For `quanto` and `floating_fx`, the
+contract states the principal and trigger levels in USD. For `composite`, it
+states the principal in JPY and tests the triggers against the JPY value of
+the stock on each observation date. [Runnable autocall example](../../examples/python/cross_currency_autocall.py)
+
+For a single-stock memory autocall, build `MultiAssetProduct.autocallable` with
+`memory=True` and pass `Product.from_graph(product.to_graph())` to the pricing
+model. A recovered coupon uses the FX fixing for the date when it is actually
+paid. The existing `on_autocall` and `on_maturity` settings govern outstanding
+coupons at redemption.
+
+A floating-FX coupon or redemption uses the FX rate on its payment date by
+default. To use an earlier fixing, pass pairs of (payment date, FX fixing date)
+to `with_payment_fx_fixings`. For example, a coupon and principal due July 14
+can both convert at the July 7 observation.
+
+```python
+note = note.with_payment_fx_fixings([("2026-07-14", "2026-07-07")])
+estimate = note.price_mc(engine)
+```
+
+Each pair applies to all cash flows on that payment date, including amounts
+that depend on earlier coupon or call events. Unlisted payments use payment-day FX.
+The fixing date must be on or after valuation and the last equity observation
+that determines the payment, and on or before payment. Each call supplies a
+replacement schedule. For a foreign amount $A$ determined by fixing date $F$
+and paid on $P$, the domestic PV is $X_0 D_f(F) D_d(P)/D_d(F)\,\mathbb{E}_f[A]$.
+The simulation aggregates all payments on the same paths before estimating the
+standard error. [Autocall validation cases](../../tests/python/test_cross_currency_autocall.py)

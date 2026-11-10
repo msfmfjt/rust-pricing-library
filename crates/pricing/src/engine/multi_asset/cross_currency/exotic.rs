@@ -1,17 +1,100 @@
 use super::{CrossCurrencyEquityOption, EquityFxSettlement};
-use crate::core::{DayCountConvention, PositiveF64};
+use crate::core::{Date, DayCountConvention, PositiveF64};
 use crate::market::{
     DiscountCurve, EquityForward, EquityMarket, LogLinearDiscountCurve, MarketContext,
 };
 use crate::mc::{EngineConfig, ExecutionPolicy, LsmConfig};
 use crate::models::{BlackScholesSpec, ModelSpec};
 use crate::multi_asset::MultiAssetError as Error;
-use crate::product::ProductSpec;
+use crate::product::{
+    GraphProduct, GraphProductError, ProductSpec, SourceGraphBuilder, SourceOpcode,
+};
 use crate::risk::{RiskRequest, SmileDynamics};
 use crate::{Estimate, PricingRequest, SimulationPlan};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 impl CrossCurrencyEquityOption {
+    /// Set (payment date, FX fixing date) pairs for a floating-FX graph.
+    /// Unspecified payments fix on payment. Each fixing must be on or after
+    /// the last equity observation determining the associated payments.
+    pub fn with_payment_fx_fixings(mut self, schedule: &[(Date, Date)]) -> Result<Self, Error> {
+        let (EquityFxSettlement::FloatingFx, ProductSpec::Graph(graph)) =
+            (self.settlement, &self.product)
+        else {
+            return Err(Error::Invalid(
+                "payment FX fixings require a floating_fx payoff graph",
+            ));
+        };
+        let mut fixings = graph
+            .payment_dates()
+            .iter()
+            .map(|&payment| (payment, None))
+            .collect::<BTreeMap<_, _>>();
+        for &(payment, fixing) in schedule {
+            let entry = fixings.get_mut(&payment).ok_or(Error::Invalid(
+                "FX schedule contains an unknown payment date",
+            ))?;
+            if fixing < self.valuation_date || fixing > payment {
+                return Err(Error::Invalid(
+                    "require valuation date <= FX fixing date <= payment date",
+                ));
+            }
+            if entry.replace(fixing).is_some() {
+                return Err(Error::Invalid(
+                    "duplicate payment date in FX fixing schedule",
+                ));
+            }
+        }
+        if schedule.iter().all(|(payment, fixing)| payment == fixing) {
+            self.foreign_fixing_product = None;
+            return Ok(self);
+        }
+
+        // At FX fixing F the foreign amount is known. Its domestic value for
+        // payment P is X(F) * amount * Dd(P)/Dd(F). Use F as the equivalent
+        // foreign payment date so the foreign engine discounts it with Df(F).
+        let source = graph.source_graph();
+        let mut builder = SourceGraphBuilder::from_graph(source);
+        let mut outputs = Vec::with_capacity(source.outputs().len());
+        let mut dates = Vec::with_capacity(source.outputs().len());
+        let time = |date| DayCountConvention::Act365F.year_fraction(self.valuation_date, date);
+        for (&output, &payment) in source.outputs().iter().zip(graph.payment_dates()) {
+            let fixing = fixings[&payment].unwrap_or(payment);
+            let value = if fixing == payment {
+                output
+            } else {
+                let log_ratio = self.domestic_curve.log_discount(time(payment))?
+                    - self.domestic_curve.log_discount(time(fixing))?;
+                let ratio = builder
+                    .literal(PositiveF64::new(log_ratio.exp(), "payment_discount_ratio")?.get())?;
+                builder.push(SourceOpcode::Multiply {
+                    left: output,
+                    right: ratio,
+                })?
+            };
+            outputs.push(value);
+            dates.push(fixing);
+        }
+        // GraphProduct validates that each output is determined by its own date.
+        let adjusted = GraphProduct::new(
+            graph.currency(),
+            graph.underlyings().to_vec(),
+            builder.finish(outputs),
+            dates,
+        )
+        .map_err(|error| match error {
+            // The original graph validated with the same cash flows and stock.
+            // Only bringing their dates forward can invalidate an observation.
+            GraphProductError::Invalid(_) => Error::Invalid(
+                "FX cannot fix before the last equity observation that determines its payment",
+            ),
+            other => Error::numerical(other),
+        })?;
+        self.foreign_fixing_product = Some(ProductSpec::Graph(adjusted));
+        Ok(self)
+    }
+
     pub(super) fn price_exotic(
         &self,
         engine: EngineConfig,
@@ -31,7 +114,7 @@ impl CrossCurrencyEquityOption {
             }
             EquityFxSettlement::FloatingFx => {
                 // Changing numeraire weights the entire equity path up to FX fixing.
-                // Graph cashflows fix FX at each payment; exercise pays immediately.
+                // Graph cashflows are valued at their FX dates. Exercise pays immediately.
                 let factor = match &self.product {
                     ProductSpec::Graph(_) | ProductSpec::AmericanVanilla(_) => self.fx_spot.get(),
                     _ if self.payment_date == self.product.expiry() => self.fx_spot.get(),
@@ -67,7 +150,10 @@ impl CrossCurrencyEquityOption {
         let market = MarketContext::Equity(EquityMarket::new(self.product.currency(), forward));
         let request = PricingRequest::new_with_lsm(
             self.valuation_date,
-            self.product.clone(),
+            self.foreign_fixing_product
+                .as_ref()
+                .unwrap_or(&self.product)
+                .clone(),
             market,
             ModelSpec::BlackScholes(model),
             engine,

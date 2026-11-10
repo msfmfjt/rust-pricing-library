@@ -62,6 +62,7 @@ impl EquityFxDynamics {
 pub struct CrossCurrencyEquityOption {
     valuation_date: Date,
     product: ProductSpec,
+    foreign_fixing_product: Option<ProductSpec>,
     foreign_market: EquityMarket,
     fx_spot: PositiveF64,
     payment_date: Date,
@@ -157,6 +158,7 @@ impl CrossCurrencyEquityOption {
         Ok(Self {
             valuation_date,
             product,
+            foreign_fixing_product: None,
             foreign_market: foreign_market.clone(),
             fx_spot,
             payment_date,

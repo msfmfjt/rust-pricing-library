@@ -83,6 +83,29 @@ impl PyCrossCurrencyEquityOption {
         self.inner.analytical_price().map_err(pricing_exception)
     }
 
+    /// Return a floating-FX graph option with the given (payment, FX fixing) dates.
+    fn with_payment_fx_fixings(
+        &self,
+        py: Python<'_>,
+        schedule: Vec<(Py<PyAny>, Py<PyAny>)>,
+    ) -> PyResult<Self> {
+        let path = "/cross_currency/payment_fx_fixings";
+        let dates = schedule
+            .iter()
+            .map(|(payment, fixing)| {
+                Ok((
+                    date_from_python(py, payment.bind(py), path)?,
+                    date_from_python(py, fixing.bind(py), path)?,
+                ))
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        self.inner
+            .clone()
+            .with_payment_fx_fixings(&dates)
+            .map(|inner| Self { inner })
+            .map_err(|e| domain_error(py, "invalid_payment_fx_fixings", path, e))
+    }
+
     /// Monte Carlo estimate in settlement currency, with native LSM for scheduled exercise.
     #[pyo3(signature=(engine, *, worker_threads=1, reduction_block_size=None, lsm=None))]
     fn price_mc(
