@@ -9,6 +9,8 @@ pub enum BasketRiskFactor {
     EquityVolatility(UnderlyingId),
     DividendYield(UnderlyingId),
     EquityVolOfVol(UnderlyingId),
+    BergomiFactor1(UnderlyingId),
+    BergomiFactor2(UnderlyingId),
     DividendVolatility(UnderlyingId),
     FxSpot(CurrencyId),
     FxVolatility(CurrencyId),
@@ -55,20 +57,31 @@ impl ForeignEquity {
                 self.market = EquityMarket::new(self.market.currency(), f);
             }
             BasketRiskFactor::EquityVolOfVol(_) => {
-                let EquityModelSpec::StochasticVolatility {
-                    factor: crate::VolatilityFactorSpec::Bergomi(factor),
-                    ..
-                } = &mut self.model
-                else {
-                    return Err(Error::Invalid(
-                        "equity_vol_of_vol requires a one-factor Bergomi volatility model",
-                    ));
+                use crate::VolatilityFactorSpec as V;
+                let invalid = Error::Invalid(
+                    "equity_vol_of_vol requires a one- or two-factor Bergomi volatility model",
+                );
+                let EquityModelSpec::StochasticVolatility { factor, .. } = &mut self.model else {
+                    return Err(invalid);
                 };
-                *factor = crate::models::Bergomi1Factor::new(
-                    factor.mean_reversion(),
-                    factor.vol_of_vol() + shift,
-                    factor.correlation(),
-                )?;
+                *factor = match *factor {
+                    V::Bergomi(f) => V::Bergomi(crate::models::Bergomi1Factor::new(
+                        f.mean_reversion(),
+                        f.vol_of_vol() + shift,
+                        f.correlation(),
+                    )?),
+                    V::BergomiTwoFactor(f) => V::BergomiTwoFactor(
+                        crate::models::Bergomi2Factor::new(
+                            f.mean_reversions(),
+                            f.vol_of_vol() + shift,
+                            f.mixing_weight(),
+                            f.spot_correlations(),
+                            f.factor_correlation(),
+                        )
+                        .map_err(Error::numerical)?,
+                    ),
+                    _ => return Err(invalid),
+                };
             }
             BasketRiskFactor::DividendVolatility(_) => {
                 let d = self.dividend_model.ok_or(Error::Invalid(
@@ -150,6 +163,30 @@ impl CrossCurrencyEquityBasket {
                     .find(|s| s.market.forward().underlying() == id)
                     .ok_or(Error::Invalid("unknown equity risk underlying"))?;
                 stock.shift_equity(factor, shift)?;
+            }
+            BasketRiskFactor::BergomiFactor1(id) | BasketRiskFactor::BergomiFactor2(id) => {
+                let index = usize::from(matches!(factor, BasketRiskFactor::BergomiFactor2(_)));
+                let stock = self
+                    .stocks
+                    .iter()
+                    .find(|s| s.market.forward().underlying() == id)
+                    .ok_or(Error::Invalid("unknown equity risk underlying"))?;
+                if !dividend_path::validate_stochastic_rate(&stock.model)?
+                    .is_some_and(|f| index < f.dimension())
+                {
+                    return Err(Error::Invalid(
+                        "volatility coordinate absent from the equity model",
+                    ));
+                }
+                let state = self.dividend_states.get_mut(&id).ok_or(Error::Invalid(
+                    "factor risk requires an observed dividend and volatility state",
+                ))?;
+                if state.age == 0. || !(state.x[index] + shift).is_finite() {
+                    return Err(Error::Invalid(
+                        "factor risk requires a finite shifted state at positive model age",
+                    ));
+                }
+                state.x[index] += shift;
             }
             BasketRiskFactor::DiscountRate(ccy) => {
                 let bumped = if ccy == self.settlement_currency {

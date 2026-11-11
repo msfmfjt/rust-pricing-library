@@ -1,9 +1,11 @@
 //! Buehler equity/dividends under the equity currency money-market
 //! measure, with exact joint Hull--White rate and integrated-rate innovations.
 //! Cash quotes are conditional means under that measure. The joint foreign-stock
-//! adapter can additionally use a one-factor Bergomi conditional cash reserve.
+//! adapter can additionally use a Bergomi conditional cash reserve.
 
 mod bergomi_reserve;
+pub(in crate::engine) mod cash_volatility;
+use cash_volatility::CashVolatility;
 pub(in crate::engine) mod correlation_sensitivity;
 pub(in crate::engine) mod rate_sensitivity;
 pub(in crate::engine) mod reverse;
@@ -27,14 +29,14 @@ const MAX_RESERVE_TERMS: usize = 1_000_000;
 #[derive(Clone, Copy, Debug)]
 pub(in crate::engine) struct BergomiAsOf {
     pub age: f64,
-    pub x: f64,
+    pub x: [f64; 2],
     pub factors: BuehlerDividendState,
 }
 impl Default for BergomiAsOf {
     fn default() -> Self {
         Self {
             age: 0.,
-            x: 0.,
+            x: [0.; 2],
             factors: BuehlerDividendState::initial(),
         }
     }
@@ -45,7 +47,7 @@ pub struct StochasticDividendHullWhiteState {
     factors: BuehlerDividendState,
     rate_factor: f64,
     integrated_rate_factor: f64,
-    pub(in crate::engine) volatility_factor: f64,
+    pub(in crate::engine) volatility_factor: [f64; 2],
 }
 impl StochasticDividendHullWhiteState {
     pub fn new(
@@ -58,7 +60,7 @@ impl StochasticDividendHullWhiteState {
         }
         Ok(Self {
             factors,
-            volatility_factor: 0.,
+            volatility_factor: [0.; 2],
             rate_factor,
             integrated_rate_factor,
         })
@@ -66,7 +68,7 @@ impl StochasticDividendHullWhiteState {
     pub const fn initial() -> Self {
         Self {
             factors: BuehlerDividendState::initial(),
-            volatility_factor: 0.,
+            volatility_factor: [0.; 2],
             rate_factor: 0.0,
             integrated_rate_factor: 0.0,
         }
@@ -100,10 +102,13 @@ struct CashClaim {
     carry_weight: f64,
 }
 impl CashClaim {
-    fn coefficients_at(&self, x: f64) -> Result<([f64; 3], f64), StochasticDividendError> {
+    fn coefficients_at(
+        &self,
+        x: [f64; 2],
+    ) -> Result<([f64; 3], [f64; 2]), StochasticDividendError> {
         let mut c = self.coefficients;
         let Some(row) = &self.correction else {
-            return Ok((c, 0.));
+            return Ok((c, [0.; 2]));
         };
         let (adjustment, gradient) = row.at(x)?;
         c[0] += adjustment;
@@ -179,7 +184,7 @@ impl StochasticDividendHullWhitePathPlan {
         equity_rate_correlation: f64,
         dividend_rate_correlation: f64,
         grid: &LocalVolTimeGrid,
-        bergomi: Option<(crate::models::Bergomi1Factor, BergomiAsOf)>,
+        bergomi: Option<(CashVolatility, BergomiAsOf)>,
     ) -> Result<Self, MonteCarloError> {
         nonnegative(volatility, "equity_volatility")?;
         // Here the second driver in the existing Gaussian helper is W_D,
@@ -271,7 +276,7 @@ impl StochasticDividendHullWhitePathPlan {
                 .iter()
                 .map(|(t, _)| times.partition_point(|u| u < t))
                 .sum();
-            if rows > 32_768 {
+            if rows.saturating_mul(model.cells_per_row()) > 32_768 * 257 {
                 return Err(invalid("Bergomi cash reserve table size").into());
             }
             cash.iter()
@@ -407,12 +412,12 @@ impl StochasticDividendHullWhitePathPlan {
     }
 
     /// Post-cash physical spot gradients w.r.t. log equity factor, log dividend
-    /// factor, the foreign short-rate factor, and the Bergomi OU factor.
+    /// factor, the foreign short-rate factor, and both Bergomi OU coordinates.
     pub(in crate::engine) fn spot_factor_loadings(
         &self,
         index: usize,
         s: StochasticDividendHullWhiteState,
-    ) -> Result<[f64; 4], StochasticDividendError> {
+    ) -> Result<[f64; 5], StochasticDividendError> {
         let node = self.nodes.get(index).ok_or(invalid("time_node_index"))?;
         let equity = s.factors.equity();
         let dividend = s.factors.dividend();
@@ -420,16 +425,18 @@ impl StochasticDividendHullWhitePathPlan {
             * node.residual_growth
             * (s.integrated_rate_factor + node.half_integral_variance).exp()
             * equity;
-        let (mut d, mut r, mut v) = (0., 0., 0.);
+        let (mut d, mut r, mut v) = (0., 0., [0.; 2]);
         for claim in &node.claims {
             let w = claim.carry_weight * claim.amount * (-claim.duration * s.rate_factor).exp();
             let ([a, b, c], gradient) = claim.coefficients_at(s.volatility_factor)?;
-            v += w * equity * gradient;
+            for i in 0..2 {
+                v[i] += w * equity * gradient[i];
+            }
             e += w * a * equity;
             d += w * b * dividend;
             r -= claim.duration * w * (a * equity + b * dividend + c);
         }
-        Ok([e, d, r, v])
+        Ok([e, d, r, v[0], v[1]])
     }
 
     /// Initial funding at another Spot, with every Q cash mean and conditional

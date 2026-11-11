@@ -223,14 +223,13 @@ sides of a dividend event using `builder.spot(..., pre_dividend=True)` and
 With deterministic foreign rates, use Black, one-factor or two-factor Bergomi,
 rough Bergomi, or any of their three residual-equity LSV calibrations. The
 domestic rate can be deterministic or Hull–White. With stochastic foreign
-rates the residual equity can have constant volatility or **one-factor Bergomi
-stochastic volatility**. Both routes fund the stock using the conditional
-discounted dividend reserve. The one-factor route uses
-`EquityModelSpec.stochastic_volatility(initial_volatility, factor)` with
-`VolatilityFactorSpec.bergomi(reversion, vol_of_vol, stock_correlation)`.
-The joint stochastic-rate and stochastic-cash model currently supports those two
-residual-equity specifications. Dividend and volatility drivers each share the
-specified stock Brownian exposure, with independent remaining Brownian drivers.
+rates the residual equity can have constant volatility, one-factor Bergomi or
+two-factor Bergomi. Use `EquityModelSpec.stochastic_volatility` to attach
+either Bergomi model to the residual share. The two-factor constructor takes
+two mean reversions, volatility of volatility, the mixing weight, two
+stock/volatility correlations and the correlation between the volatility drivers.
+The dividend driver shares the specified stock exposure. Its remaining Brownian
+innovation is independent of both volatility drivers' residual innovations.
 Supply future cash means under the stock currency's money-market measure,
 including dividends after the last contractual observation.
 [Dividend-claim benchmarks](../../tests/python/test_cross_currency_dividends.py) ·
@@ -241,19 +240,29 @@ including dividends after the last contractual observation.
 For the one-factor model, the residual equity factor `f` has instantaneous
 volatility `sigma0 * exp(eta * (X - eta * Var(X_age)))`. Here `X` is the
 uncentered Ornstein–Uhlenbeck factor with unit diffusion under the foreign
-measure. Each outstanding cash dividend is valued under its foreign payment-date
+measure. In the two-factor model, replace `X` in the volatility formula by
+the normalized weighted sum of the two OU coordinates and use the variance
+of that sum, including the cross covariance. Each coordinate has its own
+mean reversion. [Bergomi, Smile dynamics III](https://www.risk.net/media/download/920801/download)
+
+Each outstanding cash dividend is valued under its foreign payment-date
 forward measure. The conditional projected dividend factor has the form
-`A(t,X) * f + B(t) * Y + C(t)`, where `Y` is the stochastic cash factor.
+`A(t,X1,X2) * f + B(t) * Y + C(t)`, where `Y` is the stochastic cash factor.
 The implementation retains the analytical constant-volatility coefficients and
 computes the state-dependent correction to `A` by backward Gaussian quadrature.
 It includes the stock/rate covariance and the correlation between stock and
 volatility. A zero volatility of volatility gives the constant-volatility reserve.
-The quadrature uses a 257-point factor grid, seven normal quadrature points,
-and time intervals of at most one week including rate knots. The grid covers
-the absolute starting factor plus nine OU standard deviations to the cash date.
-Quadrature uses constant boundary values for its tails, and a realized path
-outside the grid raises an error. Price standard errors measure sampling
-uncertainty. Time stepping and reserve interpolation also affect accuracy.
+For unequal reversions and two active weights, the backward calculation uses
+a 65 × 65 factor grid, three Gaussian nodes per dimension and cubic interpolation
+in the interior. At the edges and when looking up the reserve on a simulated
+path it uses bilinear interpolation. Equal reversions or an inactive weight
+give an exact reduction to one OU coordinate. The one-dimensional calculation
+uses 257 grid points and seven Gaussian nodes. Both grids include rate knots
+and time intervals of at most one week. Each axis extends nine OU standard
+deviations to the cash date beyond the absolute initial coordinate. Quadrature
+uses constant boundary values for its tails, and a realized path outside the
+grid raises an error. Price standard errors measure sampling uncertainty.
+Time stepping and reserve interpolation also affect accuracy.
 [Independent forward-simulation benchmark](../../crates/pricing/src/engine/processes/stochastic_dividends/hull_white/bergomi_reserve.rs)
 
 At issue the normalized residual equity and cash factors start at one and
@@ -267,6 +276,11 @@ live = live.with_dividend_state(us_stock_id, model_age=age, volatility_factor=.1
                                 equity_factor=.97, dividend_factor=1.06)
 ```
 
+For the two-factor US stock, pass both uncentered coordinates in the same order
+as the two mean reversions. For example, its April state is
+`volatility_factor=(.16, -.09)`. Each stock has an independent choice of model
+and its own observed state.
+
 The model resumes mean reversion and the variance centering at that age.
 Each remaining cash quote is the **current expected ex-date amount per share**.
 The engine divides it by the conditional mean of its dividend factor and
@@ -274,10 +288,14 @@ funds the remaining residual shares from the current physical spot. Omitting
 the state initializes a newly calibrated model at the valuation date.
 On bumps, historical FX, past observations and the supplied factors stay fixed.
 `equity_volatility` shifts the residual volatility scale, `equity_vol_of_vol`
-shifts the one-factor Bergomi volatility of volatility, and `dividend_volatility`
-shifts the Buehler dividend diffusion. All three use the underlying ID. Spot,
+shifts the Bergomi volatility of volatility, and `dividend_volatility`
+shifts the Buehler dividend diffusion. For a seasoned position,
+`bergomi_factor_1` and `bergomi_factor_2` bump each current OU coordinate
+in model order, holding the other observed inputs fixed. These risks use the underlying ID. Spot,
 currency curves, FX and joint scenarios use the existing basket risk interface.
-The example also reprices a ten-basis-point increase in USD short-rate volatility.
+Run `python examples/python/cross_currency_stochastic_dividend_autocall.py --two-factor`
+for issue and April PVs, factor sensitivities and a ten-basis-point increase
+in USD short-rate volatility.
 [USD-coupon, JPY-principal autocall example](../../examples/python/cross_currency_stochastic_dividend_autocall.py) ·
 [JPY funding, replay and risk tests](../../tests/python/test_cross_currency_bergomi_cash_rates.py)
 

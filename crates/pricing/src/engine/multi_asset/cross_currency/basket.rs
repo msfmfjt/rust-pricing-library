@@ -474,10 +474,28 @@ impl CrossCurrencyEquityBasket {
     /// Condition the residual share, cash dividends and Bergomi OU factor on
     /// their as-of states. Future cash quotes are as-of foreign-measure means.
     pub fn with_dividend_state(
-        mut self,
+        self,
         underlying: crate::core::UnderlyingId,
         model_age: f64,
         volatility_factor: f64,
+        equity_factor: f64,
+        dividend_factor: f64,
+    ) -> Result<Self, Error> {
+        self.with_dividend_factors(
+            underlying,
+            model_age,
+            &[volatility_factor],
+            equity_factor,
+            dividend_factor,
+        )
+    }
+
+    /// Supply one OU coordinate for each factor, in model order.
+    pub fn with_dividend_factors(
+        mut self,
+        underlying: crate::core::UnderlyingId,
+        model_age: f64,
+        volatility_factors: &[f64],
         equity_factor: f64,
         dividend_factor: f64,
     ) -> Result<Self, Error> {
@@ -486,21 +504,31 @@ impl CrossCurrencyEquityBasket {
             .iter()
             .find(|s| s.market.forward().underlying() == underlying)
             .ok_or(Error::Invalid("unknown stock in dividend state"))?;
-        if stock.dividend_model.is_none()
-            || dividend_path::validate_stochastic_rate(&stock.model)?.is_none()
-        {
+        let factor = dividend_path::validate_stochastic_rate(&stock.model)?;
+        if stock.dividend_model.is_none() || factor.is_none() {
             return Err(Error::Invalid(
-                "a dividend state requires Buehler dividends and one-factor Bergomi equity volatility",
+                "a dividend state requires Buehler dividends and Bergomi equity volatility",
             ));
         }
-        if !volatility_factor.is_finite() || model_age == 0. && volatility_factor != 0. {
+        if !factor.is_some_and(|f| f.dimension() == volatility_factors.len()) {
+            return Err(Error::Invalid(
+                "supply one volatility coordinate per Bergomi factor, in model order",
+            ));
+        }
+        if volatility_factors
+            .iter()
+            .any(|&v| !v.is_finite() || model_age == 0. && v != 0.)
+        {
             return Err(Error::Invalid(
                 "Bergomi factor must be finite and starts at zero when model age is zero",
             ));
         }
         let snapshot = dividend_path::BergomiAsOf {
             age: NonNegativeF64::new(model_age, "model_age")?.get(),
-            x: volatility_factor,
+            x: [
+                volatility_factors[0],
+                volatility_factors.get(1).copied().unwrap_or(0.),
+            ],
             factors: crate::models::BuehlerDividendState::new(equity_factor, dividend_factor)
                 .map_err(Error::numerical)?,
         };

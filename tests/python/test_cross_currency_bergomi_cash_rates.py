@@ -24,6 +24,11 @@ class HybridCashTests(unittest.TestCase):
                                          dividend_volatility=.4, equity_dividend_correlation=.55)
         self.equity = rp.EquityModelSpec.stochastic_volatility(.25,rp.VolatilityFactorSpec.bergomi(.8,.75,-.55))
 
+    @staticmethod
+    def two_factor(eta=.75, weight=.4):
+        factor = rp.VolatilityFactorSpec.bergomi_two_factor([.8, 2.4], eta, weight, [-.55,-.2], .25)
+        return rp.EquityModelSpec.stochastic_volatility(.25, factor)
+
     def basket(self, graph, equity=None, correlations=None):
         events = [rp.DividendEvent.fixed_cash(i+1, t, amount) for i,(t,amount) in enumerate([
             (example.years(self.as_of,self.mid),9.), (1.,8.), (1.5,11.)])]
@@ -41,8 +46,11 @@ class HybridCashTests(unittest.TestCase):
         product = b.finish([cash,b.spot(10,self.pay,pre_dividend=True)],
                            [self.mid,self.pay], currency_id=USD, underlying_ids=[10])
         base = self.basket(product)
-        for opt in [base, base.with_dividend_state(10,model_age=.6,volatility_factor=.45,
-                                                  equity_factor=.91,dividend_factor=1.17)]:
+        two = self.basket(product, self.two_factor())
+        for opt in [base, two, base.with_dividend_state(10,model_age=.6,volatility_factor=.45,
+                                                       equity_factor=.91,dividend_factor=1.17),
+                    two.with_dividend_state(10,model_age=.6,volatility_factor=(.45,-.2),
+                                             equity_factor=.91,dividend_factor=1.17)]:
             v = opt.price_mc(self.engine)
             self.assertAlmostEqual(v.value,150.*100.,delta=5*v.standard_error+1.)
             delta = opt.sensitivity("fx_spot", USD, .5, self.engine)
@@ -105,6 +113,79 @@ class HybridCashTests(unittest.TestCase):
         self.assertEqual(live.sensitivity("fx_spot",EUR,.1,self.engine).value,0.)
         self.assertGreater(live.sensitivity("fx_spot",USD,.1,self.engine).value,0.)
 
+    def test_two_factor_limits_and_state_dimension(self):
+        b = rp.SourceGraphBuilder()
+        payoff = b.maximum(b.subtract(b.spot(10, self.pay), b.literal(100.)), b.literal(0.))
+        graph = b.finish([payoff], [self.pay], currency_id=JPY, underlying_ids=[10])
+        two = self.basket(graph, self.two_factor())
+
+        def condition(basket, x, age=.6):
+            return basket.with_dividend_state(10, model_age=age, volatility_factor=x,
+                                              equity_factor=.96, dividend_factor=1.1)
+
+        for x in [0., [], [.1], [0.,.1,.2], [0., math.nan]]:
+            with self.assertRaises(ValueError):
+                condition(two, x)
+        with self.assertRaises(ValueError):
+            condition(two, [0.,.1], age=0.)
+        with self.assertRaises(ValueError):
+            condition(self.basket(graph), (.3,.1))
+
+        # An inactive second OU cannot alter the discounted reserves or any payoff.
+        inactive = self.basket(graph, self.two_factor(weight=0.))
+        delta = condition(inactive, [.3,-.4]).scenario_pnl(condition(inactive, [.3,.6]), self.engine)
+        self.assertEqual((delta.value, delta.standard_error), (0., 0.))
+        for first, second in [
+            (condition(inactive, [.3,.6]), condition(self.basket(graph), .3)),
+            (self.basket(graph, self.two_factor(eta=0.)), self.basket(graph,rp.Model.black_scholes(.25))),
+        ]:
+            a, b = first.price_mc(self.engine), second.price_mc(self.engine)
+            self.assertAlmostEqual(a.value,b.value,delta=5*math.hypot(a.standard_error,b.standard_error)+.01)
+
+        # With equal reversions the normalized weighted OU is itself a one-factor OU.
+        weight, rho12 = .4, .25
+        norm = math.sqrt((1-weight)**2 + weight**2 + 2*weight*(1-weight)*rho12)
+        rho = ((1-weight)*(-.55) + weight*(-.2))/norm
+        x = [.41,-.2]
+        equal = rp.VolatilityFactorSpec.bergomi_two_factor([.8,.8],.75,weight,[-.55,-.2],rho12)
+        scalar = rp.VolatilityFactorSpec.bergomi(.8,.75,rho)
+        mixed = ((1-weight)*x[0]+weight*x[1])/norm
+        a = condition(self.basket(graph,rp.EquityModelSpec.stochastic_volatility(.25,equal)),x).price_mc(self.engine)
+        b = condition(self.basket(graph,rp.EquityModelSpec.stochastic_volatility(.25,scalar)),mixed).price_mc(self.engine)
+        self.assertAlmostEqual(a.value,b.value,delta=5*math.hypot(a.standard_error,b.standard_error)+.01)
+        # The first coordinate reverts more slowly here. These states have the same
+        # instantaneous volatility and different subsequent conditional variances.
+        pnl = condition(two,[-.2,.3]).scenario_pnl(condition(two,[.4,-.6]), self.engine)
+        self.assertGreater(pnl.value, 4*pnl.standard_error)
+
+    def test_two_factor_split_note_state_and_volatility_risk(self):
+        issue = example.note(example.VALUATION, two_factor=True)
+        live = example.note(example.REVALUATION, two_factor=True)
+        issue_pv, live_pv = issue.price_mc(self.engine), live.price_mc(self.engine)
+        self.assertGreater(issue_pv.value, 100000.)
+        self.assertGreater(live_pv.value, issue_pv.value)
+        self.assertGreater(live.sensitivity("fx_spot", USD, .5, self.engine).value, 0.)
+        # Rebuild each side independently with the same April observations and FX fixing.
+        h = .05
+        age = example.years(example.VALUATION, example.REVALUATION)
+        f, y, _ = example.APRIL_STATES[0]
+        def bumped_state(index, shift):
+            x = list(example.APRIL_TWO_FACTOR[0])
+            x[index] += shift
+            return live.with_dividend_state(10, model_age=age, volatility_factor=x,
+                                            equity_factor=f, dividend_factor=y)
+        scenarios = [(f"bergomi_factor_{i+1}", bumped_state(i,-h), bumped_state(i,h)) for i in range(2)]
+        scenarios.append(("equity_vol_of_vol",
+                          example.note(example.REVALUATION, two_factor=True, vol_of_vol=(.50,.70)),
+                          example.note(example.REVALUATION, two_factor=True, vol_of_vol=(.60,.70))))
+        for name, down, up in scenarios:
+            with self.subTest(factor=name):
+                risk = live.sensitivity(name,10,h,self.engine)
+                scenario = down.scenario_pnl(up,self.engine)
+                self.assertNotEqual(risk.value, 0.)
+                self.assertAlmostEqual(risk.value, scenario.value/(2*h), places=7)
+                self.assertAlmostEqual(risk.standard_error, scenario.standard_error/(2*h), places=7)
+
     def test_confirmed_call_leaves_a_yen_bond_with_no_equity_or_fx_risk(self):
         original = rp.MultiAssetProduct.autocallable_legs(**contract_terms("floating_fx",JPY,USD),
                                                          coupon_currency_id=USD, principal_currency_id=JPY)
@@ -113,7 +194,7 @@ class HybridCashTests(unittest.TestCase):
         residual = [leg.remaining_cashflows(self.as_of,fixings=history) for leg in original]
         self.assertEqual([leg.payment_dates for leg in residual],[[PAYMENTS[0]],[PAYMENTS[0]]])
         from cross_currency_usd_eur_autocall import equity_markets, model_inputs, FX_QUOTES
-        settings = model_inputs(FX_QUOTES) | dict(equity_models=[self.equity]*2,dividend_models=[self.div]*2)
+        settings = model_inputs(FX_QUOTES) | dict(equity_models=[self.equity,self.two_factor()],dividend_models=[self.div]*2)
         note = rp.CrossCurrencyEquityBasket.from_legs(self.as_of,residual,equity_markets(99.,77.),
                     curve(JPY,.01),settlement_currency_id=JPY,**settings)
         note = note.with_leg_fx(0,schedule=[(PAYMENTS[0],first)],known_fixings=[(first,147.)])

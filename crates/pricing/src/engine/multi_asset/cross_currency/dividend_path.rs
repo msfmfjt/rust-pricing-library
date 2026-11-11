@@ -3,6 +3,9 @@ use super::model_path::refined_target;
 use super::rates::CrossCurrencyHullWhite;
 use crate::engine::processes::stochastic_dividends::StochasticDividendPathPlan;
 pub(super) use crate::engine::processes::stochastic_dividends::hull_white::BergomiAsOf;
+use crate::engine::processes::stochastic_dividends::hull_white::cash_volatility::{
+    CashVolatility, OuStep,
+};
 use crate::engine::processes::stochastic_dividends::hull_white::{
     StochasticDividendHullWhitePathPlan, StochasticDividendHullWhiteState,
 };
@@ -41,24 +44,28 @@ pub(super) fn validate(model: &EquityModelSpec, market: &EquityForward) -> Resul
 
 pub(super) fn validate_stochastic_rate(
     model: &EquityModelSpec,
-) -> Result<Option<crate::models::Bergomi1Factor>, Error> {
+) -> Result<Option<CashVolatility>, Error> {
     match model {
         EquityModelSpec::Standard(ModelSpec::BlackScholes(_) | ModelSpec::Black76(_)) => Ok(None),
         EquityModelSpec::StochasticVolatility {
             factor: VolatilityFactorSpec::Bergomi(f),
             ..
-        } => Ok(Some(*f)),
+        } => Ok(Some(CashVolatility::One(*f))),
+        EquityModelSpec::StochasticVolatility {
+            factor: VolatilityFactorSpec::BergomiTwoFactor(f),
+            ..
+        } => Ok(Some(CashVolatility::Two(*f))),
         _ => Err(Error::Invalid(
-            "stochastic rates and cash dividends support Black or one-factor Bergomi residual-equity volatility",
+            "stochastic rates and cash dividends support Black, one-factor Bergomi or two-factor Bergomi residual-equity volatility",
         )),
     }
 }
 
 pub(super) struct DividendVolatility {
-    factor: crate::models::Bergomi1Factor,
+    factor: CashVolatility,
     // Exact OU transition conditional on the shared stock Brownian increment
     // and the foreign-measure variance centering at the left endpoint.
-    steps: Vec<(crate::models::BergomiTransition, f64)>,
+    steps: Vec<(OuStep, f64)>,
 }
 pub(super) enum DividendPath {
     DeterministicForeignRate(StochasticDividendPathPlan),
@@ -136,12 +143,10 @@ impl DividendPath {
                         .windows(2)
                         .map(|w| {
                             Ok((
-                                factor.transition(w[1] - w[0])?,
-                                factor.vol_of_vol()
-                                    * crate::models::hull_white::b(
-                                        2. * factor.mean_reversion(),
-                                        snapshot.age + w[0],
-                                    ),
+                                factor.transition(w[1] - w[0]).map_err(Error::numerical)?,
+                                factor
+                                    .centering(snapshot.age + w[0])
+                                    .map_err(Error::numerical)?,
                             ))
                         })
                         .collect::<Result<Vec<_>, Error>>()?;
@@ -232,7 +237,10 @@ impl DividendPath {
             // The stock and orthogonal dividend increments are Brownian blocks.
             // Exact OU noise or rough near-cell residuals retain native time order.
             Self::DeterministicForeignRate(path) => (path.random_dimension() as usize, 2),
-            Self::HullWhite { bergomi, .. } => ((2 + usize::from(bergomi.is_some())) * steps, 2),
+            Self::HullWhite { bergomi, .. } => (
+                (2 + bergomi.as_ref().map_or(0, |v| v.factor.dimension())) * steps,
+                2,
+            ),
         }
     }
 
@@ -290,7 +298,7 @@ impl DividendPath {
                     let sigma = if let Some(v) =
                         bergomi.as_ref().filter(|_| i < steps && *volatility > 0.)
                     {
-                        *volatility * (v.factor.vol_of_vol() * (x - v.steps[i].1)).exp()
+                        v.factor.volatility(*volatility, x, v.steps[i].1)
                     } else {
                         *volatility
                     };
@@ -306,15 +314,14 @@ impl DividendPath {
                     if let Some(out) = &mut loadings
                         && i < steps
                     {
-                        let [e, d, r, vol_factor] = path
+                        let [e, d, r, v1, v2] = path
                             .spot_factor_loadings(i, state)
                             .map_err(Error::numerical)?;
                         let mut drivers = dividend_loadings(*model, e * sigma, d, r * rate_vols[i]);
                         if let Some(v) = bergomi {
-                            let rho = v.factor.correlation();
-                            drivers[0] += rho * vol_factor;
-                            drivers[1] =
-                                drivers[1].hypot(((1. - rho) * (1. + rho)).sqrt() * vol_factor);
+                            let [shared, orthogonal] = v.factor.diffusion([v1, v2]);
+                            drivers[0] += shared;
+                            drivers[1] = drivers[1].hypot(orthogonal);
                         }
                         out.push(drivers);
                     }
@@ -329,7 +336,9 @@ impl DividendPath {
                             )
                             .map_err(Error::numerical)?;
                         if let Some(v) = bergomi {
-                            x = v.steps[i].0.evolve(x, shocks[i], shocks[2 * steps + i]);
+                            x = v.steps[i]
+                                .0
+                                .evolve(x, shocks[i], &shocks[2 * steps + i..], steps);
                         }
                     }
                 }

@@ -328,6 +328,8 @@ fn risk_factor(py: Python<'_>, factor: &str, identifier: u32) -> PyResult<Basket
     match factor {
         "equity_spot" => Ok(F::EquitySpot(stock)),
         "equity_volatility" => Ok(F::EquityVolatility(stock)),
+        "bergomi_factor_1" => Ok(F::BergomiFactor1(stock)),
+        "bergomi_factor_2" => Ok(F::BergomiFactor2(stock)),
         "equity_vol_of_vol" => Ok(F::EquityVolOfVol(stock)),
         "dividend_volatility" => Ok(F::DividendVolatility(stock)),
         "dividend_yield" => Ok(F::DividendYield(stock)),
@@ -592,16 +594,28 @@ impl PyCrossCurrencyEquityBasket {
         py: Python<'_>,
         underlying_id: u32,
         model_age: f64,
-        volatility_factor: f64,
+        volatility_factor: &Bound<'_, PyAny>,
         equity_factor: f64,
         dividend_factor: f64,
     ) -> PyResult<Self> {
+        let factors = if let Ok(x) = volatility_factor.extract::<f64>() {
+            vec![x]
+        } else {
+            volatility_factor.extract::<Vec<f64>>().map_err(|_| {
+                domain_error(
+                    py,
+                    "invalid_dividend_state",
+                    "/cross_currency/dividend_state",
+                    "expected a number or a sequence of volatility coordinates",
+                )
+            })?
+        };
         self.inner
             .clone()
-            .with_dividend_state(
+            .with_dividend_factors(
                 pricing::core::UnderlyingId::new(underlying_id),
                 model_age,
-                volatility_factor,
+                &factors,
                 equity_factor,
                 dividend_factor,
             )

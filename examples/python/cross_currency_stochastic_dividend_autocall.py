@@ -1,4 +1,5 @@
 """USD coupons, JPY redemptions, USD/EUR shares with stochastic volatility and cash dividends."""
+import argparse
 from datetime import date
 from math import exp, expm1
 
@@ -14,6 +15,8 @@ CASH_DATES = ["2026-03-18", "2026-06-18", "2026-09-18", "2026-12-18", "2027-03-1
 CASH_MEANS = [[1.20, 1.35, 1.40, 1.50, 1.55], [1.00, 1.10, 1.25, 1.30, 1.40]]
 # April 10 model estimates (normalized residual share, cash dividend factor, volatility factor).
 APRIL_STATES = [(.97, 1.06, .16), (.94, .91, -.18)]
+# Uncentered fast and slow OU estimates, in model order (US, euro-area).
+APRIL_TWO_FACTOR = [(.16, -.09), (-.18, .12)]
 
 
 def years(start, end):
@@ -21,7 +24,7 @@ def years(start, end):
 
 
 def note(as_of, *, vol_of_vol=(.55, .70), dividend_vols=(.30, .38), maximum_step=1./24,
-         usd_rate_vol_shift=0.):
+         usd_rate_vol_shift=0., two_factor=False):
     if as_of not in (VALUATION, REVALUATION):
         raise ValueError("the example supplies two dated market snapshots")
     seasoned = as_of == REVALUATION
@@ -46,7 +49,11 @@ def note(as_of, *, vol_of_vol=(.55, .70), dividend_vols=(.30, .38), maximum_step
                                        curve(4+i, repo), discrete_dividends=events))
         dividends.append(rp.BuehlerDividendModel(mean_reversion=div_k, equity_linkage=alpha,
                                                 dividend_volatility=dividend_vols[i], equity_dividend_correlation=div_rho))
-        factor = rp.VolatilityFactorSpec.bergomi(vol_k, vol_of_vol[i], vol_rho)
+        if two_factor:
+            factor = rp.VolatilityFactorSpec.bergomi_two_factor(
+                [2.*vol_k, .4*vol_k], vol_of_vol[i], .4, [vol_rho, -.25], .25)
+        else:
+            factor = rp.VolatilityFactorSpec.bergomi(vol_k, vol_of_vol[i], vol_rho)
         equities.append(rp.EquityModelSpec.stochastic_volatility(initial_vol, factor))
 
     legs = rp.MultiAssetProduct.autocallable_legs(
@@ -63,7 +70,9 @@ def note(as_of, *, vol_of_vol=(.55, .70), dividend_vols=(.30, .38), maximum_step
     basket = rp.CrossCurrencyEquityBasket.from_legs(
         as_of, legs, stocks, curve(JPY, .01), settlement_currency_id=JPY, **inputs)
     if seasoned:
-        for stock, (f, y, x) in zip(STOCK_IDS, states):
+        for i, (stock, (f, y, x)) in enumerate(zip(STOCK_IDS, states)):
+            if two_factor:
+                x = APRIL_TWO_FACTOR[i]
             basket = basket.with_dividend_state(stock, model_age=age, volatility_factor=x,
                                                 equity_factor=f, dividend_factor=y)
     schedule = [(p, d) for p, d in zip(PAYMENTS, OBSERVATIONS) if p in legs[0].payment_dates]
@@ -72,13 +81,22 @@ def note(as_of, *, vol_of_vol=(.55, .70), dividend_vols=(.30, .38), maximum_step
 
 
 if __name__ == "__main__":
-    engine = rp.Engine.randomized_quasi_monte_carlo(1024, 8237, scramble_count=8,
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--two-factor", action="store_true", help="use two-factor Bergomi for both residual shares")
+    two_factor = parser.parse_args().two_factor
+    points = 8192 if two_factor else 1024
+    engine = rp.Engine.randomized_quasi_monte_carlo(points, 8237, scramble_count=16 if two_factor else 8,
                                                      antithetic=True, brownian_bridge=True)
     for as_of in [VALUATION, REVALUATION]:
-        basket = note(as_of)
+        basket = note(as_of, two_factor=two_factor)
         pv = basket.price_mc(engine)
         print(f"{as_of} PV {pv.value:,.2f} JPY   SE {pv.standard_error:.2f}")
+    factor_risks = [
+        ("bergomi_factor_1", 10, .05, .01, "US fast volatility factor +0.01"),
+        ("bergomi_factor_2", 10, .05, .01, "US slow volatility factor +0.01"),
+    ] if two_factor else []
     for factor, identifier, bump, scale, label in [
+        *factor_risks,
         ("fx_spot", USD, .5, 1., "JPY per USD +1"),
         ("equity_spot", 10, 1., 1., "US share +1 USD"),
         ("equity_spot", 20, 1., 1., "European share +1 EUR"),
@@ -91,6 +109,6 @@ if __name__ == "__main__":
     ]:
         v = basket.sensitivity(factor, identifier, bump, engine)
         print(f"{label:40} {v.value*scale:9.2f} JPY   SE {v.standard_error*scale:.2f}")
-    rate_scenario = note(REVALUATION, usd_rate_vol_shift=.001)
+    rate_scenario = note(REVALUATION, usd_rate_vol_shift=.001, two_factor=two_factor)
     pnl = basket.scenario_pnl(rate_scenario, engine)
     print(f"USD short-rate volatility +10 bp          {pnl.value:9.2f} JPY   SE {pnl.standard_error:.2f}")

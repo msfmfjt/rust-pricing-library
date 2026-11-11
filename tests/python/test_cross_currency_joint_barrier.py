@@ -76,10 +76,14 @@ class JointBarrierTests(unittest.TestCase):
     def test_stochastic_physical_dividends_in_composite_monitoring(self):
         inputs = dividends.CrossCurrencyDividendTests()
         inputs.setUp()
+        original_dividends = inputs.dividends
         for name, model in models(True):
-            if name not in ["BS","Bergomi","Bergomi2 LSV","roughBergomi LSV"]:
+            if name not in ["BS","Bergomi","Bergomi2","Bergomi2 LSV","roughBergomi LSV"]:
                 continue
-            foreign = inputs.foreign if name in ("BS", "Bergomi") else inputs.zero
+            foreign = inputs.foreign if name in ("BS", "Bergomi", "Bergomi2") else inputs.zero
+            inputs.dividends = (rp.BuehlerDividendModel(mean_reversion=.8, equity_linkage=.6,
+                                dividend_volatility=.4, equity_dividend_correlation=.6)
+                                if name == "Bergomi2" else original_dividends)
             def price(p):
                 return inputs.price(p,"composite",model,foreign).price_mc(self.mc).value
             ki = price(self.barrier("composite","knock_in"))
