@@ -1,6 +1,7 @@
 """Independent frozen multi asset API expectations, migrated from the release gate."""
 
 CLASSES = {'CrossCurrencyEquityBasket': {'bases': [], 'members': {
+    'bergomi_quote_risk': {'kind': 'method', 'declaration': 'def bergomi_quote_risk(self, quotes: dict[int, Sequence[tuple[DateLike, Literal["call", "put"], float, float, float]]], engine: Engine, *, bump: float = 0.005, replications: int = 8, worker_threads: int = 1, reduction_block_size: int | None = None) -> BergomiQuoteRisk: ...'},
     'sensitivity': {'kind': 'method', 'declaration': 'def sensitivity(self, factor: Literal["equity_spot", "equity_volatility", "equity_vol_of_vol", "bergomi_factor_1", "bergomi_factor_2", "dividend_volatility", "dividend_yield", "fx_spot", "fx_volatility", "discount_rate"], identifier: int, bump: float, engine: Engine, *, worker_threads: int = 1, reduction_block_size: int | None = None, order: int = 1) -> DiagnosticEstimate: ...'},
     'with_market_shift': {'kind': 'method', 'declaration': 'def with_market_shift(self, factor: Literal["equity_spot", "equity_volatility", "equity_vol_of_vol", "bergomi_factor_1", "bergomi_factor_2", "dividend_volatility", "dividend_yield", "fx_spot", "fx_volatility", "discount_rate"], identifier: int, shift: float) -> CrossCurrencyEquityBasket: ...'},
     'scenario_pnl': {'kind': 'method', 'declaration': 'def scenario_pnl(self, scenario: CrossCurrencyEquityBasket, engine: Engine, *, worker_threads: int = 1, reduction_block_size: int | None = None) -> DiagnosticEstimate: ...'},
@@ -446,3 +447,11 @@ CLASSES = {'CrossCurrencyEquityBasket': {'bases': [], 'members': {
                                           'particle_count': {'kind': 'property'},
                                           'retain_reverse_trace': {'kind': 'property'},
                                           'vol_of_vol': {'kind': 'property'}}}}
+
+CLASSES['BergomiQuoteRisk'] = {'bases': [], 'members': {
+    'present_value': {'kind': 'property', 'declaration': '@property\ndef present_value(self) -> DiagnosticEstimate: ...'},
+    'states': {'kind': 'property', 'declaration': '@property\ndef states(self) -> dict[int, tuple[DiagnosticEstimate, DiagnosticEstimate]]: ...'},
+    'implied_volatilities': {'kind': 'property', 'declaration': '@property\ndef implied_volatilities(self) -> dict[int, tuple[float, float]]: ...'},
+    'price_residuals': {'kind': 'property', 'declaration': '@property\ndef price_residuals(self) -> dict[int, tuple[DiagnosticEstimate, DiagnosticEstimate]]: ...'},
+    'vegas': {'kind': 'property', 'declaration': '@property\ndef vegas(self) -> dict[int, tuple[DiagnosticEstimate, DiagnosticEstimate]]: ...'},
+}}

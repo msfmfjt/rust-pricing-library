@@ -20,6 +20,8 @@ use std::{collections::BTreeMap, ops::Range, sync::Arc};
 #[path = "basket_risk.rs"]
 pub(super) mod risk;
 pub use risk::BasketRiskFactor;
+#[path = "quote_risk.rs"]
+pub mod quote_risk;
 type PathPayoff<'a> = dyn Fn(&[f64]) -> Result<f64, Error> + Sync + 'a;
 
 /// One foreign equity in the graph's declared underlying order.

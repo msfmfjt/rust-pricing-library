@@ -4,7 +4,7 @@ use super::*;
 use crate::engine::risk::report::estimate_from_statistics;
 use crate::mc::{DeterministicStatistics, PseudoMcConfig, RqmcConfig};
 
-fn replicate(engine: EngineConfig, i: u32) -> Result<EngineConfig, Error> {
+pub(super) fn replicate(engine: EngineConfig, i: u32) -> Result<EngineConfig, Error> {
     let offset = u64::from(i).wrapping_mul(0x9e3779b97f4a7c15);
     Ok(match engine {
         EngineConfig::PseudoMonteCarlo(c) => EngineConfig::PseudoMonteCarlo(

@@ -70,6 +70,57 @@ fn payment_dates(
         .collect()
 }
 
+type PythonOptionQuotes = std::collections::BTreeMap<u32, Vec<(Py<PyAny>, String, f64, f64, f64)>>;
+type EstimatePairs = std::collections::BTreeMap<u32, (PyDiagnosticEstimate, PyDiagnosticEstimate)>;
+
+/// Calibration states, independent premium checks and quote vegas by underlying.
+#[pyclass(frozen, name = "BergomiQuoteRisk")]
+pub struct PyBergomiQuoteRisk {
+    inner: pricing::cross_currency::BergomiQuoteRisk,
+}
+impl PyBergomiQuoteRisk {
+    fn pairs(
+        &self,
+        get: impl Fn(&pricing::cross_currency::BergomiStockQuoteRisk) -> [pricing::Estimate; 2],
+    ) -> EstimatePairs {
+        self.inner
+            .stocks
+            .iter()
+            .map(|(id, stock)| {
+                let [a, b] = get(stock).map(PyDiagnosticEstimate::from_estimate);
+                (id.get(), (a, b))
+            })
+            .collect()
+    }
+}
+#[pymethods]
+impl PyBergomiQuoteRisk {
+    #[getter]
+    fn present_value(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.inner.present_value)
+    }
+    #[getter]
+    fn states(&self) -> EstimatePairs {
+        self.pairs(|s| s.states)
+    }
+    #[getter]
+    fn implied_volatilities(&self) -> std::collections::BTreeMap<u32, (f64, f64)> {
+        self.inner
+            .stocks
+            .iter()
+            .map(|(id, s)| (id.get(), s.implied_volatilities.into()))
+            .collect()
+    }
+    #[getter]
+    fn price_residuals(&self) -> EstimatePairs {
+        self.pairs(|s| s.price_residuals)
+    }
+    #[getter]
+    fn vegas(&self) -> EstimatePairs {
+        self.pairs(|s| s.vegas)
+    }
+}
+
 /// A single-equity option or payoff graph settled in a different currency.
 #[pyclass(frozen, name = "CrossCurrencyEquityOption")]
 pub struct PyCrossCurrencyEquityOption {
@@ -628,6 +679,56 @@ impl PyCrossCurrencyEquityBasket {
                     e,
                 )
             })
+    }
+
+    /// Refit seasoned two-factor states to short and long local European premiums.
+    /// Each quote is (expiry, side, strike, market forward, local premium per share).
+    /// Vegas are settlement-currency PV sensitivities per +0.01 Black volatility.
+    #[pyo3(signature=(quotes, engine, *, bump=0.005, replications=8, worker_threads=1, reduction_block_size=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn bergomi_quote_risk(
+        &self,
+        py: Python<'_>,
+        quotes: PythonOptionQuotes,
+        engine: &PyEngine,
+        bump: f64,
+        replications: u32,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<PyBergomiQuoteRisk> {
+        let path = "/cross_currency/bergomi_quotes";
+        let mut inputs = std::collections::BTreeMap::new();
+        for (id, rows) in quotes {
+            let mut quotes = Vec::with_capacity(2);
+            for (expiry, side, strike, forward, premium) in rows {
+                quotes.push(pricing::cross_currency::BergomiOptionQuote {
+                    expiry: date_from_python(py, expiry.bind(py), path)?,
+                    side: crate::builders::option_side(py, &side)?,
+                    strike,
+                    forward,
+                    premium,
+                });
+            }
+            inputs.insert(
+                pricing::core::UnderlyingId::new(id),
+                quotes.try_into().map_err(|_| {
+                    domain_error(
+                        py,
+                        "invalid_option_quotes",
+                        path,
+                        "exactly two quotes per stock are required",
+                    )
+                })?,
+            );
+        }
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        py.detach(|| {
+            self.inner
+                .bergomi_quote_risk(&inputs, bump, engine.inner, replications, policy)
+        })
+        .map(|inner| PyBergomiQuoteRisk { inner })
+        .map_err(|e| domain_error(py, "invalid_quote_risk", path, e))
     }
 
     /// Shift a market quote by an absolute amount, keeping the contract fixed.

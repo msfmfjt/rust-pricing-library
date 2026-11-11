@@ -1617,6 +1617,7 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     product_graph::register(module)?;
     contract::register(module)?;
     module.add_class::<cross_currency::PyCrossCurrencyEquityBasket>()?;
+    module.add_class::<cross_currency::PyBergomiQuoteRisk>()?;
     module.add_class::<cross_currency::PyCrossCurrencyEquityOption>()?;
     module.add_class::<bass_lv::PyBassMarginal>()?;
     module.add_class::<bass_lv::PyBassLvConfig>()?;

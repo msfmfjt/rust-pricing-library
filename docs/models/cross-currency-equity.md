@@ -299,6 +299,53 @@ in USD short-rate volatility.
 [USD-coupon, JPY-principal autocall example](../../examples/python/cross_currency_stochastic_dividend_autocall.py) ·
 [JPY funding, replay and risk tests](../../tests/python/test_cross_currency_bergomi_cash_rates.py)
 
+#### Calibrating the current states from option premiums
+
+On a seasoned two-factor basket, pass two European premiums per selected stock
+in short, then long maturity order. Each tuple contains expiry, call/put, strike,
+the listed option's market forward, and premium per share in the stock currency.
+Expiry is also the payment date. The following April 10 inputs are illustrative.
+
+```python
+quotes = {
+    10: [("2026-07-10", "call", 99., 98.20, 3.34), ("2027-04-10", "put", 96., 95.46, 7.34)],
+    20: [("2026-07-10", "call", 76., 75.89, 3.55), ("2027-04-10", "put", 72., 71.91, 7.09)],
+}
+report = live.bergomi_quote_risk(quotes, engine, bump=.005, replications=8)
+fast, slow = report.states[10]
+usd_short, usd_long = report.vegas[10]
+print(usd_short.value, usd_short.standard_error)  # JPY per +1 volatility point
+```
+
+The current OU coordinates supplied via `with_dividend_state` are the initial
+guess. The fit keeps model age, normalized residual-share and dividend states,
+cash forecasts and all model parameters fixed. The two pricing instruments use
+the stock's local currency measure, its Hull–White curve and its equity/rate
+correlation. Distinct expiries and two separately identifiable factors are
+required. The fit checks the scaled option-price Jacobian before and after
+calibration. It reports a failure if the quotes cannot be fitted.
+
+The quote convention uses Black implied volatility, ACT/365F, the supplied
+forward and the stock currency's discount factor. For each tenor the engine
+replaces its premium by the Black prices at IV plus and minus the bump, refits
+both coordinates to each pair, and revalues the original note. The other
+premium and the other stock's fitted state stay fixed. Historical FX, the
+coupon record and the JPY principal come from the original contract. Each
+vega is `0.01 * (PV_up - PV_down) / (2 * bump)` in settlement currency.
+
+One independent replication covers the base fit, all bumped fits and paired
+note revaluations. Common random numbers within each fit and each pair reduce
+noise. Separate seeds drive calibration, out-of-sample local premium checks,
+and note valuation. The report averages the complete replications and reports
+their sample standard deviation divided by the square root of their count.
+This measures simulation uncertainty conditional on the input premiums and
+model. Quote spreads, model error and finite-grid or finite-bump bias require
+separate analysis. `present_value` is the mean of the independently calibrated
+note PVs. `price_residuals` gives out-of-sample model premium minus input premium
+in each stock currency. `implied_volatilities`, `price_residuals` and `vegas`
+follow the short/long ordering. [Runnable calibration and risk example](../../examples/python/cross_currency_autocall_quote_risk.py) ·
+[Replication and fixed-payment checks](../../tests/python/test_cross_currency_quote_risk.py)
+
 ### Several stocks in one foreign currency
 
 Use `CrossCurrencyEquityBasket` for a basket, worst-of, memory autocall or other

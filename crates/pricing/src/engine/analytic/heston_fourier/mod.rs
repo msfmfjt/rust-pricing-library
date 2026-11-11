@@ -269,6 +269,7 @@ fn black_prices(f: f64, k: f64, d: f64, w: f64) -> (f64, f64) {
 }
 
 mod iv_calibration;
+pub(crate) use iv_calibration::black_iv_and_vega;
 pub use iv_calibration::{
     HestonIvCalibrationEvaluation, HestonIvCalibrationProblem, HestonIvCalibrationQuote,
     HestonIvCalibrationResult, HestonIvGridValidation, HestonIvRefinementOptions,

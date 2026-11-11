@@ -3,6 +3,7 @@ mod basket;
 mod basket_leg;
 mod basket_rates;
 mod continuous_barrier;
+pub use basket::quote_risk::{BergomiOptionQuote, BergomiQuoteRisk, BergomiStockQuoteRisk};
 pub use basket::{
     BasketCurrencyMarkets, BasketFxQuote, BasketRiskFactor, CrossCurrencyEquityBasket,
     ForeignEquity,
