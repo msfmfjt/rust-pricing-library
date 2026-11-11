@@ -21,6 +21,8 @@ impl CashConversion {
 #[derive(Clone, Debug)]
 pub(super) struct BasketLeg {
     pub graph: GraphProduct,
+    pub composite: bool,
+    pub quantity: f64,
     default: CashConversion,
     fixed: Option<f64>,
     // Each entry supplies a date for a simulated rate, or an observed rate.
@@ -28,9 +30,11 @@ pub(super) struct BasketLeg {
 }
 
 impl BasketLeg {
-    pub fn new(graph: GraphProduct, default: CashConversion) -> Self {
+    pub fn new(graph: GraphProduct, default: CashConversion, composite: bool) -> Self {
         Self {
             graph,
+            composite,
+            quantity: 1.,
             default,
             fixed: None,
             payments: BTreeMap::new(),

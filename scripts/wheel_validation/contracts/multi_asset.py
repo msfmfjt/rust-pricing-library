@@ -1,6 +1,7 @@
 """Independent frozen multi asset API expectations, migrated from the release gate."""
 
 CLASSES = {'CrossCurrencyEquityBasket': {'bases': [], 'members': {
+    'bergomi_quote_hedge': {'kind': 'method', 'declaration': 'def bergomi_quote_hedge(self, quotes: dict[int, Sequence[tuple[DateLike, Literal["call", "put"], float, float, float]]], engine: Engine, *, note_quantity: float = 1.0, contract_sizes: dict[int, Sequence[float]] | None = None, whole_contracts: bool = False, bump: float = 0.005, replications: int = 8, worker_threads: int = 1, reduction_block_size: int | None = None) -> BergomiQuoteHedge: ...'},
     'bergomi_quote_risk': {'kind': 'method', 'declaration': 'def bergomi_quote_risk(self, quotes: dict[int, Sequence[tuple[DateLike, Literal["call", "put"], float, float, float]]], engine: Engine, *, bump: float = 0.005, replications: int = 8, worker_threads: int = 1, reduction_block_size: int | None = None) -> BergomiQuoteRisk: ...'},
     'sensitivity': {'kind': 'method', 'declaration': 'def sensitivity(self, factor: Literal["equity_spot", "equity_volatility", "equity_vol_of_vol", "bergomi_factor_1", "bergomi_factor_2", "dividend_volatility", "dividend_yield", "fx_spot", "fx_volatility", "discount_rate"], identifier: int, bump: float, engine: Engine, *, worker_threads: int = 1, reduction_block_size: int | None = None, order: int = 1) -> DiagnosticEstimate: ...'},
     'with_market_shift': {'kind': 'method', 'declaration': 'def with_market_shift(self, factor: Literal["equity_spot", "equity_volatility", "equity_vol_of_vol", "bergomi_factor_1", "bergomi_factor_2", "dividend_volatility", "dividend_yield", "fx_spot", "fx_volatility", "discount_rate"], identifier: int, shift: float) -> CrossCurrencyEquityBasket: ...'},
@@ -454,4 +455,14 @@ CLASSES['BergomiQuoteRisk'] = {'bases': [], 'members': {
     'implied_volatilities': {'kind': 'property', 'declaration': '@property\ndef implied_volatilities(self) -> dict[int, tuple[float, float]]: ...'},
     'price_residuals': {'kind': 'property', 'declaration': '@property\ndef price_residuals(self) -> dict[int, tuple[DiagnosticEstimate, DiagnosticEstimate]]: ...'},
     'vegas': {'kind': 'property', 'declaration': '@property\ndef vegas(self) -> dict[int, tuple[DiagnosticEstimate, DiagnosticEstimate]]: ...'},
+}}
+
+CLASSES['BergomiQuoteHedge'] = {'bases': [], 'members': {
+    'unhedged': {'kind': 'property', 'declaration': '@property\ndef unhedged(self) -> BergomiQuoteRisk: ...'},
+    'hedged': {'kind': 'property', 'declaration': '@property\ndef hedged(self) -> BergomiQuoteRisk: ...'},
+    'theoretical_hedged': {'kind': 'property', 'declaration': '@property\ndef theoretical_hedged(self) -> BergomiQuoteRisk: ...'},
+    'unit_vegas': {'kind': 'property', 'declaration': '@property\ndef unit_vegas(self) -> dict[int, tuple[float, float]]: ...'},
+    'theoretical_quantities': {'kind': 'property', 'declaration': '@property\ndef theoretical_quantities(self) -> dict[int, tuple[float, float]]: ...'},
+    'quantities': {'kind': 'property', 'declaration': '@property\ndef quantities(self) -> dict[int, tuple[float, float]]: ...'},
+    'quantity_standard_errors': {'kind': 'property', 'declaration': '@property\ndef quantity_standard_errors(self) -> dict[int, tuple[float, float]]: ...'},
 }}

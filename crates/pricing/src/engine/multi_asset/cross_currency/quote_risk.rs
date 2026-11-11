@@ -10,6 +10,9 @@ use crate::mc::DeterministicStatistics;
 use crate::product::{OptionSide, SourceGraphBuilder, SourceOpcode, multi_asset::option};
 #[path = "quote_risk/fit.rs"]
 mod fit;
+#[path = "quote_risk/hedge.rs"]
+mod hedge;
+pub use hedge::{BergomiHedgeTerms, BergomiOptionTrade, BergomiQuoteHedge};
 
 /// One European premium per share, paid at expiry in the stock's currency.
 /// The supplied market forward sets the fixed Black quote convention.
@@ -144,6 +147,16 @@ impl CrossCurrencyEquityBasket {
         replications: u32,
         execution: ExecutionPolicy,
     ) -> Result<BergomiQuoteRisk, Error> {
+        let pairs = self.calibration_pairs(quotes, bump, replications)?;
+        self.evaluate_quote_risk(&pairs, bump, engine, replications, execution)
+    }
+
+    fn calibration_pairs(
+        &self,
+        quotes: &BTreeMap<UnderlyingId, [BergomiOptionQuote; 2]>,
+        bump: f64,
+        replications: u32,
+    ) -> Result<BTreeMap<UnderlyingId, [LocalQuote; 2]>, Error> {
         PositiveF64::new(bump, "quote_volatility_bump")?;
         if replications < 2 || replications.checked_mul(3).is_none() || quotes.is_empty() {
             return Err(Error::Invalid(
@@ -194,16 +207,37 @@ impl CrossCurrencyEquityBasket {
                 ],
             );
         }
-        let mut present_values = Vec::new();
-        let mut samples: BTreeMap<_, Vec<StockSample>> =
-            pairs.keys().map(|&id| (id, Vec::new())).collect();
+        Ok(pairs)
+    }
+
+    fn evaluate_quote_risk(
+        &self,
+        pairs: &BTreeMap<UnderlyingId, [LocalQuote; 2]>,
+        bump: f64,
+        engine: EngineConfig,
+        replications: u32,
+        execution: ExecutionPolicy,
+    ) -> Result<BergomiQuoteRisk, Error> {
+        let [samples] = Self::quote_samples([self], pairs, bump, engine, replications, execution)?;
+        samples.report(pairs, engine)
+    }
+
+    /// Each book in a comparison uses the same independently refitted states.
+    fn quote_samples<const N: usize>(
+        books: [&Self; N],
+        pairs: &BTreeMap<UnderlyingId, [LocalQuote; 2]>,
+        bump: f64,
+        engine: EngineConfig,
+        replications: u32,
+        execution: ExecutionPolicy,
+    ) -> Result<[QuoteSamples; N], Error> {
+        let mut samples = books.map(|_| QuoteSamples::default());
         for run in 0..replications {
             let calibration = replicate(engine, 3 * run)?;
             let validation = replicate(engine, 3 * run + 1)?;
             let valuation = replicate(engine, 3 * run + 2)?;
-            let mut base = self.clone();
             let mut fits = BTreeMap::new();
-            for (&id, pair) in &pairs {
+            for (&id, pair) in pairs {
                 let fit = fit_quotes(pair, id, calibration, validation, execution, bump).map_err(
                     |e| {
                         Error::Numerical(format!(
@@ -213,28 +247,62 @@ impl CrossCurrencyEquityBasket {
                         ))
                     },
                 )?;
-                base.dividend_states.get_mut(&id).unwrap().x = fit.x;
                 fits.insert(id, fit);
             }
-            present_values.push(base.price_mc(valuation, execution)?.value().get());
-            for (id, fit) in fits {
-                let mut vegas = [0.; 2];
-                for (j, states) in fit.scenarios.into_iter().enumerate() {
-                    let [lo, hi] = states.map(|x| {
-                        let mut note = base.clone();
-                        note.dividend_states.get_mut(&id).unwrap().x = x;
-                        note
-                    });
-                    vegas[j] = lo.scenario_pnl(&hi, valuation, execution)?.value().get() * 0.01
-                        / (2. * bump);
-                }
-                samples.get_mut(&id).unwrap().push(StockSample {
-                    x: fit.x,
-                    errors: fit.errors,
-                    vegas,
-                });
+            for (book, series) in books.iter().zip(&mut samples) {
+                series.record(book, &fits, bump, valuation, execution)?;
             }
         }
+        Ok(samples)
+    }
+}
+
+#[derive(Default)]
+struct QuoteSamples {
+    present_values: Vec<f64>,
+    stocks: BTreeMap<UnderlyingId, Vec<StockSample>>,
+}
+
+impl QuoteSamples {
+    fn record(
+        &mut self,
+        book: &CrossCurrencyEquityBasket,
+        fits: &BTreeMap<UnderlyingId, QuoteFit>,
+        bump: f64,
+        valuation: EngineConfig,
+        execution: ExecutionPolicy,
+    ) -> Result<(), Error> {
+        let mut base = book.clone();
+        for (id, fit) in fits {
+            base.dividend_states.get_mut(id).unwrap().x = fit.x;
+        }
+        self.present_values
+            .push(base.price_mc(valuation, execution)?.value().get());
+        for (&id, fit) in fits {
+            let mut vegas = [0.; 2];
+            for (j, states) in fit.scenarios.into_iter().enumerate() {
+                let [lo, hi] = states.map(|x| {
+                    let mut note = base.clone();
+                    note.dividend_states.get_mut(&id).unwrap().x = x;
+                    note
+                });
+                vegas[j] =
+                    lo.scenario_pnl(&hi, valuation, execution)?.value().get() * 0.01 / (2. * bump);
+            }
+            self.stocks.entry(id).or_default().push(StockSample {
+                x: fit.x,
+                errors: fit.errors,
+                vegas,
+            });
+        }
+        Ok(())
+    }
+
+    fn report(
+        self,
+        pairs: &BTreeMap<UnderlyingId, [LocalQuote; 2]>,
+        engine: EngineConfig,
+    ) -> Result<BergomiQuoteRisk, Error> {
         let estimate = |values: &[f64]| {
             let kind = match engine {
                 EngineConfig::PseudoMonteCarlo(_) => EstimatorKind::PseudoMonteCarlo,
@@ -244,14 +312,14 @@ impl CrossCurrencyEquityBasket {
             };
             estimate_from_statistics(
                 DeterministicStatistics::from_ordered_values_two_pass(values),
-                u64::from(replications),
+                values.len() as u64,
                 1.,
                 kind,
             )
             .map_err(Error::numerical)
         };
         let mut stocks = BTreeMap::new();
-        for (id, v) in samples {
+        for (id, v) in self.stocks {
             let pair = |field: fn(&StockSample) -> [f64; 2]| -> Result<_, Error> {
                 let column =
                     |i: usize| estimate(&v.iter().map(|s| field(s)[i]).collect::<Vec<_>>());
@@ -268,7 +336,7 @@ impl CrossCurrencyEquityBasket {
             );
         }
         Ok(BergomiQuoteRisk {
-            present_value: estimate(&present_values)?,
+            present_value: estimate(&self.present_values)?,
             stocks,
         })
     }

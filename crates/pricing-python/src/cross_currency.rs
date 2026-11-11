@@ -73,6 +73,95 @@ fn payment_dates(
 type PythonOptionQuotes = std::collections::BTreeMap<u32, Vec<(Py<PyAny>, String, f64, f64, f64)>>;
 type EstimatePairs = std::collections::BTreeMap<u32, (PyDiagnosticEstimate, PyDiagnosticEstimate)>;
 
+type FloatPairs = std::collections::BTreeMap<u32, (f64, f64)>;
+type NativeQuotes = std::collections::BTreeMap<
+    pricing::core::UnderlyingId,
+    [pricing::cross_currency::BergomiOptionQuote; 2],
+>;
+
+fn parse_option_quotes(py: Python<'_>, quotes: PythonOptionQuotes) -> PyResult<NativeQuotes> {
+    let path = "/cross_currency/bergomi_quotes";
+    let mut inputs = std::collections::BTreeMap::new();
+    for (id, rows) in quotes {
+        let mut quotes = Vec::with_capacity(2);
+        for (expiry, side, strike, forward, premium) in rows {
+            quotes.push(pricing::cross_currency::BergomiOptionQuote {
+                expiry: date_from_python(py, expiry.bind(py), path)?,
+                side: crate::builders::option_side(py, &side)?,
+                strike,
+                forward,
+                premium,
+            });
+        }
+        inputs.insert(
+            pricing::core::UnderlyingId::new(id),
+            quotes.try_into().map_err(|_| {
+                domain_error(
+                    py,
+                    "invalid_option_quotes",
+                    path,
+                    "exactly two quotes per stock are required",
+                )
+            })?,
+        );
+    }
+    Ok(inputs)
+}
+
+#[pyclass(frozen, name = "BergomiQuoteHedge")]
+pub struct PyBergomiQuoteHedge {
+    inner: pricing::cross_currency::BergomiQuoteHedge,
+}
+impl PyBergomiQuoteHedge {
+    fn pairs(
+        &self,
+        field: impl Fn(&pricing::cross_currency::BergomiOptionTrade) -> f64,
+    ) -> FloatPairs {
+        self.inner
+            .trades
+            .iter()
+            .map(|(id, [short, long])| (id.get(), (field(short), field(long))))
+            .collect()
+    }
+}
+#[pymethods]
+impl PyBergomiQuoteHedge {
+    #[getter]
+    fn unhedged(&self) -> PyBergomiQuoteRisk {
+        PyBergomiQuoteRisk {
+            inner: self.inner.unhedged.clone(),
+        }
+    }
+    #[getter]
+    fn hedged(&self) -> PyBergomiQuoteRisk {
+        PyBergomiQuoteRisk {
+            inner: self.inner.hedged.clone(),
+        }
+    }
+    #[getter]
+    fn theoretical_hedged(&self) -> PyBergomiQuoteRisk {
+        PyBergomiQuoteRisk {
+            inner: self.inner.theoretical_hedged.clone(),
+        }
+    }
+    #[getter]
+    fn unit_vegas(&self) -> FloatPairs {
+        self.pairs(|t| t.unit_vega)
+    }
+    #[getter]
+    fn theoretical_quantities(&self) -> FloatPairs {
+        self.pairs(|t| t.theoretical_quantity)
+    }
+    #[getter]
+    fn quantities(&self) -> FloatPairs {
+        self.pairs(|t| t.quantity)
+    }
+    #[getter]
+    fn quantity_standard_errors(&self) -> FloatPairs {
+        self.pairs(|t| t.quantity_standard_error)
+    }
+}
+
 /// Calibration states, independent premium checks and quote vegas by underlying.
 #[pyclass(frozen, name = "BergomiQuoteRisk")]
 pub struct PyBergomiQuoteRisk {
@@ -697,30 +786,7 @@ impl PyCrossCurrencyEquityBasket {
         reduction_block_size: Option<u64>,
     ) -> PyResult<PyBergomiQuoteRisk> {
         let path = "/cross_currency/bergomi_quotes";
-        let mut inputs = std::collections::BTreeMap::new();
-        for (id, rows) in quotes {
-            let mut quotes = Vec::with_capacity(2);
-            for (expiry, side, strike, forward, premium) in rows {
-                quotes.push(pricing::cross_currency::BergomiOptionQuote {
-                    expiry: date_from_python(py, expiry.bind(py), path)?,
-                    side: crate::builders::option_side(py, &side)?,
-                    strike,
-                    forward,
-                    premium,
-                });
-            }
-            inputs.insert(
-                pricing::core::UnderlyingId::new(id),
-                quotes.try_into().map_err(|_| {
-                    domain_error(
-                        py,
-                        "invalid_option_quotes",
-                        path,
-                        "exactly two quotes per stock are required",
-                    )
-                })?,
-            );
-        }
+        let inputs = parse_option_quotes(py, quotes)?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
         py.detach(|| {
@@ -729,6 +795,56 @@ impl PyCrossCurrencyEquityBasket {
         })
         .map(|inner| PyBergomiQuoteRisk { inner })
         .map_err(|e| domain_error(py, "invalid_quote_risk", path, e))
+    }
+
+    /// Size signed trades in the calibration options and independently validate
+    /// the fixed portfolio's settlement-currency quote vegas per volatility point.
+    #[pyo3(signature=(quotes,engine,*,note_quantity=1.0,contract_sizes=None,whole_contracts=false,bump=0.005,replications=8,worker_threads=1,reduction_block_size=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn bergomi_quote_hedge(
+        &self,
+        py: Python<'_>,
+        quotes: PythonOptionQuotes,
+        engine: &PyEngine,
+        note_quantity: f64,
+        contract_sizes: Option<std::collections::BTreeMap<u32, [f64; 2]>>,
+        whole_contracts: bool,
+        bump: f64,
+        replications: u32,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<PyBergomiQuoteHedge> {
+        let inputs = parse_option_quotes(py, quotes)?;
+        let terms = pricing::cross_currency::BergomiHedgeTerms {
+            note_quantity,
+            whole_contracts,
+            contract_sizes: contract_sizes
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(id, sizes)| (pricing::core::UnderlyingId::new(id), sizes))
+                .collect(),
+        };
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        py.detach(|| {
+            self.inner.bergomi_quote_hedge(
+                &inputs,
+                &terms,
+                bump,
+                engine.inner,
+                replications,
+                policy,
+            )
+        })
+        .map(|inner| PyBergomiQuoteHedge { inner })
+        .map_err(|e| {
+            domain_error(
+                py,
+                "invalid_quote_hedge",
+                "/cross_currency/bergomi_hedge",
+                e,
+            )
+        })
     }
 
     /// Shift a market quote by an absolute amount, keeping the contract fixed.

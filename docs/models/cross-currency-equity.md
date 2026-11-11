@@ -346,6 +346,47 @@ in each stock currency. `implied_volatilities`, `price_residuals` and `vegas`
 follow the short/long ordering. [Runnable calibration and risk example](../../examples/python/cross_currency_autocall_quote_risk.py) ·
 [Replication and fixed-payment checks](../../tests/python/test_cross_currency_quote_risk.py)
 
+#### Hedging the four quote vegas
+
+Use the same short/long quote pairs to size trades in the listed options.
+Quantities are signed trades from a zero hedge position. Positive buys the
+option, negative sells it. By default the position is one long note and
+one option unit covers one share. Set `note_quantity` for a signed book size.
+Set `contract_sizes` by stock in short/long order for actual contract
+multipliers. With `whole_contracts=True`, each trade is rounded to the
+nearest integer contract, with halfway cases rounded away from zero.
+
+```python
+hedge = live.bergomi_quote_hedge(quotes, engine, contract_sizes={10: (100.,100.), 20: (100.,100.)},
+                                whole_contracts=True, bump=.005, replications=8)
+print(hedge.theoretical_quantities[20], hedge.quantities[20])  # signed EUR contracts
+for book in (hedge.theoretical_hedged, hedge.hedged):
+    eur_long = book.vegas[20][1]
+    print(eur_long.value, eur_long.standard_error)
+```
+
+For a single quote bump, the other three market premiums are fixed. The
+settlement-currency vega per long option contract is the central difference
+in its local Black premiums, multiplied by current spot FX, shares per contract
+and `0.01 / (2 * bump)`. The ideal signed trade is the negative of the note
+position's quote vega divided by that contract vega. `unit_vegas`,
+`theoretical_quantities`, `quantity_standard_errors` and `quantities` have the
+same stock and maturity ordering as the inputs. The sizing standard error
+applies to the unrounded quantity.
+
+The engine freezes the trades and repeats the short/long fits on independent
+random numbers. Each bumped valuation prices the note and all held European
+options on the same settlement-currency paths. The hedge options exercise on
+local physical shares and convert at their expiry FX. The original note keeps
+its own observation and FX-fixing terms. `unhedged.vegas` is the sizing estimate,
+`theoretical_hedged.vegas` gives residuals for frozen fractional quantities, and
+`hedged.vegas` gives residuals for the selected trades (integer contracts when
+requested). Both checks use the same holdout calibrations. For a JPY book all
+three sets of sensitivities are JPY per volatility point. Each residual's standard error includes refitting and
+portfolio sampling uncertainty conditional on the fixed trade quantities.
+The hedged PV is the gross value of the held instruments before the acquisition
+cost of the options. [Reproducible USD/EUR hedge](../../examples/python/cross_currency_autocall_quote_hedge.py)
+
 ### Several stocks in one foreign currency
 
 Use `CrossCurrencyEquityBasket` for a basket, worst-of, memory autocall or other

@@ -80,7 +80,6 @@ pub struct CrossCurrencyEquityBasket {
     stocks: Vec<ForeignEquity>,
     dividend_states: BTreeMap<crate::core::UnderlyingId, dividend_path::BergomiAsOf>,
     domestic_curve: Arc<LogLinearDiscountCurve>,
-    composite: bool,
     currencies: Vec<ForeignCurrency>,
     stock_rate: Vec<usize>,
     maximum_step: f64,
@@ -182,11 +181,14 @@ impl CrossCurrencyEquityBasket {
         let domestic = product.currency();
         Self::build(
             valuation,
-            vec![BasketLeg::new(product, conversion)],
+            vec![BasketLeg::new(
+                product,
+                conversion,
+                matches!(settlement, EquityFxSettlement::Composite),
+            )],
             stocks,
             domestic,
             domestic_curve,
-            matches!(settlement, EquityFxSettlement::Composite),
             markets,
             correlations,
             rate_models,
@@ -225,7 +227,7 @@ impl CrossCurrencyEquityBasket {
                         ))?;
                     CashConversion::Floating(k)
                 };
-                Ok(BasketLeg::new(product, conversion))
+                Ok(BasketLeg::new(product, conversion, composite))
             })
             .collect::<Result<_, Error>>()?;
         Self::build(
@@ -234,7 +236,6 @@ impl CrossCurrencyEquityBasket {
             stocks,
             settlement_currency,
             domestic_curve,
-            composite,
             markets,
             correlations,
             rate_models,
@@ -249,7 +250,6 @@ impl CrossCurrencyEquityBasket {
         stocks: Vec<ForeignEquity>,
         settlement_currency: CurrencyId,
         domestic_curve: Arc<LogLinearDiscountCurve>,
-        composite: bool,
         markets: BasketCurrencyMarkets,
         correlations: Vec<Vec<f64>>,
         rate_models: Option<Vec<HullWhite1Factor>>,
@@ -389,7 +389,6 @@ impl CrossCurrencyEquityBasket {
             stocks,
             dividend_states: BTreeMap::new(),
             domestic_curve,
-            composite,
             currencies,
             stock_rate,
             maximum_step,
@@ -586,6 +585,8 @@ impl CrossCurrencyEquityBasket {
                         .source_graph()
                         .compile(GraphLimitPolicy::DEFAULT)?,
                     payments,
+                    leg.composite,
+                    leg.quantity,
                 ))
             })
             .collect::<Result<Vec<_>, Error>>()?;
@@ -600,7 +601,7 @@ impl CrossCurrencyEquityBasket {
         let mut ends = vec![self.valuation; self.stocks.len()];
         let mut dates: BTreeMap<Date, usize> = payoffs
             .iter()
-            .flat_map(|(_, flows)| flows.iter().map(|&(_, f, _)| (f, 0)))
+            .flat_map(|(_, flows, ..)| flows.iter().map(|&(_, f, _)| (f, 0)))
             .collect();
         dates.insert(self.valuation, 0);
         let last_payment = self
@@ -623,30 +624,30 @@ impl CrossCurrencyEquityBasket {
                 dates.insert(d, 0);
             }
         }
-        let composite = self.composite;
         if last_payment == self.valuation {
-            let spot = |id, _| {
-                asset_index.get(&id).map(|&i| {
-                    self.stocks[i].market.forward().spot().get()
-                        * if composite {
-                            self.stock_rate[i]
-                                .checked_sub(1)
-                                .map_or(1., |k| self.currencies[k].quote.spot.get())
-                        } else {
-                            1.
-                        }
-                })
-            };
             let mut total = 0.;
-            for (payoff, payments) in &payoffs {
-                let amounts = payoff.evaluate_with_pre_dividend_spots(spot, spot)?;
-                total += amounts
-                    .iter()
-                    .zip(payments)
-                    .map(|(a, &(_, _, c))| {
-                        a * c.conversion(|k| self.currencies[k].quote.spot.get())
+            for (payoff, payments, composite, quantity) in &payoffs {
+                let spot = |id, _| {
+                    asset_index.get(&id).map(|&i| {
+                        self.stocks[i].market.forward().spot().get()
+                            * if *composite {
+                                self.stock_rate[i]
+                                    .checked_sub(1)
+                                    .map_or(1., |k| self.currencies[k].quote.spot.get())
+                            } else {
+                                1.
+                            }
                     })
-                    .sum::<f64>();
+                };
+                let amounts = payoff.evaluate_with_pre_dividend_spots(spot, spot)?;
+                total += quantity
+                    * amounts
+                        .iter()
+                        .zip(payments)
+                        .map(|(a, &(_, _, c))| {
+                            a * c.conversion(|k| self.currencies[k].quote.spot.get())
+                        })
+                        .sum::<f64>();
             }
             return evaluate(&[0.], sampling::Layout::default(), &|_| Ok(total));
         }
@@ -717,12 +718,12 @@ impl CrossCurrencyEquityBasket {
             .collect::<Result<Vec<_>, Error>>()?;
         let payoffs: Vec<_> = payoffs
             .into_iter()
-            .map(|(payoff, payments)| {
+            .map(|(payoff, payments, composite, quantity)| {
                 let indices: Vec<_> = payments
                     .iter()
                     .map(|&(p, f, c)| (dates[&p], dates[&f], c))
                     .collect();
-                (payoff, indices)
+                (payoff, indices, composite, quantity)
             })
             .collect();
         let roots: Vec<_> = times.windows(2).map(|w| (w[1] - w[0]).sqrt()).collect();
@@ -832,7 +833,7 @@ impl CrossCurrencyEquityBasket {
                     None => vec![(stock.spot, None)],
                 });
             }
-            let observed = |id, d, pre| {
+            let observed = |id, d, pre, composite| {
                 let j = *dates.get(&d)?;
                 let i = *asset_index.get(&id)?;
                 let (post, before) = spots[i][j];
@@ -846,16 +847,17 @@ impl CrossCurrencyEquityBasket {
                 )
             };
             let mut total = 0.;
-            for (payoff, cashflows) in &payoffs {
+            for (payoff, cashflows, composite, quantity) in &payoffs {
                 let flows = payoff.evaluate_with_pre_dividend_spots(
-                    |u, d| observed(u, d, false),
-                    |u, d| observed(u, d, true),
+                    |u, d| observed(u, d, false, *composite),
+                    |u, d| observed(u, d, true, *composite),
                 )?;
-                total += flows
-                    .iter()
-                    .zip(cashflows)
-                    .map(|(a, &(p, f, c))| a * discounts[p] * c.conversion(|k| fx[k][f]))
-                    .sum::<f64>();
+                total += quantity
+                    * flows
+                        .iter()
+                        .zip(cashflows)
+                        .map(|(a, &(p, f, c))| a * discounts[p] * c.conversion(|k| fx[k][f]))
+                        .sum::<f64>();
             }
             Ok(total)
         })
