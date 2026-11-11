@@ -58,7 +58,7 @@ def run(args):
     lldb=shim/'lldb'
     # Set this in LLDB's embedded Python after LLDB starts. The repository's launch()
     # transports the environment to the inferior. Neither pip nor LLDB loads the dylib.
-    setup="script import os; os.environ['DYLD_INSERT_LIBRARIES']=os.environ['PR206_RECORDER']"
+    setup="script import os; os.environ=dict(os.environ, DYLD_INSERT_LIBRARIES=os.environ['PR206_RECORDER'])"
     lldb.write_text('#!/bin/sh\nexec '+shlex.quote(real_lldb)+' --one-line-before-file '+shlex.quote(setup)+' "$@"\n')
     lldb.chmod(0o700)
     env=dict(os.environ, PATH=str(shim)+os.pathsep+os.environ['PATH'],
