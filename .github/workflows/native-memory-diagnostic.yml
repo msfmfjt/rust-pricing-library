@@ -1,6 +1,16 @@
 name: PR 206 native allocation histories
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      selection:
+        required: true
+        type: choice
+        options:
+          - put-extension-linear_time-4
+          - custom-basis-weighted_time_hats-4-put-fixed_lookback
+          - coupled-basis-coupled_row_hats-4-call-arithmetic_asian
+env:
+  PR206_ADDRESS_COHORT: 1-in-128
 permissions:
   actions: read
   contents: read
@@ -33,6 +43,7 @@ jobs:
           path: pr/dist
           merge-multiple: true
       - name: Verify and run under LLDB
+        timeout-minutes: 315
         run: bash diagnostics/tools/pr206/job.sh
       - name: Seal event records
         if: always()
@@ -47,17 +58,10 @@ jobs:
           retention-days: 7
 
   validation:
-    name: LLDB / ${{ matrix.selection }}
+    name: LLDB / ${{ inputs.selection }}
     needs: prepare
     runs-on: macos-15
     timeout-minutes: 350
-    strategy:
-      fail-fast: false
-      matrix:
-        selection:
-          - custom-basis-weighted_time_hats-4-put-fixed_lookback
-          - coupled-basis-coupled_row_hats-4-call-arithmetic_asian
-          - put-extension-linear_time-4
     env:
-      SELECTION: ${{ matrix.selection }}
+      SELECTION: ${{ inputs.selection }}
     steps: *validation_steps

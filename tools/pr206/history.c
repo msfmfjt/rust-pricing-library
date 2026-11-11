@@ -30,6 +30,7 @@ _Static_assert(ATOMIC_LLONG_LOCK_FREE == 2, "signal-safe 64-bit atomics required
 static _Atomic(struct trace *) active;
 static int image_fd = -1;
 static pid_t owner_pid;
+static unsigned address_mask;
 
 static void map_image(const struct mach_header *header, intptr_t slide) {
     Dl_info image;
@@ -64,6 +65,8 @@ __attribute__((constructor)) static void start(void) {
     for (int i = 1; i < *_NSGetArgc(); i++) if (!strcmp(args[i], marker)) found = 1;
     if (!found) return;
     owner_pid = getpid();
+    const char *sampling = getenv("PR206_ADDRESS_COHORT");
+    address_mask = sampling && !strcmp(sampling, "1-in-128") ? 127 : 0;
     char file[4096];
     int fd = -1;
     for (unsigned i = 0; i < 8; i++) {
@@ -103,6 +106,10 @@ static inline void store_row(struct row *ring, word capacity, word index, const 
 static inline word event(word op, word ptr, word aux, word size, word pc) {
     struct trace *t = atomic_load_explicit(&active, memory_order_acquire);
     if (!t) return 0;
+    // Apply the same stable hash to malloc and free. Record a realloc return
+    // for a selected old address even when the new address is outside the cohort.
+    if (address_mask && (!ptr || (mix(ptr) & address_mask)) &&
+        !(op == REALLOC_RETURN && aux)) return 0;
     word seq = atomic_fetch_add_explicit(&t->all_count, 1, memory_order_relaxed) + 1;
     word row[] = {0, seq, op, (uintptr_t)pthread_self(), ptr, aux, size, pc};
     store_row(t->all, ALL, seq, row);

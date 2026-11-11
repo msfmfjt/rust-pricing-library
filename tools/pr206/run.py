@@ -19,7 +19,7 @@ def check_calibration(here,out,env):
     subprocess.run(['clang','-O0','-fno-builtin',str(here/'calibration.c'),'-o',str(exe)],check=True)
     subprocess.run(['codesign','--force','--sign','-',str(exe)],check=True)
     tag='pr206-known-calls'
-    settings=env | {'PR206_EVENT_DIR':str(probe),'PR206_EVENT_ARG':tag}
+    settings=env | {'PR206_EVENT_DIR':str(probe),'PR206_EVENT_ARG':tag,'PR206_ADDRESS_COHORT':'all'}
     code=('from scripts.wheel_validation.native_debugger import run; from pathlib import Path; import sys; '
           'sys.exit(run(sys.argv[2:],Path(sys.argv[1]),"calibration")[0])')
     subprocess.run([sys.executable,'-c',code,str(probe),str(exe),tag],env=settings,check=True,
@@ -88,7 +88,7 @@ def run(args):
     result=json.loads(result_path.read_text()) if result_path.is_file() else {}
     matching=[r for r in histories if r['pid']==result.get('pid') and r['wheel_mapped'] and r['streams']['pricing']['events']>0]
     valid=bool(len(matching)==1 and matching[0]['wheel_allocation_free_pair'] and result.get('valid_process'))
-    stored={'selection':args.selection,'checked_at':utc(),'test_returncode':proc.returncode,'lldb_pid':result.get('pid'),
+    stored={'selection':args.selection,'address_cohort':env.get('PR206_ADDRESS_COHORT','all'),'checked_at':utc(),'test_returncode':proc.returncode,'lldb_pid':result.get('pid'),
             'lldb_state':result.get('state'),'inferior_exit':result.get('exit_code'),'history_verified':valid,
             'histories':histories,'image_version':os.environ.get('ImageVersion'),
             'os_build':subprocess.check_output(['sw_vers','-buildVersion'],text=True).strip(),
