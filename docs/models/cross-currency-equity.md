@@ -580,6 +580,48 @@ difference is paired on the same valuation paths within each cycle.
 | EUR 3m call | 7.558 | 6 (1), 7 (37), 8 (41), 9 (1) |
 | EUR 12m put | 9.920 | 9 (8), 10 (69), 11 (3) |
 
+#### 96-cycle hedge study
+
+Run `--first-cycle 81 --cycles 16` to reproduce the sixth batch or `--cycles 96`
+for the full sample. Each cycle fits the two stocks to the same April 10
+illustrative quotes, sizes the four hedges of 100 long notes using eight
+replications, then uses eight independent replications to refit and revalue
+both frozen portfolios on matched paths. The reference cycle is excluded.
+
+The EUR 12m put fractional residual averaged +3.74 ± 2.08 JPY per note per
+volatility point across 96 cycles. The 95% Student-t interval for the mean
+was [−0.39, +7.86]. Threshold counts use strictly less than −33.87 JPY
+per note for both portfolios. The three fractional observations below that
+threshold were cycles 39 (−36.25), 40 (−36.84) and 80 (−41.18).
+
+| Hedge | Negative, cycles 81–96 | Below −33.87, cycles 81–96 | Negative, cycles 1–96 | Below −33.87, cycles 1–96 |
+|---|---:|---:|---:|---:|
+| Fractional | 7 | 0 | 43 | 3 |
+| Whole contracts | 5 | 0 | 36 | 4 |
+
+All vegas in the next table are JPY per volatility point for 100 notes.
+The fixed-quantity SE is the root mean square of the conditional holdout
+SEs. The full-cycle SE is the sample standard deviation across independent
+sizing and holdout cycles. Each ± entry gives the mean and its SE over
+96 cycles. Rounding effects are computed within each cycle before averaging.
+
+| Option | Fractional SE, fixed / full | Integer SE, fixed / full | Fractional residual ± SE | Integer residual ± SE | Integer minus fractional ± paired SE | Mean absolute difference |
+|---|---:|---:|---:|---:|---:|---:|
+| USD 3m call | 736 / 994 | 736 / 1,368 | −223 ± 101 | −20 ± 140 | +203 ± 87 | 775 |
+| USD 12m put | 1,139 / 1,729 | 1,139 / 1,615 | +211 ± 177 | +812 ± 165 | +601 ± 116 | 1,036 |
+| EUR 3m call | 1,124 / 1,561 | 1,124 / 1,786 | −380 ± 159 | −536 ± 182 | −156 ± 75 | 639 |
+| EUR 12m put | 1,456 / 2,036 | 1,456 / 2,141 | +374 ± 208 | +463 ± 218 | +89 ± 130 | 1,075 |
+
+Each contract covers 100 shares. The signed quantity difference is the mean
+of the executed integer quantity minus the fractional quantity within each cycle.
+
+| Option | Mean fractional buy quantity | Mean quantity difference (contracts) | Executable buy quantity (cycles out of 96) |
+|---|---:|---:|---|
+| USD 3m call | 2.688 | +0.072 | 2 (23), 3 (73) |
+| USD 12m put | 4.849 | +0.109 | 4 (4), 5 (92) |
+| EUR 3m call | 7.561 | −0.061 | 6 (1), 7 (47), 8 (47), 9 (1) |
+| EUR 12m put | 9.929 | +0.019 | 9 (8), 10 (85), 11 (3) |
+
 ### Several stocks in one foreign currency
 
 Use `CrossCurrencyEquityBasket` for a basket, worst-of, memory autocall or other
