@@ -476,6 +476,32 @@ interval of [−3.29, +10.27]. A negative residual occurred repeatedly, but
 the data do not establish a negative mean. With integer contracts, the
 100-note EUR 12m put residual was negative in 12 of 32 cycles.
 
+#### 48-cycle hedge study
+
+Run the example with `--first-cycle 33 --cycles 16` to reproduce the third
+batch, or `--cycles 48` to reproduce the pooled result. Both use the April 10
+illustrative quotes. The original reference cycle is excluded from the estimates.
+
+For the EUR 12m put the fractional residual was negative in 7 of the 16
+additional cycles. Two fell below the original −33.87 JPY per note, reaching
+−36.25 and −36.84 JPY. The new batch averaged +0.51 ± 6.17 JPY per note.
+Across all 48 cycles the fractional residual was negative 21 times and averaged
++2.50 ± 2.99 JPY per note, with a 95% Student-t interval of [−3.53, +8.52].
+The whole-contract residual was negative in 19 of 48 cycles.
+
+All entries below use JPY per volatility point for **100 notes**. Each SE
+pair gives the typical conditional holdout SE with quantities fixed, followed
+by the SE of one complete calibration, sizing and holdout run. Each ± entry
+gives a mean and its SE over 48 cycles. The rounding difference pairs both
+books on the same holdout paths within each cycle.
+
+| Option | Fractional SE, fixed / full | Integer SE, fixed / full | Fractional residual ± SE | Integer residual ± SE | Integer minus fractional ± SE | Mean absolute difference |
+|---|---:|---:|---:|---:|---:|---:|
+| USD 3m call | 741 / 961 | 741 / 1,408 | −209 ± 139 | +21 ± 203 | +231 ± 121 | 772 |
+| USD 12m put | 1,090 / 1,635 | 1,090 / 1,764 | +163 ± 236 | +784 ± 255 | +621 ± 173 | 1,075 |
+| EUR 3m call | 1,118 / 1,493 | 1,118 / 1,792 | −384 ± 216 | −477 ± 259 | −93 ± 113 | 692 |
+| EUR 12m put | 1,445 / 2,074 | 1,445 / 2,337 | +250 ± 299 | +272 ± 337 | +23 ± 197 | 1,167 |
+
 ### Several stocks in one foreign currency
 
 Use `CrossCurrencyEquityBasket` for a basket, worst-of, memory autocall or other
