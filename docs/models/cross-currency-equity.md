@@ -381,7 +381,8 @@ local physical shares and convert at their expiry FX. The original note keeps
 its own observation and FX-fixing terms. `unhedged.vegas` is the sizing estimate,
 `theoretical_hedged.vegas` gives residuals for frozen fractional quantities, and
 `hedged.vegas` gives residuals for the selected trades (integer contracts when
-requested). Both checks use the same holdout calibrations. For a JPY book all
+requested). Both checks use the same holdout calibrations, paths and observation
+grid, including quote maturities for fractional trades that round to zero. For a JPY book all
 three sets of sensitivities are JPY per volatility point. Each residual's standard error includes refitting and
 portfolio sampling uncertainty conditional on the fixed trade quantities.
 The hedged PV is the gross value of the held instruments before the acquisition
@@ -587,6 +588,8 @@ for the full sample. Each cycle fits the two stocks to the same April 10
 illustrative quotes, sizes the four hedges of 100 long notes using eight
 replications, then uses eight independent replications to refit and revalue
 both frozen portfolios on matched paths. The reference cycle is excluded.
+The final output's `eur_12m_put` entry counts negative observations and strict
+crossings of the original per-note threshold for both portfolios.
 
 The EUR 12m put fractional residual averaged +3.74 ± 2.08 JPY per note per
 volatility point across 96 cycles. The 95% Student-t interval for the mean
@@ -741,6 +744,22 @@ values both dates on the same path. For a fixing before valuation, supply
 A supplied valuation-day fixing also takes precedence over current spot.
 Unlisted payments use payment-day FX. Calling `with_leg_fx(index)` restores
 that leg's payment-day convention.
+
+For a dated `Contract`, pass the source directly. The basket uses the supplied
+market order for the stocks and groups cash flows by ascending currency ID.
+
+```python
+note = rp.CrossCurrencyEquityBasket.from_contract(
+    as_of, contract, markets, jpy_curve, settlement_currency_id=JPY,
+    equity_models=models, fx_quotes=quotes, correlations=correlations)
+```
+
+Each group has its own FX terms. If two legs in one currency require different
+FX on the same payment date, pass them separately to `from_legs`. After replaying
+fixings and settlements with `contract.advance`, pass `rolled.residual_contract`
+to `from_contract`. Set any published FX on the remaining foreign group with
+`with_leg_fx`, using the currency order of the residual. A fully settled contract
+has zero PV and zero FX exposure. [Contract lifecycle example](../../tests/python/test_cross_currency_seasoned.py)
 
 ### Valuation after issue
 

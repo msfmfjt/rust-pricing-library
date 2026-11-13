@@ -52,6 +52,18 @@ impl CompiledContract {
     pub fn groups(&self) -> &[CompiledCurrencyContract] {
         &self.groups
     }
+    /// Preserve the compiler's currency order. A fully settled contract uses
+    /// the same as-of zero payment as the single-currency pricing adapters.
+    pub(crate) fn into_settlement_legs(
+        self,
+        settlement: CurrencyId,
+        underlyings: Vec<UnderlyingId>,
+    ) -> Result<Vec<GraphProduct>, ContractError> {
+        if self.groups.is_empty() {
+            return Ok(vec![self.product_for(settlement, underlyings)?]);
+        }
+        Ok(self.groups.into_iter().map(|group| group.product).collect())
+    }
     fn product_for(
         &self,
         currency: CurrencyId,

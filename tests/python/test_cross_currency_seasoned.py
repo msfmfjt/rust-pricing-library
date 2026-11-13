@@ -66,6 +66,47 @@ class SeasonedNoteTests(unittest.TestCase):
                     for p in products]
         self.assertEqual(self.price(residual),0.)
 
+    def test_mixed_currency_contract_through_settlement(self):
+        coupon = rp.ContractBuilder("coupon", USD, 10, "close").forward(90., 1., OBS, PAY)
+        principal = rp.ContractBuilder("principal", JPY, 20, "close").forward(70., 1., OBS, PAY)
+        contract = rp.Contract.bundle("both", [principal, coupon])
+        terms = dict(settlement_currency_id=JPY, equity_models=[rp.Model.black_scholes(0.)]*2,
+                     fx_quotes=self.quotes, correlations=[[float(i == j) for j in range(4)] for i in range(4)])
+        def basket(date, source):
+            return rp.CrossCurrencyEquityBasket.from_contract(
+                date, source, self.stocks, self.domestic, **terms)
+
+        issue = "2026-01-01"
+        original = basket(issue, contract)
+        graphs = contract.to_graphs(issue, IDS)
+        self.assertEqual([leg.currency_id for leg in graphs], [USD, JPY])
+        explicit = rp.CrossCurrencyEquityBasket.from_legs(issue, graphs, self.stocks, self.domestic, **terms)
+        self.assertAlmostEqual(original.price_mc(self.engine).value, 1510.)
+        self.assertEqual(original.price_mc(self.engine).value, explicit.price_mc(self.engine).value)
+        with self.assertRaises(ValueError):
+            basket(self.as_of, contract)
+
+        fixings = []
+        for part, event_id, spot in [(coupon, "usd-close", 102.), (principal, "eur-close", 73.)]:
+            observation = json.loads(part.observations_json())[0]["id"]
+            fixings.append(json.loads(contract.fixing_event_json(event_id, observation, spot)))
+        rolled = contract.advance(json.dumps(fixings), self.as_of)
+        unpaid = basket(self.as_of, rolled.residual_contract).with_leg_fx(
+            0, schedule=[(PAY, OBS)], known_fixings=[(OBS, 141.)])
+        self.assertAlmostEqual(unpaid.price_mc(self.engine).value, 12.*141. + 3.)
+        self.assertEqual(unpaid.sensitivity("fx_spot", USD, 1., self.engine).value, 0.)
+
+        paid = [dict(id="paid-" + leg, effective_date=PAY,
+                     event=dict(type="settlement", cashflow_id=leg + "/forward"))
+                for leg in ("coupon", "principal")]
+        after = "2027-01-16"
+        residual = rolled.advance(json.dumps(paid), after).residual_contract
+        self.assertEqual(residual.to_graphs(after, IDS), [])
+        closed = basket(after, residual)
+        pv = closed.price_mc(self.engine)
+        self.assertEqual((pv.value, pv.standard_error), (0., 0.))
+        self.assertEqual(closed.sensitivity("fx_spot", USD, 1., self.engine).value, 0.)
+
     def test_branch_selection_and_pre_dividend_fixings(self):
         b = rp.SourceGraphBuilder()
         post = b.spot(10,FIRST)

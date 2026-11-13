@@ -43,6 +43,7 @@ stable numerical-branch counts.
 | Complete model inputs, JSON replay and common compilation | [Pricing specifications](docs/library/pricing-specification.md) |
 | Capability queries, common risk reports and complete basket/dividend replay | [Pricing tasks](docs/library/pricing-tasks.md) |
 | Custom payoffs and cash-flow source replay | [Product graphs](docs/library/product-graphs.md) |
+| Multi-currency equity and autocall valuation, lifecycle, quote risk and hedging | [Cross-currency equity](docs/models/cross-currency-equity.md) |
 | Supported financial products | [Product reference](docs/products/README.md) |
 | Models, calibration, simulation and risk conventions | [Model reference](docs/models/README.md) |
 | Requirements, architecture, ADRs, roadmaps and acceptance evidence | [Design and development records](design/README.md) |

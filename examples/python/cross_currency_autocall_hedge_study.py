@@ -18,6 +18,7 @@ BUMP = .005
 # Each sizing replication uses three streams and each holdout uses another three.
 STREAM_STEP = 0x9e3779b97f4a7c15
 REFERENCE_SEED = 29737
+EUR_PUT_REFERENCE_PER_NOTE = -33.87
 
 
 def run_cycle(index, worker_threads):
@@ -77,6 +78,19 @@ def summarize(cycles):
     return summaries
 
 
+def eur_put_counts(cycles):
+    """Count strict crossings of the original EUR 12m put residual, per note."""
+    expiry = QUOTES[20][1][0]
+    rows = [next(r for r in cycle["rows"] if (r["stock"], r["expiry"]) == (20, expiry))
+            for cycle in cycles]
+    counts = dict(reference_jpy_per_note=EUR_PUT_REFERENCE_PER_NOTE, notes=NOTES)
+    for kind in ("ideal", "actual"):
+        values = [r[kind] / NOTES for r in rows]
+        counts[kind] = dict(negative=sum(v < 0 for v in values),
+                            below_reference=sum(v < EUR_PUT_REFERENCE_PER_NOTE for v in values))
+    return counts
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cycles", type=int, default=16, help="independent new sizing and holdout cycles")
@@ -96,7 +110,8 @@ def main():
             print(json.dumps(cycle), flush=True)
             if cycle["index"]:
                 results.append(cycle)
-    print(json.dumps(dict(cycles=len(results), summary=summarize(results))), flush=True)
+    print(json.dumps(dict(cycles=len(results), summary=summarize(results),
+                          eur_12m_put=eur_put_counts(results))), flush=True)
 
 
 if __name__ == "__main__":

@@ -35,10 +35,11 @@ limitations and risk semantics.
   and custom graph payoffs support quanto, floating-FX and composite settlement.
   Dated cash flows can use separate correlated domestic and foreign Hull–White
   rates with Black, LV, Bass, Bergomi and the six rough equity families.
-  Scheduled early exercise and continuous barriers use constant equity and FX
-  volatility and deterministic rates. For stochastic foreign cash dividends,
-  Black supports both Hull–White rates and Bergomi variants support a
-  deterministic foreign rate.
+  Scheduled early exercise uses independent policy-training and pricing paths.
+  Continuous barriers use a bridge that includes stock and FX diffusion and
+  cash-dividend jumps. Both support joint Hull–White rates. With stochastic
+  foreign rates and stochastic cash dividends, the residual equity supports
+  constant volatility and one- or two-factor Bergomi.
   [Quanto and FX-linked settlement](../models/cross-currency-equity.md)
 
 - The first column covers the standard single-asset `PricingRequest` path with

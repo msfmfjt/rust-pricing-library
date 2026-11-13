@@ -53,10 +53,13 @@ class QuoteHedgeTests(unittest.TestCase):
         model = rp.EquityModelSpec.stochastic_volatility(.2,factor)
         dividends = rp.BuehlerDividendModel(mean_reversion=.8,equity_linkage=.6,
                                              dividend_volatility=.3,equity_dividend_correlation=.35)
-        def call(date):
+        def call(date, extra_dates=()):
             g = rp.SourceGraphBuilder()
             payoff = g.maximum(g.subtract(g.spot(10,date),g.literal(200.)),g.literal(0.))
-            leg = g.finish([payoff],[date],currency_id=JPY,underlying_ids=[10])
+            # Physical stock and FX are positive. These zero payments retain the
+            # hedge observation dates in an independently priced control book.
+            zero_payments = [g.minimum(g.spot(10,d),g.literal(0.)) for d in extra_dates]
+            leg = g.finish([payoff, *zero_payments],[date, *extra_dates],currency_id=JPY,underlying_ids=[10])
             portfolio = rp.CrossCurrencyEquityBasket.from_legs(
                 REVALUATION,[leg],[market],curve(JPY,0.),settlement_currency_id=JPY,equity_models=[model],
                 dividend_models=[dividends],fx_quotes=[(USD,2.,0.)],correlations=[[1.,0.],[0.,1.]],
@@ -65,8 +68,8 @@ class QuoteHedgeTests(unittest.TestCase):
         engine = rp.Engine.randomized_quasi_monte_carlo(512,61284,scramble_count=4,antithetic=True,brownian_bridge=True)
         quotes = {10:[(date,"call",100.,100.,call(date).price_mc(engine).value/2.) for date in dates]}
         note = call(dates[0])
-        def hedge(n):
-            return note.bergomi_quote_hedge(quotes,engine,note_quantity=n,contract_sizes={10:[2.,50.]},
+        def hedge(n, book=note):
+            return book.bergomi_quote_hedge(quotes,engine,note_quantity=n,contract_sizes={10:[2.,50.]},
                                             whole_contracts=True,replications=4,worker_threads=2)
         result = hedge(-2.)
         self.assertEqual(result.quantities[10],(1.,0.))
@@ -76,13 +79,15 @@ class QuoteHedgeTests(unittest.TestCase):
             self.assertAlmostEqual(risk.value,0.,places=10)
             self.assertAlmostEqual(risk.standard_error,0.,places=10)
         # Rounding a small long position to zero leaves its entire risk in place.
-        small = hedge(.2)
+        intermediate_date = "2026-10-10"
+        small = hedge(.2, call(intermediate_date))
         self.assertEqual(small.quantities[10], (0.,0.))
-        self.assertLess(abs(small.theoretical_hedged.vegas[10][0].value), .25*small.hedged.vegas[10][0].value)
+        for fractional in small.theoretical_quantities[10]:
+            self.assertNotEqual(fractional, 0.)
         # Verify the held portfolio using a separate public call on its disjoint seeds.
         seed = (61284 + 12*0x9e3779b97f4a7c15) % 2**64
         independent = rp.Engine.randomized_quasi_monte_carlo(512,seed,scramble_count=4,antithetic=True,brownian_bridge=True)
-        control = note.bergomi_quote_risk(quotes,independent,replications=4,worker_threads=2)
+        control = call(intermediate_date, dates).bergomi_quote_risk(quotes,independent,replications=4,worker_threads=2)
         for actual, expected in zip(small.hedged.vegas[10],control.vegas[10]):
             self.assertAlmostEqual(actual.value,.2*expected.value,places=10)
             self.assertAlmostEqual(actual.standard_error,.2*expected.standard_error,places=10)

@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "examples/python"))
-from cross_currency_autocall_hedge_study import main, summarize
+from cross_currency_autocall_hedge_study import eur_put_counts, main, summarize
 
 
 class NestedHedgeSummaryTests(unittest.TestCase):
@@ -33,6 +33,14 @@ class NestedHedgeSummaryTests(unittest.TestCase):
                 self.assertEqual([cycle["index"] for cycle in cycles], indices)
                 self.assertEqual(report["cycles"], 2)
                 self.assertEqual(report["summary"][0]["ideal"]["mean"], mean)
+                self.assertEqual(report["eur_12m_put"]["ideal"], dict(negative=0, below_reference=0))
+
+    def test_original_threshold_is_strict_and_per_note(self):
+        cycles = [dict(rows=[dict(stock=20, expiry="2027-04-10", ideal=ideal, actual=actual)])
+                  for ideal, actual in [(-3387., -3388.), (-1., 0.), (-3386., -3387.)]]
+        result = eur_put_counts(cycles)
+        self.assertEqual(result["ideal"], dict(negative=3, below_reference=0))
+        self.assertEqual(result["actual"], dict(negative=2, below_reference=1))
 
     def test_fixed_vs_full_variance_and_paired_rounding(self):
         cycles = []

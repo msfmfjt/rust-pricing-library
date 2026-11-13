@@ -128,12 +128,12 @@ impl CrossCurrencyEquityBasket {
                         (&mut portfolio, quantity),
                         (&mut theoretical_portfolio, theoretical_quantity),
                     ] {
-                        if units != 0. {
-                            let mut leg = unit_leg.clone();
-                            leg.quantity =
-                                FiniteF64::new(units * sizes[j], "option_hedge_shares")?.get();
-                            book.legs.push(leg);
-                        }
+                        // Even a rounded-away trade contributes its observation
+                        // dates to the shared holdout grid and driver layout.
+                        let mut leg = unit_leg.clone();
+                        leg.quantity =
+                            FiniteF64::new(units * sizes[j], "option_hedge_shares")?.get();
+                        book.legs.push(leg);
                     }
                 }
                 Ok(BergomiOptionTrade {

@@ -196,6 +196,43 @@ impl CrossCurrencyEquityBasket {
         )
     }
 
+    /// Compile a dated contract or its lifecycle residual, retaining every
+    /// currency group. Market order defines the underlying and driver order.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_contract(
+        valuation: Date,
+        contract: &crate::contract::Contract,
+        stocks: Vec<ForeignEquity>,
+        settlement_currency: CurrencyId,
+        domestic_curve: Arc<LogLinearDiscountCurve>,
+        composite: bool,
+        currency_markets: impl Into<BasketCurrencyMarkets>,
+        correlations: Vec<Vec<f64>>,
+        rate_models: Option<Vec<HullWhite1Factor>>,
+        maximum_step: f64,
+    ) -> Result<Self, Error> {
+        let ids: Vec<_> = stocks
+            .iter()
+            .map(|s| s.market.forward().underlying())
+            .collect();
+        let legs = contract
+            .compile_mc(valuation, ids.clone())
+            .and_then(|compiled| compiled.into_settlement_legs(settlement_currency, ids))
+            .map_err(Error::numerical)?;
+        Self::from_legs(
+            valuation,
+            legs,
+            stocks,
+            settlement_currency,
+            domestic_curve,
+            composite,
+            currency_markets,
+            correlations,
+            rate_models,
+            maximum_step,
+        )
+    }
+
     /// Graph currencies denominate their respective cash flows. Foreign amounts
     /// convert at their contractual fixing and all legs share the same paths.
     #[allow(clippy::too_many_arguments)]
