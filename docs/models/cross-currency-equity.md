@@ -502,6 +502,41 @@ books on the same holdout paths within each cycle.
 | EUR 3m call | 1,118 / 1,493 | 1,118 / 1,792 | −384 ± 216 | −477 ± 259 | −93 ± 113 | 692 |
 | EUR 12m put | 1,445 / 2,074 | 1,445 / 2,337 | +250 ± 299 | +272 ± 337 | +23 ± 197 | 1,167 |
 
+#### 64-cycle hedge study
+
+Use `--first-cycle 49 --cycles 16` for the fourth batch and `--cycles 64`
+for the pooled study. The April 10 illustrative inputs, eight sizing and
+eight independent holdout replications per cycle, and reference exclusion
+match the 48-cycle study.
+
+With fractional contracts, the EUR 12m put residual was negative in 7 of
+the 16 additional cycles. Its mean was +3.55 ± 4.98 JPY per note per
+volatility point. Across 64 cycles it was negative 28 times and averaged
++2.76 ± 2.55 JPY per note, with a 95% Student-t interval of [−2.33, +7.85].
+Only cycles 39 and 40 were at or below the original −33.87 JPY per note
+(−36.25 and −36.84). With whole contracts, the 100-note residual was
+negative in 6 of the 16 additional cycles and 25 of 64 overall.
+
+All vegas below are JPY per volatility point for 100 long notes. Each SE
+pair gives the error of one run with its chosen quantities fixed, followed
+by the error including repeated sizing. Each ± value gives the mean and
+its SE over 64 independent cycles. Within each cycle both portfolios use
+the same holdout calibrations and paths.
+
+| Option | Fractional SE, fixed / full | Integer SE, fixed / full | Fractional residual ± SE | Integer residual ± SE | Integer minus fractional ± paired SE | Mean absolute difference |
+|---|---:|---:|---:|---:|---:|---:|
+| USD 3m call | 726 / 936 | 726 / 1,427 | −248 ± 117 | −75 ± 178 | +173 ± 113 | 814 |
+| USD 12m put | 1,118 / 1,729 | 1,117 / 1,810 | +364 ± 216 | +866 ± 226 | +502 ± 153 | 1,047 |
+| EUR 3m call | 1,114 / 1,530 | 1,114 / 1,729 | −456 ± 191 | −515 ± 216 | −59 ± 98 | 697 |
+| EUR 12m put | 1,478 / 2,039 | 1,478 / 2,223 | +276 ± 255 | +240 ± 278 | −36 ± 159 | 1,053 |
+
+| Option | Mean fractional buy quantity (contracts) | Executable buy quantity (cycles out of 64) |
+|---|---:|---|
+| USD 3m call | 2.673 | 2 (17), 3 (47) |
+| USD 12m put | 4.846 | 4 (4), 5 (60) |
+| EUR 3m call | 7.539 | 6 (1), 7 (30), 8 (32), 9 (1) |
+| EUR 12m put | 9.898 | 9 (8), 10 (55), 11 (1) |
+
 ### Several stocks in one foreign currency
 
 Use `CrossCurrencyEquityBasket` for a basket, worst-of, memory autocall or other
