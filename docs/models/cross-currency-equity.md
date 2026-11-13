@@ -412,6 +412,8 @@ The study reports three scales of uncertainty.
 
 For each bucket, `rounding` summarizes the paired difference
 `integer residual − fractional residual` within each complete cycle.
+`mean_absolute` is the average size of that difference before positive and
+negative rounding effects cancel across cycles.
 `contracts` gives the frequency of each integer trade across sizing cycles.
 All output vegas are yen per volatility point for 100 notes. Fractional
 residuals and their errors scale linearly to one note by dividing by 100.
@@ -437,6 +439,42 @@ reference cycle reproduced the earlier −33.87 JPY per note. Its 100-note
 integer trades were 2, 5, 8 and 9 contracts, in table order. In that reference
 cycle the four rounding differences were -1,209, +1,756, +1,027 and -2,067 JPY per point.
 [Interval for a mean](https://itl.nist.gov/div898/handbook/eda/section3/eda352.htm)
+
+To repeat the second independent batch, run the example with
+`--first-cycle 17 --cycles 16`. To reproduce the pooled study from scratch,
+run it with `--cycles 32`. Cycle zero is the original reference and is
+excluded from both estimates. Each positive cycle index selects a distinct
+block of 48 master seeds, 24 for sizing and 24 for holdout valuation.
+
+Across cycles 1–32 the following standard errors apply to a single run on
+100 notes, in JPY per volatility point.
+
+| Option | Fractional fixed-quantity SE | Fractional full-cycle SE | Integer fixed-quantity SE | Integer full-cycle SE |
+|---|---:|---:|---:|---:|
+| USD 3m call | 733 | 904 | 733 | 1,339 |
+| USD 12m put | 1,100 | 1,685 | 1,100 | 1,780 |
+| EUR 3m call | 1,098 | 1,462 | 1,098 | 1,891 |
+| EUR 12m put | 1,372 | 1,881 | 1,372 | 2,064 |
+
+The next table shows the mean residual and SE of the 32-cycle mean for the
+same 100 notes. In each cycle the fractional and integer books are valued
+on the same holdout paths. The last column averages the absolute paired
+difference across cycles.
+
+| Option | Fractional mean ± SE | Integer mean ± SE | Integer minus fractional ± paired SE | Mean absolute difference |
+|---|---:|---:|---:|---:|
+| USD 3m call | −194 ± 160 | −40 ± 237 | +155 ± 142 | 716 |
+| USD 12m put | +43 ± 298 | +787 ± 315 | +745 ± 219 | 1,203 |
+| EUR 3m call | −430 ± 258 | −586 ± 334 | −156 ± 145 | 737 |
+| EUR 12m put | +349 ± 333 | +282 ± 365 | −67 ± 254 | 1,233 |
+
+In cycles 17–32 the EUR 12m put fractional residual was negative 10 times.
+Its per-note mean was +0.42 ± 4.83 JPY per volatility point, with a 95%
+Student-t interval of [−9.87, +10.72]. Across all 32 independent cycles
+it was negative 14 times, with a per-note mean of +3.49 ± 3.33 and a 95%
+interval of [−3.29, +10.27]. A negative residual occurred repeatedly, but
+the data do not establish a negative mean. With integer contracts, the
+100-note EUR 12m put residual was negative in 12 of 32 cycles.
 
 ### Several stocks in one foreign currency
 

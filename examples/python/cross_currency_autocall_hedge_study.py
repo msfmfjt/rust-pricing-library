@@ -66,7 +66,8 @@ def summarize(cycles):
             result[kind] = dict(mean=fmean(residuals), fixed_se=within, full_se=complete,
                                 mean_se=complete/sqrt(count), negative=sum(x < 0 for x in residuals))
         differences = [r["actual"]-r["ideal"] for r in bucket]
-        result["rounding"] = dict(mean=fmean(differences), mean_se=stdev(differences)/sqrt(count))
+        result["rounding"] = dict(mean=fmean(differences), mean_se=stdev(differences)/sqrt(count),
+                                  mean_absolute=fmean(abs(delta) for delta in differences))
         frequencies = {}
         for row in bucket:
             quantity = int(row["contracts"])
@@ -79,14 +80,19 @@ def summarize(cycles):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cycles", type=int, default=16, help="independent new sizing and holdout cycles")
+    parser.add_argument("--first-cycle", type=int, default=1,
+                        help="first independent cycle index (use 17 for the second batch)")
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--worker-threads", type=int, default=2)
     args = parser.parse_args()
-    if args.cycles < 2 or min(args.jobs, args.worker_threads) < 1:
-        parser.error("use at least two cycles and positive worker counts")
+    if args.cycles < 2 or min(args.first_cycle, args.jobs, args.worker_threads) < 1:
+        parser.error("use at least two cycles, a positive first cycle and positive worker counts")
+    # The first batch also emits the original reference, outside the summary.
+    start = 0 if args.first_cycle == 1 else args.first_cycle
+    indices = range(start, args.first_cycle + args.cycles)
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
         results = []
-        for cycle in pool.map(lambda i: run_cycle(i, args.worker_threads), range(args.cycles + 1)):
+        for cycle in pool.map(lambda i: run_cycle(i, args.worker_threads), indices):
             print(json.dumps(cycle), flush=True)
             if cycle["index"]:
                 results.append(cycle)
