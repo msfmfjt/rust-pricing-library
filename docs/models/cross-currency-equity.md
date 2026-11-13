@@ -387,6 +387,57 @@ portfolio sampling uncertainty conditional on the fixed trade quantities.
 The hedged PV is the gross value of the held instruments before the acquisition
 cost of the options. [Reproducible USD/EUR hedge](../../examples/python/cross_currency_autocall_quote_hedge.py)
 
+#### Uncertainty from choosing the option quantities
+
+Run `python examples/python/cross_currency_autocall_hedge_study.py` to repeat the
+entire calculation for 100 long notes, using 100 shares per option contract.
+The example first reproduces the previous seed as a reference. Its summary
+uses 16 new, independent cycles. Each cycle uses eight sizing replications
+and eight holdout replications. Each replication refits the states and uses a
+separate valuation stream. The fractional and integer books share the holdout
+fits and random streams. Each short/long position is rounded separately in
+each cycle.
+
+For cycle `b`, let `r_b` be the mean residual vega for one maturity bucket
+and `s_b` its holdout standard error conditional on that cycle's chosen trades.
+The study reports three scales of uncertainty.
+
+- `fixed_se = sqrt(mean(s_b²))` estimates the typical standard error of a
+  single eight-replication holdout with preset quantities.
+- `full_se = sample_sd(r_b)` estimates the standard error for one complete
+  sizing and holdout cycle, including variation in the selected quantities.
+- `mean_se = full_se / sqrt(cycles)` is the standard error of the mean across
+  independent cycles. Use this scale to assess the reproducibility of the
+  mean sign. The count of negative cycles also measures sign consistency.
+
+For each bucket, `rounding` summarizes the paired difference
+`integer residual − fractional residual` within each complete cycle.
+`contracts` gives the frequency of each integer trade across sizing cycles.
+All output vegas are yen per volatility point for 100 notes. Fractional
+residuals and their errors scale linearly to one note by dividing by 100.
+Integer positions depend on book size and are rounded after sizing the book.
+The uncertainty estimates condition on the illustrative market data and
+model settings. [Study script](../../examples/python/cross_currency_autocall_hedge_study.py)
+
+The April 10 example produced the following results with 16 new cycles. Residuals
+and standard errors in this table are JPY per volatility point for **100 notes**.
+The paired difference is integer minus fractional, with the SE of its 16-cycle mean.
+
+| Option | Fractional mean residual | Fixed-quantity SE per cycle | Full-cycle SE | Integer mean residual | Integer fixed-quantity SE per cycle | Integer full-cycle SE | Paired mean difference ± SE |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| USD 3m call | -410.2 | 751.9 | 1,047.8 | -297.7 | 752.1 | 1,356.4 | +112.5 ± 203.2 |
+| USD 12m put | -56.7 | 1,128.4 | 1,946.6 | +484.3 | 1,128.6 | 2,373.4 | +540.9 ± 388.4 |
+| EUR 3m call | -476.1 | 1,134.0 | 1,661.3 | -601.2 | 1,133.6 | 2,123.9 | -125.1 ± 217.5 |
+| EUR 12m put | +656.0 | 1,220.0 | 1,838.6 | +142.0 | 1,219.7 | 2,440.5 | -513.9 ± 295.4 |
+
+The EUR 12m put fractional residual was negative in 4 of 16 new cycles.
+Per note its mean was +6.56 JPY, with SE 4.60 JPY and an approximate 95%
+Student-t interval of [-3.24, 16.36] JPY (15 degrees of freedom). The
+reference cycle reproduced the earlier −33.87 JPY per note. Its 100-note
+integer trades were 2, 5, 8 and 9 contracts, in table order. In that reference
+cycle the four rounding differences were -1,209, +1,756, +1,027 and -2,067 JPY per point.
+[Interval for a mean](https://itl.nist.gov/div898/handbook/eda/section3/eda352.htm)
+
 ### Several stocks in one foreign currency
 
 Use `CrossCurrencyEquityBasket` for a basket, worst-of, memory autocall or other
