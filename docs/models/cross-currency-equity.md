@@ -714,6 +714,58 @@ in each cycle before averaging. Positive quantities are buys.
 | EUR 3m call | 7.566 | 7.531 | −0.035 | 6 (1), 7 (60), 8 (65), 9 (2) |
 | EUR 12m put | 9.928 | 9.945 | +0.017 | 9 (10), 10 (115), 11 (3) |
 
+#### 144-cycle hedge study
+
+Run `--first-cycle 129 --cycles 16` for the ninth batch, or `--cycles 144`
+for the full sample. Each cycle refits the April 10 illustrative quotes and
+sizes the hedge of 100 notes. Eight independent holdout replications then
+reprice both frozen portfolios on matched paths. The original reference
+cycle is excluded from all counts and averages.
+
+The EUR 12m put counts use the 100-note residual divided by 100 and strict
+inequalities at zero and −33.87 JPY per note per volatility point.
+
+| Hedge | Negative, cycles 129–144 | Below −33.87, cycles 129–144 | Negative, cycles 1–144 | Below −33.87, cycles 1–144 |
+|---|---:|---:|---:|---:|
+| Fractional | 10 | 0 | 66 | 3 |
+| Whole contracts | 7 | 3 | 52 | 8 |
+
+The three new integer threshold crossings occurred in cycles 137, 143 and
+144. Each rounded the EUR 12m hedge down to 9 contracts for 100 notes.
+Residuals and their differences below are JPY per note per volatility point.
+
+| Cycle | Fractional contracts | Integer contracts | Fractional residual (JPY) | Integer residual (JPY) | Integer minus fractional (JPY) |
+|---|---:|---:|---:|---:|---:|
+| 137 | 9.3432 | 9 | −26.05 | −42.46 | −16.41 |
+| 143 | 9.4171 | 9 | −31.30 | −51.26 | −19.96 |
+| 144 | 9.4965 | 9 | −11.29 | −35.23 | −23.94 |
+
+The fractional EUR 12m put residual averaged +3.65 ± 1.60 JPY per note.
+Its 95% Student-t interval for the mean was [+0.48, +6.82].
+
+All values below are JPY per quoted volatility point for 100 notes. Each
+SE pair gives the root mean square of the conditional holdout SEs followed
+by the sample SD of the residuals across complete cycles. Each ± entry
+gives the mean across 144 cycles and its SE. Rounding differences use the
+integer and fractional residuals from the same cycle.
+
+| Option | Fractional SE, fixed / full | Integer SE, fixed / full | Fractional residual ± SE | Integer residual ± SE | Integer minus fractional ± paired SE | Mean absolute difference |
+|---|---:|---:|---:|---:|---:|---:|
+| USD 3m call | 740 / 996 | 740 / 1,366 | −139 ± 83 | +46 ± 114 | +185 ± 70 | 753 |
+| USD 12m put | 1,133 / 1,675 | 1,133 / 1,449 | +352 ± 140 | +895 ± 121 | +544 ± 94 | 1,020 |
+| EUR 3m call | 1,135 / 1,699 | 1,135 / 1,898 | −495 ± 142 | −585 ± 158 | −90 ± 62 | 651 |
+| EUR 12m put | 1,476 / 1,924 | 1,476 / 2,099 | +365 ± 160 | +436 ± 175 | +71 ± 102 | 1,019 |
+
+Each contract covers 100 shares. Integer quantities are rounded separately
+in each cycle before averaging. Positive quantities are buys.
+
+| Option | Mean fractional contracts | Mean integer contracts | Mean integer minus fractional | Executed contracts (cycles out of 144) |
+|---|---:|---:|---:|---|
+| USD 3m call | 2.698 | 2.764 | +0.066 | 2 (34), 3 (110) |
+| USD 12m put | 4.873 | 4.972 | +0.099 | 4 (4), 5 (140) |
+| EUR 3m call | 7.542 | 7.507 | −0.035 | 6 (1), 7 (71), 8 (70), 9 (2) |
+| EUR 12m put | 9.908 | 9.924 | +0.015 | 9 (14), 10 (127), 11 (3) |
+
 ### Several stocks in one foreign currency
 
 Use `CrossCurrencyEquityBasket` for a basket, worst-of, memory autocall or other
