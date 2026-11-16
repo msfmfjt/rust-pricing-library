@@ -91,7 +91,9 @@ impl JsonLimits {
     };
     pub const HARD_CAP: Self = Self {
         max_input_bytes: 64 * 1024 * 1024,
-        max_nesting_depth: 256,
+        // serde_json stops at 128 nested containers; a larger cap would never
+        // be reached and would surface as a syntax error instead of a limit.
+        max_nesting_depth: 127,
         max_string_bytes: 16 * 1024 * 1024,
         max_number_token_bytes: 1024,
         max_array_elements: 2_000_000,
