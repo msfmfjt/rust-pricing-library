@@ -1,10 +1,17 @@
 use super::{PyPricingRequest, PyValidationIssue, pricing_exception, validation_exception};
+use crate::lsv_config::particle_config_and_policy;
 use pricing::lsv::{
     BergomiLsvPricingPlan, LsvLocalVarianceRisk, LsvPrice, RoughBergomiLsvPricingPlan,
 };
-use pricing::mc::{ExecutionPolicy, lsv::LsvParticleConfig};
 use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pyo3::prelude::*;
+
+fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
+    validation_exception(
+        py,
+        PyValidationIssue::domain("/lsv", "invalid_lsv_configuration", e.to_string()),
+    )
+}
 
 #[pyclass(frozen, name = "BergomiLsvPlan")]
 #[derive(Clone, Debug)]
@@ -33,24 +40,18 @@ impl PyBergomiLsvPlan {
         worker_threads: u32,
         reduction_block_size: Option<u64>,
     ) -> PyResult<Self> {
-        let issue = |message: String| {
-            validation_exception(
-                py,
-                PyValidationIssue::domain("/lsv", "invalid_lsv_configuration", message),
-            )
-        };
         let factor = Bergomi1Factor::new(mean_reversion, vol_of_vol, correlation)
-            .map_err(|e| issue(e.to_string()))?;
-        let particles = LsvParticleConfig::new(
+            .map_err(|e| invalid(py, e))?;
+        let (particles, policy) = particle_config_and_policy(
             particle_count,
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
             retain_reverse_trace,
-        )
-        .map_err(|e| issue(e.to_string()))?;
-        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
-            .map_err(|e| issue(e.to_string()))?;
+            worker_threads,
+            reduction_block_size,
+            |e| invalid(py, e),
+        )?;
         let request = target_request.inner.clone();
         py.detach(|| BergomiLsvPricingPlan::compile(&request, factor, particles, policy))
             .map(|inner| Self { inner })
@@ -136,12 +137,6 @@ impl PyBergomi2FactorLsvPlan {
         worker_threads: u32,
         reduction_block_size: Option<u64>,
     ) -> PyResult<Self> {
-        let issue = |message: String| {
-            validation_exception(
-                py,
-                PyValidationIssue::domain("/lsv", "invalid_lsv_configuration", message),
-            )
-        };
         let factor = Bergomi2Factor::new(
             mean_reversions,
             vol_of_vol,
@@ -149,17 +144,17 @@ impl PyBergomi2FactorLsvPlan {
             spot_correlations,
             factor_correlation,
         )
-        .map_err(|e| issue(e.to_string()))?;
-        let particles = LsvParticleConfig::new(
+        .map_err(|e| invalid(py, e))?;
+        let (particles, policy) = particle_config_and_policy(
             particle_count,
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
             retain_reverse_trace,
-        )
-        .map_err(|e| issue(e.to_string()))?;
-        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
-            .map_err(|e| issue(e.to_string()))?;
+            worker_threads,
+            reduction_block_size,
+            |e| invalid(py, e),
+        )?;
         let request = target_request.inner.clone();
         py.detach(|| BergomiLsvPricingPlan::compile(&request, factor, particles, policy))
             .map(|inner| Self { inner })
@@ -245,24 +240,18 @@ impl PyRoughBergomiLsvPlan {
         worker_threads: u32,
         reduction_block_size: Option<u64>,
     ) -> PyResult<Self> {
-        let issue = |message: String| {
-            validation_exception(
-                py,
-                PyValidationIssue::domain("/lsv", "invalid_lsv_configuration", message),
-            )
-        };
         let model =
-            RoughBergomi::new(hurst, vol_of_vol, correlation).map_err(|e| issue(e.to_string()))?;
-        let particles = LsvParticleConfig::new(
+            RoughBergomi::new(hurst, vol_of_vol, correlation).map_err(|e| invalid(py, e))?;
+        let (particles, policy) = particle_config_and_policy(
             particle_count,
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
             retain_reverse_trace,
-        )
-        .map_err(|e| issue(e.to_string()))?;
-        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
-            .map_err(|e| issue(e.to_string()))?;
+            worker_threads,
+            reduction_block_size,
+            |e| invalid(py, e),
+        )?;
         let request = target_request.inner.clone();
         py.detach(|| RoughBergomiLsvPricingPlan::compile(&request, model, particles, policy))
             .map(|inner| Self { inner })
@@ -496,23 +485,17 @@ impl PyRoughFamilyLsvPlan {
         worker_threads: u32,
         reduction_block_size: Option<u64>,
     ) -> PyResult<Self> {
-        let issue = |message: String| {
-            validation_exception(
-                py,
-                PyValidationIssue::domain("/lsv", "invalid_lsv_configuration", message),
-            )
-        };
         let model = model.inner.clone();
-        let particles = LsvParticleConfig::new(
+        let (particles, policy) = particle_config_and_policy(
             particle_count,
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
             retain_reverse_trace,
-        )
-        .map_err(|e| issue(e.to_string()))?;
-        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
-            .map_err(|e| issue(e.to_string()))?;
+            worker_threads,
+            reduction_block_size,
+            |e| invalid(py, e),
+        )?;
         let request = target_request.inner.clone();
         py.detach(|| {
             pricing::rough_volatility::RoughFamilyLsvPricingPlan::compile(

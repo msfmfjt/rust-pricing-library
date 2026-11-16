@@ -1,7 +1,8 @@
 use super::{
     PyPricingRequest, PyValidationIssue, PyVegaKtResult, pricing_exception, validation_exception,
 };
-use pricing::mc::{ExecutionPolicy, lsv::LsvParticleConfig};
+use crate::lsv_config::particle_config_and_policy;
+use pricing::mc::ExecutionPolicy;
 use pricing::models::{Bergomi1Factor, Bergomi2Factor, RoughBergomi};
 use pricing::risk::{GammaConfig, SpotBump};
 use pricing::stochastic_dividends::{
@@ -37,6 +38,22 @@ fn invalid(py: Python<'_>, e: impl ToString) -> PyErr {
     )
 }
 
+fn dividend_model(
+    py: Python<'_>,
+    mean_reversion: f64,
+    equity_linkage: f64,
+    dividend_volatility: f64,
+    equity_dividend_correlation: f64,
+) -> PyResult<BuehlerDividendModel> {
+    BuehlerDividendModel::new(
+        mean_reversion,
+        equity_linkage,
+        dividend_volatility,
+        equity_dividend_correlation,
+    )
+    .map_err(|e| invalid(py, e))
+}
+
 /// Buehler discrete cash dividends; deterministic rates and price-only requests.
 #[pyclass(frozen, name = "StochasticDividendPlan")]
 #[derive(Clone, Debug)]
@@ -60,13 +77,13 @@ impl PyStochasticDividendPlan {
         worker_threads: u32,
         reduction_block_size: Option<u64>,
     ) -> PyResult<Self> {
-        let model = BuehlerDividendModel::new(
+        let model = dividend_model(
+            py,
             mean_reversion,
             equity_linkage,
             dividend_volatility,
             equity_dividend_correlation,
-        )
-        .map_err(|e| invalid(py, e))?;
+        )?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let request = request.inner.clone();
@@ -96,13 +113,13 @@ impl PyStochasticDividendPlan {
     ) -> PyResult<Self> {
         let factor = Bergomi1Factor::new(mean_reversion, vol_of_vol, correlation)
             .map_err(|e| invalid(py, e))?;
-        let model = BuehlerDividendModel::new(
+        let model = dividend_model(
+            py,
             dividend_mean_reversion,
             equity_linkage,
             dividend_volatility,
             equity_dividend_correlation,
-        )
-        .map_err(|e| invalid(py, e))?;
+        )?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let request = request.inner.clone();
@@ -147,13 +164,13 @@ impl PyStochasticDividendPlan {
             factor_correlation,
         )
         .map_err(|e| invalid(py, e))?;
-        let model = BuehlerDividendModel::new(
+        let model = dividend_model(
+            py,
             dividend_mean_reversion,
             equity_linkage,
             dividend_volatility,
             equity_dividend_correlation,
-        )
-        .map_err(|e| invalid(py, e))?;
+        )?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let request = request.inner.clone();
@@ -195,23 +212,23 @@ impl PyStochasticDividendPlan {
     ) -> PyResult<Self> {
         let factor = Bergomi1Factor::new(mean_reversion, vol_of_vol, correlation)
             .map_err(|e| invalid(py, e))?;
-        let model = BuehlerDividendModel::new(
+        let model = dividend_model(
+            py,
             dividend_mean_reversion,
             equity_linkage,
             dividend_volatility,
             equity_dividend_correlation,
-        )
-        .map_err(|e| invalid(py, e))?;
-        let particles = LsvParticleConfig::new(
+        )?;
+        let (particles, policy) = particle_config_and_policy(
             particle_count,
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
             retain_reverse_trace,
-        )
-        .map_err(|e| invalid(py, e))?;
-        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
-            .map_err(|e| invalid(py, e))?;
+            worker_threads,
+            reduction_block_size,
+            |e| invalid(py, e),
+        )?;
         let request = request.inner.clone();
         py.detach(|| {
             StochasticDividendPricingPlan::compile_bergomi_lsv(
@@ -261,23 +278,23 @@ impl PyStochasticDividendPlan {
             factor_correlation,
         )
         .map_err(|e| invalid(py, e))?;
-        let model = BuehlerDividendModel::new(
+        let model = dividend_model(
+            py,
             dividend_mean_reversion,
             equity_linkage,
             dividend_volatility,
             equity_dividend_correlation,
-        )
-        .map_err(|e| invalid(py, e))?;
-        let particles = LsvParticleConfig::new(
+        )?;
+        let (particles, policy) = particle_config_and_policy(
             particle_count,
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
             retain_reverse_trace,
-        )
-        .map_err(|e| invalid(py, e))?;
-        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
-            .map_err(|e| invalid(py, e))?;
+            worker_threads,
+            reduction_block_size,
+            |e| invalid(py, e),
+        )?;
         let request = request.inner.clone();
         py.detach(|| {
             StochasticDividendPricingPlan::compile_bergomi_two_factor_lsv(
@@ -319,23 +336,23 @@ impl PyStochasticDividendPlan {
     ) -> PyResult<Self> {
         let factor =
             RoughBergomi::new(hurst, vol_of_vol, correlation).map_err(|e| invalid(py, e))?;
-        let model = BuehlerDividendModel::new(
+        let model = dividend_model(
+            py,
             dividend_mean_reversion,
             equity_linkage,
             dividend_volatility,
             equity_dividend_correlation,
-        )
-        .map_err(|e| invalid(py, e))?;
-        let particles = LsvParticleConfig::new(
+        )?;
+        let (particles, policy) = particle_config_and_policy(
             particle_count,
             calibration_seed,
             log_bandwidth,
             minimum_effective_samples,
             retain_reverse_trace,
-        )
-        .map_err(|e| invalid(py, e))?;
-        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
-            .map_err(|e| invalid(py, e))?;
+            worker_threads,
+            reduction_block_size,
+            |e| invalid(py, e),
+        )?;
         let request = request.inner.clone();
         py.detach(|| {
             StochasticDividendPricingPlan::compile_rough_bergomi_lsv(
@@ -372,13 +389,13 @@ impl PyStochasticDividendPlan {
     ) -> PyResult<Self> {
         let factor =
             RoughBergomi::new(hurst, vol_of_vol, correlation).map_err(|e| invalid(py, e))?;
-        let model = BuehlerDividendModel::new(
+        let model = dividend_model(
+            py,
             dividend_mean_reversion,
             equity_linkage,
             dividend_volatility,
             equity_dividend_correlation,
-        )
-        .map_err(|e| invalid(py, e))?;
+        )?;
         let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
             .map_err(|e| invalid(py, e))?;
         let request = request.inner.clone();

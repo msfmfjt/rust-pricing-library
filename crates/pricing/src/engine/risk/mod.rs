@@ -52,3 +52,6 @@ mod vegakt_multi_step;
 mod vegakt_path_chain;
 
 mod vegakt_multi_step_candidate;
+
+mod vegakt_three_step_growth;
+mod vegakt_variance_gamma_quality;

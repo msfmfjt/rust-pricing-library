@@ -213,59 +213,21 @@ impl SimulationPlan {
             EstimatorKind::PseudoMonteCarlo,
         )?;
         debug_assert_eq!(estimate.value().get().to_bits(), price.to_bits());
-        let risks = self.build_risk_report(
+        self.build_sampled_price(
             &statistics,
             independent_units,
-            EstimatorKind::PseudoMonteCarlo,
-            None,
-        )?;
-        let risk_diagnostics = self.build_risk_diagnostics(
-            &statistics,
-            independent_units,
-            EstimatorKind::PseudoMonteCarlo,
-        )?;
-        let warnings = extrapolation_warnings(self.discount_region, self.dividend_region);
-        let pricing_result = PricingResult {
-            value: estimate,
-            risks,
-            diagnostics: Diagnostics::new(warnings),
-            replay: self.replay_metadata(),
-        };
-        Ok(MonteCarloPrice {
-            pricing_result,
             sampling_variance,
             estimator_variance,
-            risk_diagnostics,
-            independent_sampling_units: independent_units,
-            evaluated_paths: engine.evaluated_paths(),
-            diagnostics: MonteCarloDiagnostics {
+            estimate,
+            SamplingMetadata {
                 master_seed: engine.master_seed(),
-                estimator: EstimatorKind::PseudoMonteCarlo,
+                evaluated_paths: engine.evaluated_paths(),
                 scramble_count: None,
                 direction_checksum: None,
                 scramble_checksum: None,
-                policy_version: self.execution_policy.version(),
-                worker_threads: self.execution_policy.worker_threads().get(),
-                reduction_block_size: self.execution_policy.reduction_block_size().get(),
-                aad_tile_policy_version: self.aad_tile_policy.version(),
-                aad_tile_capacity: self.aad_tile_policy.resolved_capacity().get(),
-                checkpoint_policy_version: self.checkpoint_policy.version(),
-                checkpoint_interval: self.checkpoint_policy.resolved_interval().get(),
                 antithetic,
-                discount_region: self.discount_region,
-                dividend_region: self.dividend_region,
-                payoff_fingerprint: self.payoff.tape_fingerprint(),
-                valuation_kind: if self.payoff_smoothing.is_some() {
-                    PayoffValuationKind::SmoothedSurrogate
-                } else {
-                    PayoffValuationKind::ExactContractual
-                },
-                payoff_smoothing: self.payoff_smoothing_diagnostics(),
-                path_state: self.path_state_diagnostics,
-                barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
             },
-            early_exercise_diagnostics: None,
-        })
+        )
     }
 }
 
@@ -376,42 +338,73 @@ impl SimulationPlan {
             1.0,
             EstimatorKind::RandomizedQuasiMonteCarlo,
         )?;
-        let risks = self.build_risk_report(
+        let multiplier = if antithetic { 2_u128 } else { 1_u128 };
+        self.build_sampled_price(
             &statistics,
             independent_units,
-            EstimatorKind::RandomizedQuasiMonteCarlo,
-            None,
-        )?;
-        let risk_diagnostics = self.build_risk_diagnostics(
-            &statistics,
-            independent_units,
-            EstimatorKind::RandomizedQuasiMonteCarlo,
-        )?;
+            sampling_variance,
+            estimator_variance,
+            estimate,
+            SamplingMetadata {
+                master_seed: engine.master_scramble_seed(),
+                evaluated_paths: u128::from(points)
+                    * u128::from(engine.scramble_count().get())
+                    * multiplier,
+                scramble_count: Some(engine.scramble_count().get()),
+                direction_checksum: Some(qmc.direction_checksum()),
+                scramble_checksum: Some(qmc.scramble_checksum()),
+                antithetic,
+            },
+        )
+    }
+}
+
+// Engine-specific sampling facts; RQMC checksums come from the compiled plan.
+struct SamplingMetadata {
+    master_seed: u64,
+    evaluated_paths: u128,
+    scramble_count: Option<u32>,
+    direction_checksum: Option<[u8; 32]>,
+    scramble_checksum: Option<[u8; 32]>,
+    antithetic: bool,
+}
+
+impl SimulationPlan {
+    // Callers finish their own sample/scramble reductions and variance estimates.
+    // Keep result construction here independent of those estimator algorithms.
+    fn build_sampled_price(
+        &self,
+        statistics: &[DeterministicStatistics; PATHWISE_COMPONENTS],
+        independent_units: u64,
+        sampling_variance: f64,
+        estimator_variance: f64,
+        estimate: Estimate,
+        sampling: SamplingMetadata,
+    ) -> Result<MonteCarloPrice, MonteCarloError> {
+        let estimator = estimate.estimator();
+        let risks = self.build_risk_report(statistics, independent_units, estimator, None)?;
+        let risk_diagnostics =
+            self.build_risk_diagnostics(statistics, independent_units, estimator)?;
+        let warnings = extrapolation_warnings(self.discount_region, self.dividend_region);
         let pricing_result = PricingResult {
             value: estimate,
             risks,
-            diagnostics: Diagnostics::new(extrapolation_warnings(
-                self.discount_region,
-                self.dividend_region,
-            )),
+            diagnostics: Diagnostics::new(warnings),
             replay: self.replay_metadata(),
         };
-        let multiplier = if antithetic { 2_u128 } else { 1_u128 };
         Ok(MonteCarloPrice {
             pricing_result,
             sampling_variance,
             estimator_variance,
             risk_diagnostics,
             independent_sampling_units: independent_units,
-            evaluated_paths: u128::from(points)
-                * u128::from(engine.scramble_count().get())
-                * multiplier,
+            evaluated_paths: sampling.evaluated_paths,
             diagnostics: MonteCarloDiagnostics {
-                master_seed: engine.master_scramble_seed(),
-                estimator: EstimatorKind::RandomizedQuasiMonteCarlo,
-                scramble_count: Some(engine.scramble_count().get()),
-                direction_checksum: Some(qmc.direction_checksum()),
-                scramble_checksum: Some(qmc.scramble_checksum()),
+                master_seed: sampling.master_seed,
+                estimator,
+                scramble_count: sampling.scramble_count,
+                direction_checksum: sampling.direction_checksum,
+                scramble_checksum: sampling.scramble_checksum,
                 policy_version: self.execution_policy.version(),
                 worker_threads: self.execution_policy.worker_threads().get(),
                 reduction_block_size: self.execution_policy.reduction_block_size().get(),
@@ -419,7 +412,7 @@ impl SimulationPlan {
                 aad_tile_capacity: self.aad_tile_policy.resolved_capacity().get(),
                 checkpoint_policy_version: self.checkpoint_policy.version(),
                 checkpoint_interval: self.checkpoint_policy.resolved_interval().get(),
-                antithetic,
+                antithetic: sampling.antithetic,
                 discount_region: self.discount_region,
                 dividend_region: self.dividend_region,
                 payoff_fingerprint: self.payoff.tape_fingerprint(),
@@ -430,7 +423,7 @@ impl SimulationPlan {
                 },
                 payoff_smoothing: self.payoff_smoothing_diagnostics(),
                 path_state: self.path_state_diagnostics,
-                barrier_bridge: self.barrier_bridge_diagnostics(&statistics, independent_units),
+                barrier_bridge: self.barrier_bridge_diagnostics(statistics, independent_units),
             },
             early_exercise_diagnostics: None,
         })

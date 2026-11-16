@@ -428,11 +428,6 @@ impl DeterministicExecutor {
         F: Fn(u64) -> Result<[f64; N], E> + Sync + Send,
         E: Send,
     {
-        #[derive(Clone, Copy)]
-        struct BlockStatistics<const N: usize> {
-            statistics: [DeterministicStatistics; N],
-        }
-
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
         let tile_capacity = u64::from(tile_capacity.get());
@@ -458,29 +453,11 @@ impl DeterministicExecutor {
                         }
                         tile_begin = tile_end;
                     }
-                    Ok(BlockStatistics { statistics })
+                    Ok(ArrayBlockStatistics { statistics })
                 })
                 .collect::<Vec<_>>()
         });
-        let mut per_component_sums: [Vec<NeumaierSum>; N] =
-            std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
-        let mut per_component_moments: [Vec<CenteredMoment>; N] =
-            std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
-        for result in block_results {
-            let block = result?;
-            for ((sums, moments), statistic) in per_component_sums
-                .iter_mut()
-                .zip(per_component_moments.iter_mut())
-                .zip(block.statistics)
-            {
-                sums.push(statistic.sum);
-                moments.push(statistic.moments);
-            }
-        }
-        Ok(std::array::from_fn(|component| DeterministicStatistics {
-            sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
-            moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
-        }))
+        reduce_array_blocks(block_results)
     }
 
     /// Executes AAD paths in fixed tiles backed by one reusable aligned SoA
@@ -496,11 +473,6 @@ impl DeterministicExecutor {
         F: Fn(u64, usize, &mut SoaWorkspace) -> Result<[f64; N], E> + Sync + Send,
         E: From<AadConfigError> + Send,
     {
-        #[derive(Clone, Copy)]
-        struct BlockStatistics<const N: usize> {
-            statistics: [DeterministicStatistics; N],
-        }
-
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
         let logical_capacity =
@@ -542,31 +514,44 @@ impl DeterministicExecutor {
                                 }
                                 tile_begin = tile_end;
                             }
-                            Ok(BlockStatistics { statistics })
+                            Ok(ArrayBlockStatistics { statistics })
                         },
                     )
                     .collect::<Vec<_>>()
             });
-        let mut per_component_sums: [Vec<NeumaierSum>; N] =
-            std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
-        let mut per_component_moments: [Vec<CenteredMoment>; N] =
-            std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
-        for result in block_results {
-            let block = result?;
-            for ((sums, moments), statistic) in per_component_sums
-                .iter_mut()
-                .zip(per_component_moments.iter_mut())
-                .zip(block.statistics)
-            {
-                sums.push(statistic.sum);
-                moments.push(statistic.moments);
-            }
-        }
-        Ok(std::array::from_fn(|component| DeterministicStatistics {
-            sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
-            moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
-        }))
+        reduce_array_blocks(block_results)
     }
+}
+
+#[derive(Clone, Copy)]
+struct ArrayBlockStatistics<const N: usize> {
+    statistics: [DeterministicStatistics; N],
+}
+
+// Consume blocks in their indexed collection order, so the first error and the
+// fixed reduction tree for each component are independent of task completion order.
+fn reduce_array_blocks<const N: usize, E>(
+    block_results: Vec<Result<ArrayBlockStatistics<N>, TryExecutionError<E>>>,
+) -> Result<[DeterministicStatistics; N], TryExecutionError<E>> {
+    let mut per_component_sums: [Vec<NeumaierSum>; N] =
+        std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
+    let mut per_component_moments: [Vec<CenteredMoment>; N] =
+        std::array::from_fn(|_| Vec::with_capacity(block_results.len()));
+    for result in block_results {
+        let block = result?;
+        for ((sums, moments), statistic) in per_component_sums
+            .iter_mut()
+            .zip(per_component_moments.iter_mut())
+            .zip(block.statistics)
+        {
+            sums.push(statistic.sum);
+            moments.push(statistic.moments);
+        }
+    }
+    Ok(std::array::from_fn(|component| DeterministicStatistics {
+        sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
+        moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
+    }))
 }
 
 fn fixed_blocks(sampling_units: u64, block_size: u64) -> Result<Vec<Range<u64>>, ExecutionError> {

@@ -1,5 +1,6 @@
 //! Initial-state Gamma: both subsequent transitions and the first fixing move.
 use super::vegakt_terminal::try_affine_observation_payoff_gamma_measure;
+use super::vegakt_three_step_growth as bound;
 use crate::MonteCarloError;
 use crate::engine::plan::simulation::SimulationPlan;
 use crate::mc::{DeterministicExecutor, EngineConfig, RandomDomain};
@@ -8,7 +9,6 @@ use crate::risk::{
     VegaKtThreeStepInitialGammaAudit, gaussian_legendre,
 };
 use pricing_numerics::{NeumaierSum, standard_normal_cdf as cdf, standard_normal_pdf as pdf};
-mod bound;
 fn invalid(s: &'static str) -> RiskConfigError {
     RiskConfigError::VegaKtChainInput { quantity: s }
 }

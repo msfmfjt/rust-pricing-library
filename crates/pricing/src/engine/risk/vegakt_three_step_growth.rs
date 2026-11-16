@@ -1,9 +1,12 @@
 //! Certified linear growth envelope for continuous piecewise-affine payoffs.
-use super::invalid;
 use crate::core::{Date, UnderlyingId};
 use crate::product::{CompiledOpcode as Op, CompiledPayoff};
 use crate::risk::RiskConfigError;
 use std::collections::BTreeMap;
+
+fn invalid(s: &'static str) -> RiskConfigError {
+    RiskConfigError::VegaKtChainInput { quantity: s }
+}
 
 #[derive(Clone, Copy)]
 struct Bound {
@@ -159,4 +162,129 @@ pub(super) fn growth_bound(
         .get(&payoff.output_slots()[0])
         .map(|b| b.coefficients)
         .ok_or_else(|| invalid("missing growth-bound output"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::product::{GraphLimitPolicy, SourceGraphBuilder, SourceOpcode};
+
+    fn spot(builder: &mut SourceGraphBuilder, underlying: u32) -> crate::core::NodeId {
+        builder
+            .push(SourceOpcode::TerminalSpot {
+                underlying: UnderlyingId::new(underlying),
+                observation_date: "2027-01-01".parse().unwrap(),
+            })
+            .unwrap()
+    }
+
+    #[test]
+    fn initial_spot_and_three_future_observations_keep_distinct_coefficients() {
+        let mut builder = SourceGraphBuilder::new();
+        let s = spot(&mut builder, 1);
+        let payoff = builder
+            .finish(vec![s])
+            .compile(GraphLimitPolicy::DEFAULT)
+            .unwrap();
+        for i in 0..4 {
+            let mut expected = [0.; 4];
+            expected[i] = if i == 0 { 100. } else { 1. };
+            assert_eq!(
+                growth_bound(&payoff, |_, _| Some(i), 100.).unwrap(),
+                expected
+            );
+        }
+        for index in [None, Some(4)] {
+            assert!(matches!(
+                growth_bound(&payoff, |_, _| index, 100.),
+                Err(RiskConfigError::VegaKtChainInput {
+                    quantity: "three-step observation required"
+                })
+            ));
+        }
+    }
+
+    #[test]
+    fn signed_piecewise_affine_payoff_keeps_certified_envelope() {
+        let mut b = SourceGraphBuilder::new();
+        let s1 = spot(&mut b, 1);
+        let s2 = spot(&mut b, 2);
+        let s3 = spot(&mut b, 3);
+        let minus_two = b.literal(-2.).unwrap();
+        let three = b.literal(3.).unwrap();
+        let two = b.literal(2.).unwrap();
+        let seven = b.literal(7.).unwrap();
+        let left = b
+            .push(SourceOpcode::Multiply {
+                left: minus_two,
+                right: s1,
+            })
+            .unwrap();
+        let right = b
+            .push(SourceOpcode::Multiply {
+                left: three,
+                right: s2,
+            })
+            .unwrap();
+        let sum = b.push(SourceOpcode::Add { left, right }).unwrap();
+        let average = b
+            .push(SourceOpcode::Divide {
+                numerator: sum,
+                denominator: two,
+            })
+            .unwrap();
+        let shifted = b
+            .push(SourceOpcode::Subtract {
+                left: s3,
+                right: seven,
+            })
+            .unwrap();
+        let result = b
+            .push(SourceOpcode::Maximum {
+                left: average,
+                right: shifted,
+            })
+            .unwrap();
+        let payoff = b
+            .finish(vec![result])
+            .compile(GraphLimitPolicy::DEFAULT)
+            .unwrap();
+        // max((-2*S1 + 3*S2)/2, S3 - 7) is bounded by 7 + S1 + 1.5*S2 + S3.
+        assert_eq!(
+            growth_bound(&payoff, |u, _| Some(u.get() as usize), 100.).unwrap(),
+            [7., 1., 1.5, 1.]
+        );
+    }
+
+    #[test]
+    fn nonlinear_product_and_variable_divisor_remain_rejected() {
+        for divide in [false, true] {
+            let mut b = SourceGraphBuilder::new();
+            let left = spot(&mut b, 1);
+            let right = spot(&mut b, 2);
+            let (op, message) = if divide {
+                (
+                    SourceOpcode::Divide {
+                        numerator: left,
+                        denominator: right,
+                    },
+                    "constant nonzero divisor required",
+                )
+            } else {
+                (
+                    SourceOpcode::Multiply { left, right },
+                    "global piecewise-affine growth envelope required",
+                )
+            };
+            let out = b.push(op).unwrap();
+            let payoff = b
+                .finish(vec![out])
+                .compile(GraphLimitPolicy::DEFAULT)
+                .unwrap();
+            assert!(matches!(
+                growth_bound(&payoff, |u, _| Some(u.get() as usize), 100.),
+                Err(RiskConfigError::VegaKtChainInput { quantity }) if quantity == message
+            ));
+        }
+    }
 }
