@@ -79,6 +79,21 @@ impl SimulationPlan {
         request: &PricingRequest,
         execution_policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
+        Self::compile_with_bridge_grid(request, execution_policy, false)
+    }
+
+    pub(crate) fn compile_with_carry_breakpoints(
+        request: &PricingRequest,
+        execution_policy: ExecutionPolicy,
+    ) -> Result<Self, MonteCarloError> {
+        Self::compile_with_bridge_grid(request, execution_policy, true)
+    }
+
+    fn compile_with_bridge_grid(
+        request: &PricingRequest,
+        execution_policy: ExecutionPolicy,
+        include_carry_breakpoints: bool,
+    ) -> Result<Self, MonteCarloError> {
         let engine = request.engine();
         let product = request.product();
         let path_state_diagnostics =
@@ -214,14 +229,21 @@ impl SimulationPlan {
             );
             observation_points
                 .retain(|(time, date)| *time > 0.0 || *date == Some(barrier.expiry()));
-            for entry in &dividend_timeline {
-                let time = entry.ex_time();
-                if time > 0.0
-                    && time <= monitoring_end
-                    && !observation_points
-                        .iter()
-                        .any(|(point_time, _)| point_time.to_bits() == time.to_bits())
-                {
+            // A constant barrier has the usual log-Brownian bridge probability
+            // on intervals where the deterministic log carry is linear.
+            let carry_breaks = [
+                market_forward.discount_curve(),
+                market_forward.dividend_curve(),
+            ]
+            .into_iter()
+            .filter(|_| include_carry_breakpoints)
+            .flat_map(|curve| curve.times().iter().copied());
+            for time in dividend_timeline
+                .iter()
+                .map(|entry| entry.ex_time())
+                .chain(carry_breaks)
+            {
+                if time > 0.0 && time <= monitoring_end {
                     observation_points.push((time, None));
                 }
             }
@@ -230,6 +252,9 @@ impl SimulationPlan {
                     .partial_cmp(&right.0)
                     .expect("observation times are finite")
             });
+            // Stable sort keeps the contractual date first when a pillar or
+            // dividend coincides with a fixing.
+            observation_points.dedup_by(|a, b| a.0 == b.0);
         }
         let observation_times = observation_points
             .iter()

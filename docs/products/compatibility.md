@@ -23,6 +23,25 @@ limitations and risk semantics.
 
 ## Boundary notes
 
+- Baskets, worst-of options and memory autocalls can combine stocks from
+  several foreign currencies. Quanto, floating-FX and composite settlement
+  share one domestic discount curve, with one FX quote and foreign discount
+  curve per stock currency. Each currency can have a Hull–White short rate.
+  Autocalls can specify separate coupon and principal currencies for settlement
+  at floating FX. [Coupon and principal currencies](../models/cross-currency-equity.md#separate-coupon-and-principal-currencies)
+  [Mixed-currency settlement](../models/cross-currency-equity.md#stocks-in-different-foreign-currencies)
+
+- Single-stock European, Asian, lookback, digital, barrier, scheduled-exercise
+  and custom graph payoffs support quanto, floating-FX and composite settlement.
+  Dated cash flows can use separate correlated domestic and foreign Hull–White
+  rates with Black, LV, Bass, Bergomi and the six rough equity families.
+  Scheduled early exercise uses independent policy-training and pricing paths.
+  Continuous barriers use a bridge that includes stock and FX diffusion and
+  cash-dividend jumps. Both support joint Hull–White rates. With stochastic
+  foreign rates and stochastic cash dividends, the residual equity supports
+  constant volatility and one- or two-factor Bergomi.
+  [Quanto and FX-linked settlement](../models/cross-currency-equity.md)
+
 - The first column covers the standard single-asset `PricingRequest` path with
   `BlackScholes`, `Black76` or `LocalVolatility` models.
 - Bergomi LSV and rough-LSV adapters support the existing payoff graph for

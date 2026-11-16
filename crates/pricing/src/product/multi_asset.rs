@@ -168,7 +168,7 @@ fn check_option(
     }
     Ok(())
 }
-fn option(
+pub(crate) fn option(
     b: &mut SourceGraphBuilder,
     value: NodeId,
     side: OptionSide,
@@ -291,11 +291,41 @@ pub struct AutocallSpec {
     pub on_autocall: MemoryTermination,
     pub on_maturity: MemoryTermination,
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AutocallLeg {
+    Whole,
+    Coupon,
+    Principal,
+}
+
 impl AutocallSpec {
     /// Unseasoned contract. Observation-date coupons are paid before the call decision.
     pub fn product(
         &self,
         smoothing: Option<CompactC2Smoothing>,
+    ) -> Result<MultiAssetProduct, MultiAssetError> {
+        self.build(smoothing, self.currency, AutocallLeg::Whole)
+    }
+
+    /// Coupon and principal graphs, in their respective contractual currencies.
+    /// Both use the same survival, coupon recovery and final barrier conditions.
+    pub fn cashflow_legs(
+        &self,
+        smoothing: Option<CompactC2Smoothing>,
+        coupon_currency: CurrencyId,
+        principal_currency: CurrencyId,
+    ) -> Result<[MultiAssetProduct; 2], MultiAssetError> {
+        Ok([
+            self.build(smoothing, coupon_currency, AutocallLeg::Coupon)?,
+            self.build(smoothing, principal_currency, AutocallLeg::Principal)?,
+        ])
+    }
+
+    fn build(
+        &self,
+        smoothing: Option<CompactC2Smoothing>,
+        currency: CurrencyId,
+        leg: AutocallLeg,
     ) -> Result<MultiAssetProduct, MultiAssetError> {
         check_option(
             self.final_barrier,
@@ -362,30 +392,43 @@ impl AutocallSpec {
                 Some(level) => indicator(&mut b, w, level, smoothing)?,
                 None => zero,
             };
-            let call_coupon = b.literal(o.call_coupon_amount)?;
-            let mut redemption = b.push(Op::Add {
-                left: notional,
-                right: call_coupon,
-            })?;
-            if self.on_autocall == MemoryTermination::Pay {
-                redemption = b.push(Op::Add {
-                    left: redemption,
-                    right: unpaid,
-                })?;
+            if leg != AutocallLeg::Principal || o.call_level.is_some() {
+                let cash = if leg == AutocallLeg::Principal {
+                    b.push(Op::Multiply {
+                        left: call,
+                        right: notional,
+                    })?
+                } else {
+                    let call_coupon = b.literal(o.call_coupon_amount)?;
+                    let mut redemption = if leg == AutocallLeg::Whole {
+                        b.push(Op::Add {
+                            left: notional,
+                            right: call_coupon,
+                        })?
+                    } else {
+                        call_coupon
+                    };
+                    if self.on_autocall == MemoryTermination::Pay {
+                        redemption = b.push(Op::Add {
+                            left: redemption,
+                            right: unpaid,
+                        })?;
+                    }
+                    let redemption = b.push(Op::Multiply {
+                        left: call,
+                        right: redemption,
+                    })?;
+                    b.push(Op::Add {
+                        left: paid,
+                        right: redemption,
+                    })?
+                };
+                outputs.push(b.push(Op::Multiply {
+                    left: alive,
+                    right: cash,
+                })?);
+                payments.push(o.payment_date);
             }
-            let redemption = b.push(Op::Multiply {
-                left: call,
-                right: redemption,
-            })?;
-            let cash = b.push(Op::Add {
-                left: paid,
-                right: redemption,
-            })?;
-            outputs.push(b.push(Op::Multiply {
-                left: alive,
-                right: cash,
-            })?);
-            payments.push(o.payment_date);
             let not_called = b.push(Op::Subtract {
                 left: one,
                 right: call,
@@ -395,37 +438,46 @@ impl AutocallSpec {
                 right: not_called,
             })?;
         }
-        let w = worst(&mut b, &self.components, self.maturity, smoothing)?;
-        let protected = indicator(&mut b, w, self.final_barrier, smoothing)?;
-        let downside_weight = b.push(Op::Subtract {
-            left: one,
-            right: protected,
-        })?;
-        let downside = b.push(Op::Multiply {
-            left: downside_weight,
-            right: w,
-        })?;
-        let redemption = b.push(Op::Add {
-            left: protected,
-            right: downside,
-        })?;
-        let mut redemption = b.push(Op::Multiply {
-            left: notional,
-            right: redemption,
-        })?;
-        if self.on_maturity == MemoryTermination::Pay {
-            redemption = b.push(Op::Add {
-                left: redemption,
-                right: unpaid,
+        let pays_memory = self.on_maturity == MemoryTermination::Pay;
+        let maturity_amount = if leg == AutocallLeg::Coupon {
+            (self.memory && pays_memory).then_some(unpaid)
+        } else {
+            let w = worst(&mut b, &self.components, self.maturity, smoothing)?;
+            let protected = indicator(&mut b, w, self.final_barrier, smoothing)?;
+            let downside_weight = b.push(Op::Subtract {
+                left: one,
+                right: protected,
             })?;
+            let downside = b.push(Op::Multiply {
+                left: downside_weight,
+                right: w,
+            })?;
+            let redemption = b.push(Op::Add {
+                left: protected,
+                right: downside,
+            })?;
+            let capital = b.push(Op::Multiply {
+                left: notional,
+                right: redemption,
+            })?;
+            Some(if leg == AutocallLeg::Whole && pays_memory {
+                b.push(Op::Add {
+                    left: capital,
+                    right: unpaid,
+                })?
+            } else {
+                capital
+            })
+        };
+        if let Some(amount) = maturity_amount {
+            outputs.push(b.push(Op::Multiply {
+                left: alive,
+                right: amount,
+            })?);
+            payments.push(self.maturity_payment);
         }
-        outputs.push(b.push(Op::Multiply {
-            left: alive,
-            right: redemption,
-        })?);
-        payments.push(self.maturity_payment);
         MultiAssetProduct::from_graph(
-            self.currency,
+            currency,
             self.components.iter().map(|c| c.underlying).collect(),
             b.finish(outputs),
             payments,

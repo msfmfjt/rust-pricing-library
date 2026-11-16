@@ -66,7 +66,7 @@ fn aggregate(value: &str) -> PyResult<c::Aggregate> {
 #[pyclass(frozen, name = "Contract")]
 #[derive(Clone, Debug)]
 pub struct PyContract {
-    inner: Contract,
+    pub(crate) inner: Contract,
 }
 #[pymethods]
 impl PyContract {

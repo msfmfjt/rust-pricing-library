@@ -1,6 +1,7 @@
 //! Shared multi-asset compiler, sampling, path evolution and risk execution.
 mod compile;
 mod composition;
+pub mod cross_currency;
 mod driver_layout;
 mod evaluate;
 mod hull_white;

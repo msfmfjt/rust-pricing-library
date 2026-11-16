@@ -91,9 +91,10 @@ universe, including an anchor for fixed payments. Each group exposes immutable
 `CompiledContract::pricing_task(template, operation)` replaces the product in an
 existing `PricingSpecification`; `multi_asset_task` does the same for a basket
 source. Templates retain market, model, numeraire, seed, simulation grid policy,
-execution and risk settings. Multi-currency contracts require explicitly separate
-native tasks from `groups()`; the convenience adapter rejects multiple currencies
-rather than dropping another currency. `stochastic_dividend_task` preserves the
+execution and risk settings. Single-currency templates require separate native
+tasks for each currency group. For a joint settlement-currency valuation,
+`CrossCurrencyEquityBasket::from_contract` prices all groups together using
+the supplied equity, FX and rate markets. `stochastic_dividend_task` preserves the
 existing dividend dynamics and driver correlations.
 An empty contract lowers to no groups; a native task uses a zero cash flow at
 valuation. Overdue unpaid payments require explicit settlement/closeout handling.
@@ -198,7 +199,11 @@ Hard digitals, autocalls and barriers reject unsupported pathwise estimators;
 there is no silent smoothing. Source errors expose `code`, `stage` and `field`
 on `ValueError`. Native task errors retain their existing typed metadata.
 `to_graphs(as_of, underlying_ids)` returns one graph per currency and does not
-sum or convert currencies. JSON analysis/payment methods return detached data.
+sum or convert currencies. Python's `CrossCurrencyEquityBasket.from_contract`
+accepts the source or `rolled.residual_contract` and values all payments in
+the specified settlement currency. [FX terms and payment currency groups](../models/cross-currency-equity.md#separate-coupon-and-principal-currencies)
+
+JSON analysis/payment methods return detached data.
 Heavy native lowering, replay and task compilation/evaluation release the GIL.
 
 Run focused conformance with `cargo test -p pricing --test contract_source

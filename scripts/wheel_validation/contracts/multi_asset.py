@@ -1,6 +1,40 @@
 """Independent frozen multi asset API expectations, migrated from the release gate."""
 
-CLASSES = {'AutocallObservation': {'bases': [],
+CLASSES = {'CrossCurrencyEquityBasket': {'bases': [], 'members': {
+    'bergomi_quote_hedge': {'kind': 'method', 'declaration': 'def bergomi_quote_hedge(self, quotes: dict[int, Sequence[tuple[DateLike, Literal["call", "put"], float, float, float]]], engine: Engine, *, note_quantity: float = 1.0, contract_sizes: dict[int, Sequence[float]] | None = None, whole_contracts: bool = False, bump: float = 0.005, replications: int = 8, worker_threads: int = 1, reduction_block_size: int | None = None) -> BergomiQuoteHedge: ...'},
+    'bergomi_quote_risk': {'kind': 'method', 'declaration': 'def bergomi_quote_risk(self, quotes: dict[int, Sequence[tuple[DateLike, Literal["call", "put"], float, float, float]]], engine: Engine, *, bump: float = 0.005, replications: int = 8, worker_threads: int = 1, reduction_block_size: int | None = None) -> BergomiQuoteRisk: ...'},
+    'sensitivity': {'kind': 'method', 'declaration': 'def sensitivity(self, factor: Literal["equity_spot", "equity_volatility", "equity_vol_of_vol", "bergomi_factor_1", "bergomi_factor_2", "dividend_volatility", "dividend_yield", "fx_spot", "fx_volatility", "discount_rate"], identifier: int, bump: float, engine: Engine, *, worker_threads: int = 1, reduction_block_size: int | None = None, order: int = 1) -> DiagnosticEstimate: ...'},
+    'with_market_shift': {'kind': 'method', 'declaration': 'def with_market_shift(self, factor: Literal["equity_spot", "equity_volatility", "equity_vol_of_vol", "bergomi_factor_1", "bergomi_factor_2", "dividend_volatility", "dividend_yield", "fx_spot", "fx_volatility", "discount_rate"], identifier: int, shift: float) -> CrossCurrencyEquityBasket: ...'},
+    'scenario_pnl': {'kind': 'method', 'declaration': 'def scenario_pnl(self, scenario: CrossCurrencyEquityBasket, engine: Engine, *, worker_threads: int = 1, reduction_block_size: int | None = None) -> DiagnosticEstimate: ...'},
+    'with_dividend_state': {'kind': 'method', 'declaration': 'def with_dividend_state(self, underlying_id: int, *, model_age: float, volatility_factor: float | Sequence[float], equity_factor: float, dividend_factor: float) -> CrossCurrencyEquityBasket: ...'},
+    'with_leg_fx': {'kind': 'method', 'declaration': 'def with_leg_fx(self, leg_index: int, *, fixed_fx_rate: float | None = None, schedule: Sequence[tuple[DateLike, DateLike]] | None = None, known_fixings: Sequence[tuple[DateLike, float]] | None = None) -> CrossCurrencyEquityBasket: ...'},
+    'from_legs': {'kind': 'staticmethod', 'declaration': '@staticmethod\ndef from_legs(valuation_date: DateLike, legs: Sequence[GraphProduct], foreign_markets: Sequence[Market], settlement_curve: DiscountCurve, *, settlement_currency_id: int, equity_models: Sequence[Model | EquityModelSpec], fx_quotes: Sequence[tuple[int, float, float]], correlations: Sequence[Sequence[float]], performance: Literal["local", "composite"] = "local", rates: Sequence[HullWhiteModel] | None = None, maximum_step: float = 0.02, dividend_models: Sequence[BuehlerDividendModel | None] | None = None, currency_curves: dict[int, DiscountCurve] | None = None) -> CrossCurrencyEquityBasket: ...'},
+    'from_contract': {'kind': 'staticmethod', 'declaration': '@staticmethod\ndef from_contract(valuation_date: DateLike, contract: Contract, foreign_markets: Sequence[Market], settlement_curve: DiscountCurve, *, settlement_currency_id: int, equity_models: Sequence[Model | EquityModelSpec], fx_quotes: Sequence[tuple[int, float, float]], correlations: Sequence[Sequence[float]], performance: Literal["local", "composite"] = "local", rates: Sequence[HullWhiteModel] | None = None, maximum_step: float = 0.02, dividend_models: Sequence[BuehlerDividendModel | None] | None = None, currency_curves: dict[int, DiscountCurve] | None = None) -> CrossCurrencyEquityBasket: ...'},
+    '__init__': {'kind': 'method', 'declaration': 'def __init__(self, valuation_date: DateLike, product: GraphProduct, foreign_markets: Sequence[Market], settlement_curve: DiscountCurve, *, equity_models: Sequence[Model | EquityModelSpec], settlement: Literal["quanto", "floating_fx", "composite"], fx_spot: float, fx_volatility: float, correlations: Sequence[Sequence[float]], fixed_fx_rate: float | None = None, rates: tuple[HullWhiteModel, HullWhiteModel] | None = None, maximum_step: float = 0.02, dividend_models: Sequence[BuehlerDividendModel | None] | None = None) -> None: ...'},
+    'from_currencies': {'kind': 'staticmethod', 'declaration': '@staticmethod\n'
+        'def from_currencies(valuation_date: DateLike, product: GraphProduct, foreign_markets: Sequence[Market], settlement_curve: DiscountCurve, *, equity_models: Sequence[Model | EquityModelSpec], settlement: Literal["quanto", "floating_fx", "composite"], fx_quotes: Sequence[tuple[int, float, float]], correlations: Sequence[Sequence[float]], payout_currency_id: int | None = None, fixed_fx_rate: float | None = None, rates: Sequence[HullWhiteModel] | None = None, maximum_step: float = 0.02, dividend_models: Sequence[BuehlerDividendModel | None] | None = None, currency_curves: dict[int, DiscountCurve] | None = None) -> CrossCurrencyEquityBasket: ...'},
+    'with_payment_fx_fixings': {'kind': 'method', 'declaration': 'def with_payment_fx_fixings(self, schedule: Sequence[tuple[DateLike, DateLike]]) -> CrossCurrencyEquityBasket: ...'},
+    'price_mc': {'kind': 'method', 'declaration': 'def price_mc(self, engine: Engine, *, worker_threads: int = 1, reduction_block_size: int | None = None) -> DiagnosticEstimate: ...'},
+}},
+ 'CrossCurrencyEquityOption': {'bases': [], 'members': {
+    'sensitivity': {'kind': 'method', 'declaration': 'def sensitivity(self, factor: Literal["equity_spot", "equity_volatility", "equity_vol_of_vol", "dividend_volatility", "dividend_yield", "fx_spot", "fx_volatility", "discount_rate"], identifier: int, bump: float, engine: Engine, *, worker_threads: int = 1, reduction_block_size: int | None = None, lsm: LsmConfig | None = None, replications: int = 8, order: int = 1) -> DiagnosticEstimate: ...'},
+    'with_market_shift': {'kind': 'method', 'declaration': 'def with_market_shift(self, factor: Literal["equity_spot", "equity_volatility", "equity_vol_of_vol", "dividend_volatility", "dividend_yield", "fx_spot", "fx_volatility", "discount_rate"], identifier: int, shift: float) -> CrossCurrencyEquityOption: ...'},
+    'scenario_pnl': {'kind': 'method', 'declaration': 'def scenario_pnl(self, scenario: CrossCurrencyEquityOption, engine: Engine, *, worker_threads: int = 1, reduction_block_size: int | None = None, lsm: LsmConfig | None = None, replications: int = 8) -> DiagnosticEstimate: ...'},
+    '__init__': {'kind': 'method', 'declaration': (
+        'def __init__(self, valuation_date: DateLike, product: Product, foreign_market: Market, '
+        'settlement_curve: DiscountCurve, *, settlement: Literal["quanto", "floating_fx", "composite"], '
+        'fx_spot: float, equity_volatility: float | None = None, fx_volatility: float, correlation: float, '
+        'fixed_fx_rate: float | None = None, payment_date: DateLike | None = None, equity_model: Model | EquityModelSpec | None = None, maximum_step: float = 0.02, dividend_model: BuehlerDividendModel | None = None) -> None: ...')},
+    'analytical_price': {'kind': 'method', 'declaration': 'def analytical_price(self) -> float: ...'},
+    'with_payment_fx_fixings': {'kind': 'method', 'declaration': (
+        'def with_payment_fx_fixings(self, schedule: Sequence[tuple[DateLike, DateLike]]) -> CrossCurrencyEquityOption: ...')},
+    'with_hull_white_rates': {'kind': 'method', 'declaration': (
+        'def with_hull_white_rates(self, domestic: HullWhiteModel, foreign: HullWhiteModel, *, correlations: Sequence[Sequence[float]] | None = None) -> CrossCurrencyEquityOption: ...')},
+    'price_mc': {'kind': 'method', 'declaration': (
+        'def price_mc(self, engine: Engine, *, worker_threads: int = 1, '
+        'reduction_block_size: int | None = None, lsm: LsmConfig | None = None) -> DiagnosticEstimate: ...')},
+}},
+ 'AutocallObservation': {'bases': [],
                          'members': {'__init__': {'kind': 'method',
                                                   'signature': {'keyword_only': ['coupon_amount',
                                                                                  'coupon_level',
@@ -329,6 +363,7 @@ CLASSES = {'AutocallObservation': {'bases': [],
                                                                                             'memory',
                                                                                             'on_autocall',
                                                                                             'on_maturity']}},
+                                   'autocallable_legs': {'kind': 'staticmethod', 'declaration': '@staticmethod\ndef autocallable_legs(underlying_ids: Sequence[int], reference_levels: Sequence[float], observations: Sequence[AutocallObservation], maturity: DateLike, maturity_payment: DateLike, *, notional: float, final_barrier: float, memory: bool, on_autocall: Literal["forfeit", "pay"], on_maturity: Literal["forfeit", "pay"], coupon_currency_id: int, principal_currency_id: int, smoothing_half_width: float | None = None) -> tuple[GraphProduct, GraphProduct]: ...'},
                                    'basket': {'kind': 'staticmethod',
                                               'signature': {'keyword_only': ['currency_id',
                                                                              'notional',
@@ -414,3 +449,21 @@ CLASSES = {'AutocallObservation': {'bases': [],
                                           'particle_count': {'kind': 'property'},
                                           'retain_reverse_trace': {'kind': 'property'},
                                           'vol_of_vol': {'kind': 'property'}}}}
+
+CLASSES['BergomiQuoteRisk'] = {'bases': [], 'members': {
+    'present_value': {'kind': 'property', 'declaration': '@property\ndef present_value(self) -> DiagnosticEstimate: ...'},
+    'states': {'kind': 'property', 'declaration': '@property\ndef states(self) -> dict[int, tuple[DiagnosticEstimate, DiagnosticEstimate]]: ...'},
+    'implied_volatilities': {'kind': 'property', 'declaration': '@property\ndef implied_volatilities(self) -> dict[int, tuple[float, float]]: ...'},
+    'price_residuals': {'kind': 'property', 'declaration': '@property\ndef price_residuals(self) -> dict[int, tuple[DiagnosticEstimate, DiagnosticEstimate]]: ...'},
+    'vegas': {'kind': 'property', 'declaration': '@property\ndef vegas(self) -> dict[int, tuple[DiagnosticEstimate, DiagnosticEstimate]]: ...'},
+}}
+
+CLASSES['BergomiQuoteHedge'] = {'bases': [], 'members': {
+    'unhedged': {'kind': 'property', 'declaration': '@property\ndef unhedged(self) -> BergomiQuoteRisk: ...'},
+    'hedged': {'kind': 'property', 'declaration': '@property\ndef hedged(self) -> BergomiQuoteRisk: ...'},
+    'theoretical_hedged': {'kind': 'property', 'declaration': '@property\ndef theoretical_hedged(self) -> BergomiQuoteRisk: ...'},
+    'unit_vegas': {'kind': 'property', 'declaration': '@property\ndef unit_vegas(self) -> dict[int, tuple[float, float]]: ...'},
+    'theoretical_quantities': {'kind': 'property', 'declaration': '@property\ndef theoretical_quantities(self) -> dict[int, tuple[float, float]]: ...'},
+    'quantities': {'kind': 'property', 'declaration': '@property\ndef quantities(self) -> dict[int, tuple[float, float]]: ...'},
+    'quantity_standard_errors': {'kind': 'property', 'declaration': '@property\ndef quantity_standard_errors(self) -> dict[int, tuple[float, float]]: ...'},
+}}

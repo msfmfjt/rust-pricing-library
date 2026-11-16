@@ -5,6 +5,7 @@
 mod bass_lv;
 mod builders;
 mod contract;
+mod cross_currency;
 mod diagnostics;
 mod dual;
 mod errors;
@@ -1615,6 +1616,10 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     pricing_task::register(module)?;
     product_graph::register(module)?;
     contract::register(module)?;
+    module.add_class::<cross_currency::PyCrossCurrencyEquityBasket>()?;
+    module.add_class::<cross_currency::PyBergomiQuoteRisk>()?;
+    module.add_class::<cross_currency::PyBergomiQuoteHedge>()?;
+    module.add_class::<cross_currency::PyCrossCurrencyEquityOption>()?;
     module.add_class::<bass_lv::PyBassMarginal>()?;
     module.add_class::<bass_lv::PyBassLvConfig>()?;
     module.add_class::<bass_lv::PyBassLvModel>()?;

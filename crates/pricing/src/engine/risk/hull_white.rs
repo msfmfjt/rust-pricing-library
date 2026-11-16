@@ -744,7 +744,7 @@ fn expiry_time(request: &PricingRequest) -> f64 {
 
 // JSON parsing can move a decimal value by a few ulps. Accept only round-off
 // differences; calibration always uses the target's own paired density/grid.
-fn matching_target_grid(
+pub(in crate::engine) fn matching_target_grid(
     a: &crate::market::LocalVarianceGrid,
     b: &crate::market::LocalVarianceGrid,
 ) -> bool {

@@ -375,6 +375,7 @@ impl SimulationPlan {
             {
                 let feature = match state_variable {
                     LsmStateVariable::Spot => observations[observation_index].post_spot,
+                    _ => return Err(LsmNumericalError::StateRequiresJointEquityFx.into()),
                 };
                 features[(date_index * path_count + path) * feature_count + feature_index] =
                     feature;
@@ -439,6 +440,7 @@ impl SimulationPlan {
             {
                 let feature = match state_variable {
                     LsmStateVariable::Spot => observations[observation_index].post_spot,
+                    _ => return Err(LsmNumericalError::StateRequiresJointEquityFx.into()),
                 };
                 features[(date_index * path_count + path) * feature_count + feature_index] =
                     feature;

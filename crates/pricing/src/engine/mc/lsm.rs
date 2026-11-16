@@ -57,6 +57,7 @@ pub enum LsmNumericalError {
         bits: u64,
     },
     EmptyStateVariables,
+    StateRequiresJointEquityFx,
     DuplicateStateVariable,
     BasisStateVariableCountMismatch {
         basis: u32,
@@ -206,6 +207,9 @@ impl fmt::Display for LsmNumericalError {
                 formatter,
                 "LSM tolerance {name} must be finite and non-negative: 0x{bits:016x}"
             ),
+            Self::StateRequiresJointEquityFx => {
+                formatter.write_str("FX and rate exercise features require joint equity/FX pricing")
+            }
             Self::EmptyStateVariables => {
                 write!(formatter, "LSM requires at least one state variable")
             }
@@ -918,6 +922,9 @@ impl ExercisePolicyFingerprint {
 #[repr(u8)]
 pub enum LsmStateVariable {
     Spot = 0,
+    FxSpot = 1,
+    DomesticRateFactor = 2,
+    ForeignRateFactor = 3,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

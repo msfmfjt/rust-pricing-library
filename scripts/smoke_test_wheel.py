@@ -66,6 +66,7 @@ def main(argv: list[str] | None = None) -> None:
 EXAMPLES = (
     "examples/python/contracts.py",
     "examples/python/european_bs.py",
+    "examples/python/cross_currency_equity.py",
     "examples/python/pricing_specification.py",
     "examples/python/product_graph.py",
     "examples/python/pricing_task.py",

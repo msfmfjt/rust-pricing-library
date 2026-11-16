@@ -569,6 +569,17 @@ impl LocalVolLogEulerPlan {
         shocks: &[f64],
         states: &mut Vec<f64>,
     ) -> Result<(), LocalVolError> {
+        self.evolve_with_rate_carry(local_variance_grid, initial_f, shocks, states, None)
+    }
+
+    pub(in crate::engine) fn evolve_with_rate_carry(
+        &self,
+        local_variance_grid: &LocalVarianceGrid,
+        initial_f: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+        log_carry: Option<&[f64]>,
+    ) -> Result<(), LocalVolError> {
         if !initial_f.is_finite() || initial_f <= 0.0 {
             return Err(LocalVolError::InvalidInitialState {
                 bits: initial_f.to_bits(),
@@ -587,7 +598,8 @@ impl LocalVolLogEulerPlan {
         for (step, shock) in shocks.iter().copied().enumerate() {
             let time = self.time_grid.nodes()[step];
             let dt = self.time_grid.nodes()[step + 1] - time;
-            let x = (state / self.forward_normalizers[step]).ln();
+            let x = (state / self.forward_normalizers[step]).ln()
+                + log_carry.map_or(0., |carry| carry[step]);
             let local_variance = local_variance_grid
                 .interpolate_with_hints(time, x, &mut hints)?
                 .value;

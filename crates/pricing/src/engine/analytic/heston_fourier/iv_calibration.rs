@@ -116,6 +116,17 @@ impl HestonIvCalibrationQuote {
     }
 }
 
+pub(crate) fn black_iv_and_vega(
+    f: f64,
+    k: f64,
+    d: f64,
+    t: f64,
+    is_call: bool,
+    price: f64,
+) -> Result<(f64, f64), FourierError> {
+    BlackCoordinates::new(f, k, d, t, is_call)?.invert(price)
+}
+
 /// One normalized OTM Black calculation, shared by call and put inversion.
 struct BlackCoordinates {
     ratio: f64,

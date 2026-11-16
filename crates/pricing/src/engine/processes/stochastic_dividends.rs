@@ -540,6 +540,33 @@ impl StochasticDividendPathPlan {
         Ok(states)
     }
 
+    pub(in crate::engine) fn path_with_equity_volatilities(
+        &self,
+        normals: &[f64],
+    ) -> Result<(Vec<BuehlerDividendState>, Vec<f64>), StochasticDividendError> {
+        if self.rough.is_some() {
+            return self.evolve_rough_path_with_volatilities(normals);
+        }
+        if let Some(kernel) = &self.bergomi {
+            if normals.len() != self.dimension as usize || normals.iter().any(|z| !z.is_finite()) {
+                return Err(invalid("dividend_bridge_normals"));
+            }
+            let mut vols = Vec::with_capacity(self.times.len() - 1);
+            let states = kernel.evolve_with_volatilities(
+                self.model,
+                self.volatility,
+                &self.times,
+                normals,
+                Some(&mut vols),
+            )?;
+            return Ok((states, vols));
+        }
+        Ok((
+            self.evolve_path(normals)?,
+            vec![self.volatility; self.times.len() - 1],
+        ))
+    }
+
     pub(in crate::engine) fn evolve_rough_path_with_volatilities(
         &self,
         normals: &[f64],

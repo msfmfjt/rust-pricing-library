@@ -198,6 +198,49 @@ impl PyAutocallObservation {
         })
     }
 }
+#[allow(clippy::too_many_arguments)]
+fn autocall_spec(
+    py: Python<'_>,
+    underlying_ids: Vec<u32>,
+    reference_levels: Vec<f64>,
+    observations: Vec<Py<PyAutocallObservation>>,
+    maturity: &Bound<'_, PyAny>,
+    maturity_payment: &Bound<'_, PyAny>,
+    notional: f64,
+    final_barrier: f64,
+    memory: bool,
+    on_autocall: &str,
+    on_maturity: &str,
+    currency_id: u16,
+) -> PyResult<AutocallSpec> {
+    if underlying_ids.len() != reference_levels.len() {
+        return Err(invalid(py, "worst-of component lengths differ"));
+    }
+    let components = underlying_ids
+        .into_iter()
+        .zip(reference_levels)
+        .map(|(u, reference_level)| WorstOfComponent {
+            underlying: UnderlyingId::new(u),
+            reference_level,
+        })
+        .collect();
+    Ok(AutocallSpec {
+        currency: CurrencyId::new(currency_id),
+        components,
+        observations: observations
+            .into_iter()
+            .map(|o| o.borrow(py).inner.clone())
+            .collect(),
+        maturity: date_from_python(py, maturity, "/multi_asset/maturity")?,
+        maturity_payment: date_from_python(py, maturity_payment, "/multi_asset/payment")?,
+        notional,
+        final_barrier,
+        memory,
+        on_autocall: termination(py, on_autocall)?,
+        on_maturity: termination(py, on_maturity)?,
+    })
+}
+
 #[pyclass(frozen, name = "MultiAssetProduct")]
 #[derive(Clone, Debug)]
 pub struct PyMultiAssetProduct {
@@ -317,35 +360,74 @@ impl PyMultiAssetProduct {
         currency_id: u16,
         smoothing_half_width: Option<f64>,
     ) -> PyResult<Self> {
-        if underlying_ids.len() != reference_levels.len() {
-            return Err(invalid(py, "worst-of component lengths differ"));
-        }
-        let components = underlying_ids
-            .into_iter()
-            .zip(reference_levels)
-            .map(|(u, reference_level)| WorstOfComponent {
-                underlying: UnderlyingId::new(u),
-                reference_level,
-            })
-            .collect();
-        let spec = AutocallSpec {
-            currency: CurrencyId::new(currency_id),
-            components,
-            observations: observations
-                .into_iter()
-                .map(|o| o.borrow(py).inner.clone())
-                .collect(),
-            maturity: date_from_python(py, maturity, "/multi_asset/maturity")?,
-            maturity_payment: date_from_python(py, maturity_payment, "/multi_asset/payment")?,
+        let spec = autocall_spec(
+            py,
+            underlying_ids,
+            reference_levels,
+            observations,
+            maturity,
+            maturity_payment,
             notional,
             final_barrier,
             memory,
-            on_autocall: termination(py, on_autocall)?,
-            on_maturity: termination(py, on_maturity)?,
-        };
+            on_autocall,
+            on_maturity,
+            currency_id,
+        )?;
         spec.product(smooth(py, smoothing_half_width)?)
             .map(|inner| Self { inner })
             .map_err(|e| invalid(py, e))
+    }
+    /// Coupon (including call bonuses and memory) and principal, in contractual units.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(underlying_ids,reference_levels,observations,maturity,maturity_payment,*,notional,final_barrier,memory,on_autocall,on_maturity,coupon_currency_id,principal_currency_id,smoothing_half_width=None))]
+    fn autocallable_legs(
+        py: Python<'_>,
+        underlying_ids: Vec<u32>,
+        reference_levels: Vec<f64>,
+        observations: Vec<Py<PyAutocallObservation>>,
+        maturity: &Bound<'_, PyAny>,
+        maturity_payment: &Bound<'_, PyAny>,
+        notional: f64,
+        final_barrier: f64,
+        memory: bool,
+        on_autocall: &str,
+        on_maturity: &str,
+        coupon_currency_id: u16,
+        principal_currency_id: u16,
+        smoothing_half_width: Option<f64>,
+    ) -> PyResult<(
+        crate::product_graph::PyGraphProduct,
+        crate::product_graph::PyGraphProduct,
+    )> {
+        let spec = autocall_spec(
+            py,
+            underlying_ids,
+            reference_levels,
+            observations,
+            maturity,
+            maturity_payment,
+            notional,
+            final_barrier,
+            memory,
+            on_autocall,
+            on_maturity,
+            principal_currency_id,
+        )?;
+        let [coupon, principal] = spec
+            .cashflow_legs(
+                smooth(py, smoothing_half_width)?,
+                CurrencyId::new(coupon_currency_id),
+                CurrencyId::new(principal_currency_id),
+            )
+            .map_err(|e| invalid(py, e))?;
+        let graph = |p: MultiAssetProduct| {
+            p.to_product_graph()
+                .map(|inner| crate::product_graph::PyGraphProduct { inner })
+                .map_err(|e| invalid(py, e))
+        };
+        Ok((graph(coupon)?, graph(principal)?))
     }
     #[getter]
     fn underlying_ids(&self) -> Vec<u32> {

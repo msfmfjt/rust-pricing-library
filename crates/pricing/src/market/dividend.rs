@@ -407,9 +407,8 @@ impl AffineDividendTransform {
         &self.events
     }
 
-    pub fn with_spot(&self, spot: PositiveF64) -> Result<Self, MarketError> {
-        let events = self
-            .events
+    pub(crate) fn quoted_events(&self) -> Result<Vec<DividendEvent>, MarketError> {
+        self.events
             .iter()
             .map(|event| {
                 DividendEvent::new(
@@ -422,7 +421,11 @@ impl AffineDividendTransform {
                     )?,
                 )
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect()
+    }
+
+    pub fn with_spot(&self, spot: PositiveF64) -> Result<Self, MarketError> {
+        let events = self.quoted_events()?;
         if let Some((p, q)) = &self.carry_curves {
             Self::new_with_carry_curves(self.underlying, spot, events, Arc::clone(p), Arc::clone(q))
         } else {

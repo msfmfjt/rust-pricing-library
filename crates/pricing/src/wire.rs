@@ -632,6 +632,9 @@ struct LsmV3 {
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum LsmStateVariableV3 {
     Spot,
+    FxSpot,
+    DomesticRateFactor,
+    ForeignRateFactor,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -1030,6 +1033,9 @@ impl From<&LsmConfig> for LsmV3 {
                 .iter()
                 .map(|state| match state {
                     LsmStateVariable::Spot => LsmStateVariableV3::Spot,
+                    LsmStateVariable::FxSpot => LsmStateVariableV3::FxSpot,
+                    LsmStateVariable::DomesticRateFactor => LsmStateVariableV3::DomesticRateFactor,
+                    LsmStateVariable::ForeignRateFactor => LsmStateVariableV3::ForeignRateFactor,
                 })
                 .collect(),
             basis: PolynomialBasisV3 {
@@ -1449,6 +1455,9 @@ fn lsm_from_wire(value: LsmV3) -> Result<LsmConfig, WireError> {
         .into_iter()
         .map(|state| match state {
             LsmStateVariableV3::Spot => LsmStateVariable::Spot,
+            LsmStateVariableV3::FxSpot => LsmStateVariable::FxSpot,
+            LsmStateVariableV3::DomesticRateFactor => LsmStateVariable::DomesticRateFactor,
+            LsmStateVariableV3::ForeignRateFactor => LsmStateVariable::ForeignRateFactor,
         })
         .collect::<Vec<_>>();
     let max_total_exponents =

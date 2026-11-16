@@ -1,0 +1,992 @@
+use crate::builders::{
+    PyDiscountCurve, PyEngine, PyLsmConfig, PyMarket, PyModel, PyProduct, date_from_python,
+    domain_error,
+};
+use crate::source_config::PyEquityModelSpec;
+use crate::{diagnostics::PyDiagnosticEstimate, pricing_exception};
+use pricing::EquityModelSpec;
+use pricing::core::{CurrencyId, PositiveF64};
+use pricing::cross_currency::{
+    BasketCurrencyMarkets, BasketFxQuote, BasketRiskFactor, CrossCurrencyEquityBasket,
+    CrossCurrencyEquityOption, EquityFxSettlement, ForeignEquity,
+};
+use pricing::mc::ExecutionPolicy;
+use pricing::models::{BlackScholesSpec, ModelSpec};
+use pyo3::prelude::*;
+
+fn parse_settlement(
+    py: Python<'_>,
+    settlement: &str,
+    fixed_fx_rate: Option<f64>,
+) -> PyResult<EquityFxSettlement> {
+    let invalid = |message: &str| {
+        domain_error(
+            py,
+            "invalid_cross_currency_option",
+            "/cross_currency",
+            message,
+        )
+    };
+    Ok(match (settlement, fixed_fx_rate) {
+        ("quanto", Some(rate)) => EquityFxSettlement::Quanto {
+            fixed_fx_rate: PositiveF64::new(rate, "fixed_fx_rate")
+                .map_err(|e| invalid(&e.to_string()))?,
+        },
+        ("quanto", None) => return Err(invalid("quanto settlement requires fixed_fx_rate")),
+        ("floating_fx", None) => EquityFxSettlement::FloatingFx,
+        ("composite", None) => EquityFxSettlement::Composite,
+        ("floating_fx" | "composite", Some(_)) => {
+            return Err(invalid("fixed_fx_rate applies only to quanto settlement"));
+        }
+        _ => {
+            return Err(invalid(
+                "settlement must be quanto, floating_fx or composite",
+            ));
+        }
+    })
+}
+
+fn parse_model(m: &Bound<'_, PyAny>) -> PyResult<EquityModelSpec> {
+    if let Ok(m) = m.extract::<PyRef<PyModel>>() {
+        Ok(EquityModelSpec::Standard(m.inner.clone()))
+    } else {
+        Ok(m.extract::<PyRef<PyEquityModelSpec>>()?.inner.clone())
+    }
+}
+
+fn payment_dates(
+    py: Python<'_>,
+    schedule: Vec<(Py<PyAny>, Py<PyAny>)>,
+) -> PyResult<Vec<(pricing::core::Date, pricing::core::Date)>> {
+    let path = "/cross_currency/payment_fx_fixings";
+    schedule
+        .iter()
+        .map(|(payment, fixing)| {
+            Ok((
+                date_from_python(py, payment.bind(py), path)?,
+                date_from_python(py, fixing.bind(py), path)?,
+            ))
+        })
+        .collect()
+}
+
+type PythonOptionQuotes = std::collections::BTreeMap<u32, Vec<(Py<PyAny>, String, f64, f64, f64)>>;
+type EstimatePairs = std::collections::BTreeMap<u32, (PyDiagnosticEstimate, PyDiagnosticEstimate)>;
+
+type FloatPairs = std::collections::BTreeMap<u32, (f64, f64)>;
+type NativeQuotes = std::collections::BTreeMap<
+    pricing::core::UnderlyingId,
+    [pricing::cross_currency::BergomiOptionQuote; 2],
+>;
+
+fn composite_performance(py: Python<'_>, performance: &str) -> PyResult<bool> {
+    match performance {
+        "local" => Ok(false),
+        "composite" => Ok(true),
+        _ => Err(domain_error(
+            py,
+            "invalid_cross_currency_basket",
+            "/cross_currency/basket",
+            "performance must be local or composite",
+        )),
+    }
+}
+
+fn parse_option_quotes(py: Python<'_>, quotes: PythonOptionQuotes) -> PyResult<NativeQuotes> {
+    let path = "/cross_currency/bergomi_quotes";
+    let mut inputs = std::collections::BTreeMap::new();
+    for (id, rows) in quotes {
+        let mut quotes = Vec::with_capacity(2);
+        for (expiry, side, strike, forward, premium) in rows {
+            quotes.push(pricing::cross_currency::BergomiOptionQuote {
+                expiry: date_from_python(py, expiry.bind(py), path)?,
+                side: crate::builders::option_side(py, &side)?,
+                strike,
+                forward,
+                premium,
+            });
+        }
+        inputs.insert(
+            pricing::core::UnderlyingId::new(id),
+            quotes.try_into().map_err(|_| {
+                domain_error(
+                    py,
+                    "invalid_option_quotes",
+                    path,
+                    "exactly two quotes per stock are required",
+                )
+            })?,
+        );
+    }
+    Ok(inputs)
+}
+
+#[pyclass(frozen, name = "BergomiQuoteHedge")]
+pub struct PyBergomiQuoteHedge {
+    inner: pricing::cross_currency::BergomiQuoteHedge,
+}
+impl PyBergomiQuoteHedge {
+    fn pairs(
+        &self,
+        field: impl Fn(&pricing::cross_currency::BergomiOptionTrade) -> f64,
+    ) -> FloatPairs {
+        self.inner
+            .trades
+            .iter()
+            .map(|(id, [short, long])| (id.get(), (field(short), field(long))))
+            .collect()
+    }
+}
+#[pymethods]
+impl PyBergomiQuoteHedge {
+    #[getter]
+    fn unhedged(&self) -> PyBergomiQuoteRisk {
+        PyBergomiQuoteRisk {
+            inner: self.inner.unhedged.clone(),
+        }
+    }
+    #[getter]
+    fn hedged(&self) -> PyBergomiQuoteRisk {
+        PyBergomiQuoteRisk {
+            inner: self.inner.hedged.clone(),
+        }
+    }
+    #[getter]
+    fn theoretical_hedged(&self) -> PyBergomiQuoteRisk {
+        PyBergomiQuoteRisk {
+            inner: self.inner.theoretical_hedged.clone(),
+        }
+    }
+    #[getter]
+    fn unit_vegas(&self) -> FloatPairs {
+        self.pairs(|t| t.unit_vega)
+    }
+    #[getter]
+    fn theoretical_quantities(&self) -> FloatPairs {
+        self.pairs(|t| t.theoretical_quantity)
+    }
+    #[getter]
+    fn quantities(&self) -> FloatPairs {
+        self.pairs(|t| t.quantity)
+    }
+    #[getter]
+    fn quantity_standard_errors(&self) -> FloatPairs {
+        self.pairs(|t| t.quantity_standard_error)
+    }
+}
+
+/// Calibration states, independent premium checks and quote vegas by underlying.
+#[pyclass(frozen, name = "BergomiQuoteRisk")]
+pub struct PyBergomiQuoteRisk {
+    inner: pricing::cross_currency::BergomiQuoteRisk,
+}
+impl PyBergomiQuoteRisk {
+    fn pairs(
+        &self,
+        get: impl Fn(&pricing::cross_currency::BergomiStockQuoteRisk) -> [pricing::Estimate; 2],
+    ) -> EstimatePairs {
+        self.inner
+            .stocks
+            .iter()
+            .map(|(id, stock)| {
+                let [a, b] = get(stock).map(PyDiagnosticEstimate::from_estimate);
+                (id.get(), (a, b))
+            })
+            .collect()
+    }
+}
+#[pymethods]
+impl PyBergomiQuoteRisk {
+    #[getter]
+    fn present_value(&self) -> PyDiagnosticEstimate {
+        PyDiagnosticEstimate::from_estimate(self.inner.present_value)
+    }
+    #[getter]
+    fn states(&self) -> EstimatePairs {
+        self.pairs(|s| s.states)
+    }
+    #[getter]
+    fn implied_volatilities(&self) -> std::collections::BTreeMap<u32, (f64, f64)> {
+        self.inner
+            .stocks
+            .iter()
+            .map(|(id, s)| (id.get(), s.implied_volatilities.into()))
+            .collect()
+    }
+    #[getter]
+    fn price_residuals(&self) -> EstimatePairs {
+        self.pairs(|s| s.price_residuals)
+    }
+    #[getter]
+    fn vegas(&self) -> EstimatePairs {
+        self.pairs(|s| s.vegas)
+    }
+}
+
+/// A single-equity option or payoff graph settled in a different currency.
+#[pyclass(frozen, name = "CrossCurrencyEquityOption")]
+pub struct PyCrossCurrencyEquityOption {
+    inner: CrossCurrencyEquityOption,
+}
+
+#[pymethods]
+impl PyCrossCurrencyEquityOption {
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(valuation_date, product, foreign_market, settlement_curve, *, settlement, fx_spot,
+        equity_volatility=None, fx_volatility, correlation, fixed_fx_rate=None, payment_date=None,
+        equity_model=None, maximum_step=0.02, dividend_model=None))]
+    fn new(
+        py: Python<'_>,
+        valuation_date: &Bound<'_, PyAny>,
+        product: &PyProduct,
+        foreign_market: &PyMarket,
+        settlement_curve: &PyDiscountCurve,
+        settlement: &str,
+        fx_spot: f64,
+        equity_volatility: Option<f64>,
+        fx_volatility: f64,
+        correlation: f64,
+        fixed_fx_rate: Option<f64>,
+        payment_date: Option<&Bound<'_, PyAny>>,
+        equity_model: Option<&Bound<'_, PyAny>>,
+        maximum_step: f64,
+        dividend_model: Option<&crate::source_config::PyBuehlerDividendModel>,
+    ) -> PyResult<Self> {
+        let invalid = |message: &str| {
+            domain_error(
+                py,
+                "invalid_cross_currency_option",
+                "/cross_currency",
+                message,
+            )
+        };
+        let settlement = parse_settlement(py, settlement, fixed_fx_rate)?;
+        let model = match (equity_volatility, equity_model) {
+            (Some(sigma), None) => EquityModelSpec::Standard(ModelSpec::BlackScholes(
+                BlackScholesSpec::new(sigma).map_err(|e| invalid(&e.to_string()))?,
+            )),
+            (None, Some(m)) => parse_model(m)?,
+            _ => {
+                return Err(invalid(
+                    "supply exactly one of equity_model and equity_volatility",
+                ));
+            }
+        };
+        let as_of = date_from_python(py, valuation_date, "/cross_currency/valuation_date")?;
+        let payment = payment_date
+            .map(|d| date_from_python(py, d, "/cross_currency/payment_date"))
+            .transpose()?;
+        CrossCurrencyEquityOption::from_model_with_dividends(
+            as_of,
+            product.inner.clone(),
+            foreign_market.inner.equity(),
+            settlement_curve.inner.clone(),
+            fx_spot,
+            model,
+            fx_volatility,
+            correlation,
+            settlement,
+            payment,
+            maximum_step,
+            dividend_model.map(|d| d.inner),
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| invalid(&e.to_string()))
+    }
+
+    /// Shift a market quote by an absolute amount, keeping the contract fixed.
+    fn with_market_shift(
+        &self,
+        py: Python<'_>,
+        factor: &str,
+        identifier: u32,
+        shift: f64,
+    ) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_market_shift(risk_factor(py, factor, identifier)?, shift)
+            .map(|inner| Self { inner })
+            .map_err(|e| domain_error(py, "invalid_market_shift", "/cross_currency/risk", e))
+    }
+    /// Scenario PV minus base PV using paired samples in settlement currency.
+    #[pyo3(signature=(scenario,engine,*,worker_threads=1,reduction_block_size=None,lsm=None,replications=8))]
+    #[allow(clippy::too_many_arguments)]
+    fn scenario_pnl(
+        &self,
+        py: Python<'_>,
+        scenario: &Self,
+        engine: &PyEngine,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        lsm: Option<&PyLsmConfig>,
+        replications: u32,
+    ) -> PyResult<PyDiagnosticEstimate> {
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        let lsm = lsm.map(|l| l.inner.clone());
+        py.detach(|| {
+            self.inner.scenario_pnl(
+                &scenario.inner,
+                engine.inner,
+                policy,
+                lsm.as_ref(),
+                replications,
+            )
+        })
+        .map(PyDiagnosticEstimate::from_estimate)
+        .map_err(pricing_exception)
+    }
+    /// Central sensitivity per unit of the quoted input with paired sampling error.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(factor,identifier,bump,engine,*,worker_threads=1,reduction_block_size=None,lsm=None,replications=8,order=1))]
+    fn sensitivity(
+        &self,
+        py: Python<'_>,
+        factor: &str,
+        identifier: u32,
+        bump: f64,
+        engine: &PyEngine,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        lsm: Option<&PyLsmConfig>,
+        replications: u32,
+        order: u8,
+    ) -> PyResult<PyDiagnosticEstimate> {
+        let risk = risk_factor(py, factor, identifier)?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        let lsm = lsm.map(|l| l.inner.clone());
+        if order != 1 && order != 2 {
+            return Err(domain_error(
+                py,
+                "invalid_market_sensitivity",
+                "/cross_currency/risk",
+                "order must be 1 or 2",
+            ));
+        }
+        py.detach(|| {
+            if order == 1 {
+                self.inner
+                    .sensitivity(risk, bump, engine.inner, policy, lsm.as_ref(), replications)
+            } else {
+                self.inner
+                    .curvature(risk, bump, engine.inner, policy, lsm.as_ref(), replications)
+            }
+        })
+        .map(PyDiagnosticEstimate::from_estimate)
+        .map_err(pricing_exception)
+    }
+
+    /// Closed-form present value in settlement currency.
+    fn analytical_price(&self) -> PyResult<f64> {
+        self.inner.analytical_price().map_err(pricing_exception)
+    }
+
+    /// Brownian correlation order is equity, quoted FX, domestic rate, foreign rate.
+    #[pyo3(signature=(domestic, foreign, *, correlations=None))]
+    fn with_hull_white_rates(
+        &self,
+        py: Python<'_>,
+        domestic: &crate::hull_white::PyHullWhiteModel,
+        foreign: &crate::hull_white::PyHullWhiteModel,
+        correlations: Option<[[f64; 4]; 4]>,
+    ) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_hull_white_rates(domestic.inner.clone(), foreign.inner.clone(), correlations)
+            .map(|inner| Self { inner })
+            .map_err(|e| {
+                domain_error(
+                    py,
+                    "invalid_cross_currency_rates",
+                    "/cross_currency/rates",
+                    e,
+                )
+            })
+    }
+
+    /// Return a floating-FX graph option with the given (payment, FX fixing) dates.
+    fn with_payment_fx_fixings(
+        &self,
+        py: Python<'_>,
+        schedule: Vec<(Py<PyAny>, Py<PyAny>)>,
+    ) -> PyResult<Self> {
+        let path = "/cross_currency/payment_fx_fixings";
+        let dates = payment_dates(py, schedule)?;
+        self.inner
+            .clone()
+            .with_payment_fx_fixings(&dates)
+            .map(|inner| Self { inner })
+            .map_err(|e| domain_error(py, "invalid_payment_fx_fixings", path, e))
+    }
+
+    /// Monte Carlo estimate in settlement currency, with native LSM for scheduled exercise.
+    #[pyo3(signature=(engine, *, worker_threads=1, reduction_block_size=None, lsm=None))]
+    fn price_mc(
+        &self,
+        py: Python<'_>,
+        engine: &PyEngine,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        lsm: Option<&PyLsmConfig>,
+    ) -> PyResult<PyDiagnosticEstimate> {
+        let execution = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        let lsm = lsm.map(|config| config.inner.clone());
+        py.detach(|| self.inner.price_mc_with_lsm(engine.inner, execution, lsm))
+            .map(PyDiagnosticEstimate::from_estimate)
+            .map_err(pricing_exception)
+    }
+}
+
+fn basket_quotes(
+    py: Python<'_>,
+    fx_quotes: Vec<(u16, f64, f64)>,
+    currency_curves: Option<std::collections::BTreeMap<u16, Py<PyDiscountCurve>>>,
+) -> PyResult<BasketCurrencyMarkets> {
+    let fx_quotes = fx_quotes
+        .into_iter()
+        .map(|(c, x, v)| BasketFxQuote::new(CurrencyId::new(c), x, v))
+        .collect::<Result<_, _>>()
+        .map_err(|e| {
+            domain_error(
+                py,
+                "invalid_cross_currency_basket",
+                "/cross_currency/basket",
+                e,
+            )
+        })?;
+    let discount_curves = currency_curves
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(c, curve)| (CurrencyId::new(c), curve.borrow(py).inner.clone()))
+        .collect();
+    Ok(BasketCurrencyMarkets {
+        fx_quotes,
+        discount_curves,
+    })
+}
+
+fn risk_factor(py: Python<'_>, factor: &str, identifier: u32) -> PyResult<BasketRiskFactor> {
+    use BasketRiskFactor as F;
+    let invalid =
+        |message| domain_error(py, "invalid_market_shift", "/cross_currency/risk", message);
+    let stock = pricing::core::UnderlyingId::new(identifier);
+    let ccy = || {
+        u16::try_from(identifier)
+            .map(CurrencyId::new)
+            .map_err(|_| invalid("invalid currency ID"))
+    };
+    match factor {
+        "equity_spot" => Ok(F::EquitySpot(stock)),
+        "equity_volatility" => Ok(F::EquityVolatility(stock)),
+        "bergomi_factor_1" => Ok(F::BergomiFactor1(stock)),
+        "bergomi_factor_2" => Ok(F::BergomiFactor2(stock)),
+        "equity_vol_of_vol" => Ok(F::EquityVolOfVol(stock)),
+        "dividend_volatility" => Ok(F::DividendVolatility(stock)),
+        "dividend_yield" => Ok(F::DividendYield(stock)),
+        "fx_spot" => Ok(F::FxSpot(ccy()?)),
+        "fx_volatility" => Ok(F::FxVolatility(ccy()?)),
+        "discount_rate" => Ok(F::DiscountRate(ccy()?)),
+        _ => Err(invalid("unknown cross-currency risk factor")),
+    }
+}
+
+fn basket_stocks(
+    py: Python<'_>,
+    foreign_markets: Vec<Py<PyMarket>>,
+    equity_models: Vec<Py<PyAny>>,
+    dividend_models: Option<Vec<Option<Py<crate::source_config::PyBuehlerDividendModel>>>>,
+) -> PyResult<Vec<ForeignEquity>> {
+    if equity_models.len() != foreign_markets.len()
+        || dividend_models
+            .as_ref()
+            .is_some_and(|d| d.len() != foreign_markets.len())
+    {
+        return Err(domain_error(
+            py,
+            "invalid_cross_currency_basket",
+            "/cross_currency/basket",
+            "markets, equity models and supplied dividend models must follow graph underlying order",
+        ));
+    }
+    foreign_markets
+        .iter()
+        .zip(equity_models)
+        .enumerate()
+        .map(|(i, (market, m))| {
+            Ok(pricing::cross_currency::ForeignEquity {
+                market: market.borrow(py).inner.equity().clone(),
+                model: parse_model(m.bind(py))?,
+                dividend_model: dividend_models
+                    .as_ref()
+                    .and_then(|ds| ds[i].as_ref())
+                    .map(|d| d.borrow(py).inner),
+            })
+        })
+        .collect()
+}
+
+/// Foreign stock baskets settled in one currency. Use from_currencies for mixed equity currencies.
+#[pyclass(frozen, name = "CrossCurrencyEquityBasket")]
+pub struct PyCrossCurrencyEquityBasket {
+    inner: pricing::cross_currency::CrossCurrencyEquityBasket,
+}
+#[pymethods]
+impl PyCrossCurrencyEquityBasket {
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(valuation_date,product,foreign_markets,settlement_curve,*,equity_models,settlement,fx_spot,fx_volatility,correlations,fixed_fx_rate=None,rates=None,maximum_step=0.02,dividend_models=None))]
+    fn new(
+        py: Python<'_>,
+        valuation_date: &Bound<'_, PyAny>,
+        product: &crate::product_graph::PyGraphProduct,
+        foreign_markets: Vec<Py<PyMarket>>,
+        settlement_curve: &PyDiscountCurve,
+        equity_models: Vec<Py<PyAny>>,
+        settlement: &str,
+        fx_spot: f64,
+        fx_volatility: f64,
+        correlations: Vec<Vec<f64>>,
+        fixed_fx_rate: Option<f64>,
+        rates: Option<(
+            Py<crate::hull_white::PyHullWhiteModel>,
+            Py<crate::hull_white::PyHullWhiteModel>,
+        )>,
+        maximum_step: f64,
+        dividend_models: Option<Vec<Option<Py<crate::source_config::PyBuehlerDividendModel>>>>,
+    ) -> PyResult<Self> {
+        let invalid = |message: String| {
+            domain_error(
+                py,
+                "invalid_cross_currency_basket",
+                "/cross_currency/basket",
+                message,
+            )
+        };
+        let stocks = basket_stocks(py, foreign_markets, equity_models, dividend_models)?;
+        let rate_models =
+            rates.map(|(d, f)| (d.borrow(py).inner.clone(), f.borrow(py).inner.clone()));
+        pricing::cross_currency::CrossCurrencyEquityBasket::new(
+            date_from_python(py, valuation_date, "/cross_currency/valuation_date")?,
+            product.inner.clone(),
+            stocks,
+            settlement_curve.inner.clone(),
+            parse_settlement(py, settlement, fixed_fx_rate)?,
+            fx_spot,
+            fx_volatility,
+            correlations,
+            rate_models,
+            maximum_step,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| invalid(e.to_string()))
+    }
+
+    /// FX quotes are (currency ID, domestic units per foreign unit, FX volatility).
+    /// Rate models are in settlement-currency order first, then FX quote order.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(valuation_date,product,foreign_markets,settlement_curve,*,equity_models,settlement,fx_quotes,correlations,payout_currency_id=None,fixed_fx_rate=None,rates=None,maximum_step=0.02,dividend_models=None,currency_curves=None))]
+    fn from_currencies(
+        py: Python<'_>,
+        valuation_date: &Bound<'_, PyAny>,
+        product: &crate::product_graph::PyGraphProduct,
+        foreign_markets: Vec<Py<PyMarket>>,
+        settlement_curve: &PyDiscountCurve,
+        equity_models: Vec<Py<PyAny>>,
+        settlement: &str,
+        fx_quotes: Vec<(u16, f64, f64)>,
+        correlations: Vec<Vec<f64>>,
+        payout_currency_id: Option<u16>,
+        fixed_fx_rate: Option<f64>,
+        rates: Option<Vec<Py<crate::hull_white::PyHullWhiteModel>>>,
+        maximum_step: f64,
+        dividend_models: Option<Vec<Option<Py<crate::source_config::PyBuehlerDividendModel>>>>,
+        currency_curves: Option<std::collections::BTreeMap<u16, Py<PyDiscountCurve>>>,
+    ) -> PyResult<Self> {
+        let invalid = |message: String| {
+            domain_error(
+                py,
+                "invalid_cross_currency_basket",
+                "/cross_currency/basket",
+                message,
+            )
+        };
+        let domestic = product.inner.currency();
+        if settlement == "floating_fx" && payout_currency_id.is_none() {
+            return Err(invalid(
+                "floating_fx requires payout_currency_id for coupons and principal".into(),
+            ));
+        }
+        let payout = payout_currency_id.map(CurrencyId::new).unwrap_or(domestic);
+        let fixed = if settlement == "quanto" && payout == domestic {
+            Some(fixed_fx_rate.unwrap_or(1.))
+        } else {
+            fixed_fx_rate
+        };
+        let quotes = basket_quotes(py, fx_quotes, currency_curves)?;
+        let rates = rates.map(|rs| rs.into_iter().map(|r| r.borrow(py).inner.clone()).collect());
+        CrossCurrencyEquityBasket::from_currencies(
+            date_from_python(py, valuation_date, "/cross_currency/valuation_date")?,
+            product.inner.clone(),
+            basket_stocks(py, foreign_markets, equity_models, dividend_models)?,
+            settlement_curve.inner.clone(),
+            parse_settlement(py, settlement, fixed)?,
+            payout,
+            quotes,
+            correlations,
+            rates,
+            maximum_step,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| invalid(e.to_string()))
+    }
+
+    /// Value denominated graph legs jointly; foreign cash fixes on payment unless overridden.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(valuation_date,legs,foreign_markets,settlement_curve,*,settlement_currency_id,equity_models,fx_quotes,correlations,performance="local",rates=None,maximum_step=0.02,dividend_models=None,currency_curves=None))]
+    fn from_legs(
+        py: Python<'_>,
+        valuation_date: &Bound<'_, PyAny>,
+        legs: Vec<Py<crate::product_graph::PyGraphProduct>>,
+        foreign_markets: Vec<Py<PyMarket>>,
+        settlement_curve: &PyDiscountCurve,
+        settlement_currency_id: u16,
+        equity_models: Vec<Py<PyAny>>,
+        fx_quotes: Vec<(u16, f64, f64)>,
+        correlations: Vec<Vec<f64>>,
+        performance: &str,
+        rates: Option<Vec<Py<crate::hull_white::PyHullWhiteModel>>>,
+        maximum_step: f64,
+        dividend_models: Option<Vec<Option<Py<crate::source_config::PyBuehlerDividendModel>>>>,
+        currency_curves: Option<std::collections::BTreeMap<u16, Py<PyDiscountCurve>>>,
+    ) -> PyResult<Self> {
+        let invalid = |message: String| {
+            domain_error(
+                py,
+                "invalid_cross_currency_basket",
+                "/cross_currency/basket",
+                message,
+            )
+        };
+        let composite = composite_performance(py, performance)?;
+        let products = legs
+            .into_iter()
+            .map(|g| g.borrow(py).inner.clone())
+            .collect();
+        CrossCurrencyEquityBasket::from_legs(
+            date_from_python(py, valuation_date, "/cross_currency/valuation_date")?,
+            products,
+            basket_stocks(py, foreign_markets, equity_models, dividend_models)?,
+            CurrencyId::new(settlement_currency_id),
+            settlement_curve.inner.clone(),
+            composite,
+            basket_quotes(py, fx_quotes, currency_curves)?,
+            correlations,
+            rates.map(|rs| rs.into_iter().map(|r| r.borrow(py).inner.clone()).collect()),
+            maximum_step,
+        )
+        .map(|inner| Self { inner })
+        .map_err(|e| invalid(e.to_string()))
+    }
+
+    /// Price all currency groups of a dated contract or a lifecycle residual.
+    #[staticmethod]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(valuation_date,contract,foreign_markets,settlement_curve,*,settlement_currency_id,equity_models,fx_quotes,correlations,performance="local",rates=None,maximum_step=0.02,dividend_models=None,currency_curves=None))]
+    fn from_contract(
+        py: Python<'_>,
+        valuation_date: &Bound<'_, PyAny>,
+        contract: &crate::contract::PyContract,
+        foreign_markets: Vec<Py<PyMarket>>,
+        settlement_curve: &PyDiscountCurve,
+        settlement_currency_id: u16,
+        equity_models: Vec<Py<PyAny>>,
+        fx_quotes: Vec<(u16, f64, f64)>,
+        correlations: Vec<Vec<f64>>,
+        performance: &str,
+        rates: Option<Vec<Py<crate::hull_white::PyHullWhiteModel>>>,
+        maximum_step: f64,
+        dividend_models: Option<Vec<Option<Py<crate::source_config::PyBuehlerDividendModel>>>>,
+        currency_curves: Option<std::collections::BTreeMap<u16, Py<PyDiscountCurve>>>,
+    ) -> PyResult<Self> {
+        let date = date_from_python(py, valuation_date, "/cross_currency/valuation_date")?;
+        let stocks = basket_stocks(py, foreign_markets, equity_models, dividend_models)?;
+        let markets = basket_quotes(py, fx_quotes, currency_curves)?;
+        let composite = composite_performance(py, performance)?;
+        let rates = rates.map(|rs| rs.into_iter().map(|r| r.borrow(py).inner.clone()).collect());
+        py.detach(|| {
+            CrossCurrencyEquityBasket::from_contract(
+                date,
+                &contract.inner,
+                stocks,
+                CurrencyId::new(settlement_currency_id),
+                settlement_curve.inner.clone(),
+                composite,
+                markets,
+                correlations,
+                rates,
+                maximum_step,
+            )
+        })
+        .map(|inner| Self { inner })
+        .map_err(|e| {
+            domain_error(
+                py,
+                "invalid_cross_currency_basket",
+                "/cross_currency/basket",
+                e,
+            )
+        })
+    }
+
+    fn with_payment_fx_fixings(
+        &self,
+        py: Python<'_>,
+        schedule: Vec<(Py<PyAny>, Py<PyAny>)>,
+    ) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_payment_fx_fixings(&payment_dates(py, schedule)?)
+            .map(|inner| Self { inner })
+            .map_err(|e| {
+                domain_error(
+                    py,
+                    "invalid_payment_fx_fixings",
+                    "/cross_currency/payment_fx_fixings",
+                    e,
+                )
+            })
+    }
+
+    /// Replace the FX terms of one zero-based leg. Schedule entries are
+    /// (payment, fixing); historical entries supply (fixing, published rate).
+    #[pyo3(signature=(leg_index, *, fixed_fx_rate=None, schedule=None, known_fixings=None))]
+    fn with_leg_fx(
+        &self,
+        py: Python<'_>,
+        leg_index: usize,
+        fixed_fx_rate: Option<f64>,
+        schedule: Option<Vec<(Py<PyAny>, Py<PyAny>)>>,
+        known_fixings: Option<Vec<(Py<PyAny>, f64)>>,
+    ) -> PyResult<Self> {
+        let path = "/cross_currency/leg_fx";
+        let dates = payment_dates(py, schedule.unwrap_or_default())?;
+        let known = known_fixings
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(date, rate)| Ok((date_from_python(py, date.bind(py), path)?, rate)))
+            .collect::<PyResult<Vec<_>>>()?;
+        self.inner
+            .clone()
+            .with_leg_fx(leg_index, fixed_fx_rate, &dates, &known)
+            .map(|inner| Self { inner })
+            .map_err(|e| domain_error(py, "invalid_leg_fx", path, e))
+    }
+
+    #[pyo3(signature=(underlying_id, *, model_age, volatility_factor, equity_factor, dividend_factor))]
+    fn with_dividend_state(
+        &self,
+        py: Python<'_>,
+        underlying_id: u32,
+        model_age: f64,
+        volatility_factor: &Bound<'_, PyAny>,
+        equity_factor: f64,
+        dividend_factor: f64,
+    ) -> PyResult<Self> {
+        let factors = if let Ok(x) = volatility_factor.extract::<f64>() {
+            vec![x]
+        } else {
+            volatility_factor.extract::<Vec<f64>>().map_err(|_| {
+                domain_error(
+                    py,
+                    "invalid_dividend_state",
+                    "/cross_currency/dividend_state",
+                    "expected a number or a sequence of volatility coordinates",
+                )
+            })?
+        };
+        self.inner
+            .clone()
+            .with_dividend_factors(
+                pricing::core::UnderlyingId::new(underlying_id),
+                model_age,
+                &factors,
+                equity_factor,
+                dividend_factor,
+            )
+            .map(|inner| Self { inner })
+            .map_err(|e| {
+                domain_error(
+                    py,
+                    "invalid_dividend_state",
+                    "/cross_currency/dividend_state",
+                    e,
+                )
+            })
+    }
+
+    /// Refit seasoned two-factor states to short and long local European premiums.
+    /// Each quote is (expiry, side, strike, market forward, local premium per share).
+    /// Vegas are settlement-currency PV sensitivities per +0.01 Black volatility.
+    #[pyo3(signature=(quotes, engine, *, bump=0.005, replications=8, worker_threads=1, reduction_block_size=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn bergomi_quote_risk(
+        &self,
+        py: Python<'_>,
+        quotes: PythonOptionQuotes,
+        engine: &PyEngine,
+        bump: f64,
+        replications: u32,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<PyBergomiQuoteRisk> {
+        let path = "/cross_currency/bergomi_quotes";
+        let inputs = parse_option_quotes(py, quotes)?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        py.detach(|| {
+            self.inner
+                .bergomi_quote_risk(&inputs, bump, engine.inner, replications, policy)
+        })
+        .map(|inner| PyBergomiQuoteRisk { inner })
+        .map_err(|e| domain_error(py, "invalid_quote_risk", path, e))
+    }
+
+    /// Size signed trades in the calibration options and independently validate
+    /// the fixed portfolio's settlement-currency quote vegas per volatility point.
+    #[pyo3(signature=(quotes,engine,*,note_quantity=1.0,contract_sizes=None,whole_contracts=false,bump=0.005,replications=8,worker_threads=1,reduction_block_size=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn bergomi_quote_hedge(
+        &self,
+        py: Python<'_>,
+        quotes: PythonOptionQuotes,
+        engine: &PyEngine,
+        note_quantity: f64,
+        contract_sizes: Option<std::collections::BTreeMap<u32, [f64; 2]>>,
+        whole_contracts: bool,
+        bump: f64,
+        replications: u32,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<PyBergomiQuoteHedge> {
+        let inputs = parse_option_quotes(py, quotes)?;
+        let terms = pricing::cross_currency::BergomiHedgeTerms {
+            note_quantity,
+            whole_contracts,
+            contract_sizes: contract_sizes
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(id, sizes)| (pricing::core::UnderlyingId::new(id), sizes))
+                .collect(),
+        };
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        py.detach(|| {
+            self.inner.bergomi_quote_hedge(
+                &inputs,
+                &terms,
+                bump,
+                engine.inner,
+                replications,
+                policy,
+            )
+        })
+        .map(|inner| PyBergomiQuoteHedge { inner })
+        .map_err(|e| {
+            domain_error(
+                py,
+                "invalid_quote_hedge",
+                "/cross_currency/bergomi_hedge",
+                e,
+            )
+        })
+    }
+
+    /// Shift a market quote by an absolute amount, keeping the contract fixed.
+    fn with_market_shift(
+        &self,
+        py: Python<'_>,
+        factor: &str,
+        identifier: u32,
+        shift: f64,
+    ) -> PyResult<Self> {
+        self.inner
+            .clone()
+            .with_market_shift(risk_factor(py, factor, identifier)?, shift)
+            .map(|inner| Self { inner })
+            .map_err(|e| domain_error(py, "invalid_market_shift", "/cross_currency/risk", e))
+    }
+    /// Scenario PV minus base PV using paired samples in settlement currency.
+    #[pyo3(signature=(scenario,engine,*,worker_threads=1,reduction_block_size=None))]
+    fn scenario_pnl(
+        &self,
+        py: Python<'_>,
+        scenario: &Self,
+        engine: &PyEngine,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<PyDiagnosticEstimate> {
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        py.detach(|| {
+            self.inner
+                .scenario_pnl(&scenario.inner, engine.inner, policy)
+        })
+        .map(PyDiagnosticEstimate::from_estimate)
+        .map_err(pricing_exception)
+    }
+    /// Central sensitivity per unit of the quoted input with paired sampling error.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(factor,identifier,bump,engine,*,worker_threads=1,reduction_block_size=None,order=1))]
+    fn sensitivity(
+        &self,
+        py: Python<'_>,
+        factor: &str,
+        identifier: u32,
+        bump: f64,
+        engine: &PyEngine,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+        order: u8,
+    ) -> PyResult<PyDiagnosticEstimate> {
+        let risk = risk_factor(py, factor, identifier)?;
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        if order != 1 && order != 2 {
+            return Err(domain_error(
+                py,
+                "invalid_market_sensitivity",
+                "/cross_currency/risk",
+                "order must be 1 or 2",
+            ));
+        }
+        py.detach(|| {
+            if order == 1 {
+                self.inner.sensitivity(risk, bump, engine.inner, policy)
+            } else {
+                self.inner.curvature(risk, bump, engine.inner, policy)
+            }
+        })
+        .map(PyDiagnosticEstimate::from_estimate)
+        .map_err(pricing_exception)
+    }
+
+    #[pyo3(signature=(engine,*,worker_threads=1,reduction_block_size=None))]
+    fn price_mc(
+        &self,
+        py: Python<'_>,
+        engine: &PyEngine,
+        worker_threads: u32,
+        reduction_block_size: Option<u64>,
+    ) -> PyResult<PyDiagnosticEstimate> {
+        let policy = ExecutionPolicy::new(worker_threads, reduction_block_size)
+            .map_err(|e| domain_error(py, "invalid_execution_policy", "/execution", e))?;
+        py.detach(|| self.inner.price_mc(engine.inner, policy))
+            .map(PyDiagnosticEstimate::from_estimate)
+            .map_err(pricing_exception)
+    }
+}
