@@ -320,6 +320,7 @@ fn classify<'a>(error: &'a (dyn Error + 'static)) -> Classification<'a> {
             E::ZeroWorkerThreads | E::ThreadCountUnsupported { .. } => {
                 ("invalid_execution_policy", Some("worker_threads"), None)
             }
+            E::TooManyWorkerThreads { .. } => ("resource_limit", Some("worker_threads"), None),
             E::ZeroReductionBlockSize => (
                 "invalid_execution_policy",
                 Some("reduction_block_size"),
