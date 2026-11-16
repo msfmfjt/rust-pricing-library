@@ -16,6 +16,7 @@ def black(s,k,v):
 
 def density_reference(p,order=96):
     g=p['model']['local_variance_grid'];t=np.array(g['time_nodes']);xnodes=np.array(g['log_forward_moneyness_nodes']);rows=np.array(g['values']).reshape(len(t),-1);spot=p['market']['spot']
+    if len(t)<3:raise ValueError('density_reference needs at least three time nodes')
     first=np.interp(0.,xnodes,rows[0])*t[1];total=first;states=[];z,w=np.polynomial.legendre.leggauss(order)
     for row in range(len(t)-2):
         if row==0:lo,hi=-first/2-12*np.sqrt(first),-first/2+12*np.sqrt(first)
