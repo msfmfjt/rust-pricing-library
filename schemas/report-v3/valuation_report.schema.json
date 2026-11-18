@@ -1974,7 +1974,8 @@
             "spot_gamma",
             "parallel_market_iv_vega",
             "vega_kt",
-            "model_parameters"
+            "model_parameters",
+            "correlations"
           ]
         },
         "method_detail": {
@@ -1982,6 +1983,9 @@
         },
         "model_parameter": {
           "$ref": "#/$defs/model_parameter"
+        },
+        "correlation": {
+          "$ref": "#/$defs/correlation_id"
         }
       },
       "dependentRequired": {
@@ -1992,6 +1996,9 @@
           "measure"
         ],
         "model_parameter": [
+          "measure"
+        ],
+        "correlation": [
           "measure"
         ]
       }
@@ -2402,6 +2409,78 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "const": "initial_volatility"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "const": "dividend_mean_reversion"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "const": "equity_linkage"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "const": "dividend_volatility"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "const": "mixing_weight"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "const": "rate_mean_reversion"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
             "name",
             "component"
           ],
@@ -2410,6 +2489,130 @@
               "const": "component_vol_of_vol"
             },
             "component": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "factor"
+          ],
+          "properties": {
+            "name": {
+              "const": "factor_mean_reversion"
+            },
+            "factor": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "knot"
+          ],
+          "properties": {
+            "name": {
+              "const": "rate_volatility"
+            },
+            "knot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          }
+        }
+      ]
+    },
+    "correlation_id": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "const": "equity_dividend"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "const": "equity_rate"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "const": "dividend_rate"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "const": "volatility_factors"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "factor"
+          ],
+          "properties": {
+            "name": {
+              "const": "spot_volatility"
+            },
+            "factor": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "factor"
+          ],
+          "properties": {
+            "name": {
+              "const": "dividend_volatility"
+            },
+            "factor": {
               "type": "integer",
               "minimum": 0,
               "maximum": 65535
@@ -2435,7 +2638,8 @@
               "properties": {
                 "measure": false,
                 "method_detail": false,
-                "model_parameter": false
+                "model_parameter": false,
+                "correlation": false
               }
             }
           }

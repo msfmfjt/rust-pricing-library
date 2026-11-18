@@ -341,6 +341,7 @@ CLASSES = {'BuehlerDividendModel': {'bases': [],
                                                                           'LsvLocalVarianceRisk | '
                                                                           'RoughFamilyLsvMeasureRisk | '
                                                                           'RoughVolatilityMeasureRisk | '
+                                                                          'StochasticDividendMeasureRisk | '
                                                                           'StochasticDividendAadRisk | '
                                                                           'StochasticDividendLocalVarianceRisk',
                                                      'signature': {'keyword_only': [],
@@ -705,3 +706,13 @@ CLASSES['ValuationReport']["members"]['model_parameter_risk'] = {"kind": 'method
 # Fixed-model native measures for direct rough volatility (ADR 0043, phase 3
 # step C): the calibration treatment of model_parameters becomes optional.
 CLASSES['MeasureRequest']["members"]['model_parameters'] = {"kind": 'staticmethod', "declaration": '@staticmethod\ndef model_parameters(parameters: Sequence[str], *, calibration: Literal["not_applicable", "fixed", "recalibrated"] | None = None) -> MeasureRequest: ...'}
+
+# Correlation risk for stochastic dividends (ADR 0043, phase 3 step D2).
+_MEASURE_NAMES = '"price", "spot_delta", "spot_gamma", "parallel_market_iv_vega", "vega_kt", "model_parameters", "correlations"'
+CLASSES['MeasureRequest']["members"]['correlations'] = {"kind": 'staticmethod', "declaration": '@staticmethod\ndef correlations(correlations: Sequence[str]) -> MeasureRequest: ...'}
+CLASSES['MeasureRequest']["members"]['correlation_labels'] = {"kind": 'property', "declaration": '@property\ndef correlation_labels(self) -> list[str] | None: ...'}
+CLASSES['MeasureRequest']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}]: ...'}
+CLASSES['MeasureCapability']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}]: ...'}
+CLASSES['ReportedRisk']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}] | None: ...'}
+CLASSES['ReportedRisk']["members"]['correlation'] = {"kind": 'property', "declaration": '@property\ndef correlation(self) -> str | None: ...'}
+CLASSES['ValuationReport']["members"]['correlation_risk'] = {"kind": 'method', "declaration": 'def correlation_risk(self, correlation: str) -> ReportedRisk | None: ...'}

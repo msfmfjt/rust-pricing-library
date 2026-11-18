@@ -2,8 +2,9 @@
 use crate::*;
 use pricing::risk::SpotBump;
 use pricing::{
-    BumpCalibration, BumpSize, CapabilityStatus, Measure, MeasureCapability, MeasureMethod,
-    MeasureRequest, MeasureSet, ModelParameterId, ModelParameterSelection,
+    BumpCalibration, BumpSize, CapabilityStatus, CorrelationId, CorrelationSelection, Measure,
+    MeasureCapability, MeasureMethod, MeasureRequest, MeasureSet, ModelParameterId,
+    ModelParameterSelection,
 };
 use pyo3::types::PyDict;
 
@@ -193,7 +194,8 @@ impl PyMeasureRequest {
     /// Derivatives with respect to native model parameters, named by label
     /// (`"vol_of_vol"`, `"hurst"`, `"component_vol_of_vol.1"`), one report
     /// row each in this order. Without a calibration treatment it asks for
-    /// the fixed-model native estimator (direct rough volatility); a
+    /// the fixed-model native estimator (direct rough volatility, stochastic
+    /// dividends without a calibration step); a
     /// calibrated source (rough-family LSV) needs `recalibrated`, since its
     /// estimator differentiates through the recalibration.
     #[staticmethod]
@@ -229,6 +231,33 @@ impl PyMeasureRequest {
             inner: MeasureRequest::new(Measure::ModelParameters(selection), method),
         })
     }
+    /// Derivatives with respect to Brownian correlations, named by label
+    /// (`"equity_dividend"`, `"equity_rate"`, `"spot_volatility.0"`,
+    /// `"dividend_volatility.1"`, `"volatility_factors"`), one report row
+    /// each in this order. The fixed-model native estimator varies one
+    /// symmetric pair of the driver correlation matrix.
+    #[staticmethod]
+    fn correlations(py: Python<'_>, correlations: Vec<String>) -> PyResult<Self> {
+        let field = "/operation/measures/measure/correlations";
+        let ids = correlations
+            .iter()
+            .map(|label| {
+                CorrelationId::from_label(label).ok_or_else(|| {
+                    builders::domain_error(
+                        py,
+                        "invalid_correlation",
+                        field,
+                        format!("unknown correlation {label:?}"),
+                    )
+                })
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        let selection = CorrelationSelection::new(ids)
+            .map_err(|e| builders::domain_error(py, "invalid_correlation", field, e))?;
+        Ok(Self {
+            inner: MeasureRequest::native(Measure::Correlations(selection)),
+        })
+    }
     #[getter]
     fn measure(&self) -> &'static str {
         self.inner.measure.kind().as_str()
@@ -243,6 +272,16 @@ impl PyMeasureRequest {
         match &self.inner.measure {
             Measure::ModelParameters(selection) => {
                 Some(selection.parameters().iter().map(|p| p.label()).collect())
+            }
+            _ => None,
+        }
+    }
+    /// The correlation labels of a `correlations` request, in order.
+    #[getter]
+    fn correlation_labels(&self) -> Option<Vec<String>> {
+        match &self.inner.measure {
+            Measure::Correlations(selection) => {
+                Some(selection.correlations().iter().map(|c| c.label()).collect())
             }
             _ => None,
         }

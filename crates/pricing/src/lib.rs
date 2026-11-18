@@ -43,9 +43,9 @@ pub use api::calibration_report::{
     CalibrationKind, CalibrationMetric, DiagnosticUnit, ReportedCalibration,
 };
 pub use api::measure::{
-    AvailableMeasure, BumpCalibration, BumpCost, BumpSize, Measure, MeasureCapability, MeasureKind,
-    MeasureMethod, MeasureMethodKind, MeasureRequest, MeasureSet, ModelParameterId,
-    ModelParameterSelection,
+    AvailableMeasure, BumpCalibration, BumpCost, BumpSize, CorrelationId, CorrelationSelection,
+    Measure, MeasureCapability, MeasureKind, MeasureMethod, MeasureMethodKind, MeasureRequest,
+    MeasureSet, ModelParameterId, ModelParameterSelection,
 };
 pub use api::source::{
     CapabilityReason, CapabilityStatus, MultiAssetModelSpec, MultiAssetSpecification,

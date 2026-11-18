@@ -116,6 +116,9 @@ pub struct ReportedRisk {
     /// The parameter a `model_parameters` row differentiates. Present exactly
     /// when `measure` is `ModelParameters`.
     pub model_parameter: Option<crate::ModelParameterId>,
+    /// The correlation a `correlations` row differentiates. Present exactly
+    /// when `measure` is `Correlations`.
+    pub correlation: Option<crate::CorrelationId>,
 }
 
 /// One flat row of a report: the price or one coordinate of one risk row.
@@ -237,6 +240,13 @@ impl ValuationReport {
             .iter()
             .find(|r| r.model_parameter == Some(parameter))
     }
+    /// The `correlations` row of one correlation.
+    #[must_use]
+    pub fn correlation_risk(&self, correlation: crate::CorrelationId) -> Option<&ReportedRisk> {
+        self.risks
+            .iter()
+            .find(|r| r.correlation == Some(correlation))
+    }
     /// The price followed by every coordinate of every risk row, flattened in
     /// row-major axis order. Bucketed VegaKT is not flattened here.
     #[must_use]
@@ -353,6 +363,7 @@ impl ValuationReport {
                 || r.convention.is_empty()
                 || r.measure.is_some() != r.method_detail.is_some()
                 || r.model_parameter.is_some() != (r.measure == Some(MeasureKind::ModelParameters))
+                || r.correlation.is_some() != (r.measure == Some(MeasureKind::Correlations))
                 || r.measure == Some(MeasureKind::Price)
                 || !identities.insert((&r.name, &r.underlying_ids))
                 || count != Some(r.values.len())

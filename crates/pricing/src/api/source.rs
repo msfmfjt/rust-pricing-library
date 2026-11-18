@@ -211,6 +211,24 @@ impl SourceFamily {
                 &[M::NativeSpotBump, M::BumpAndRevalue]
             }
             (Self::DirectRoughVolatility, MeasureKind::ModelParameters) => &[M::Native],
+            // Stochastic dividends: AAD Delta and a bump of AAD Deltas; the
+            // residual-equity LSV estimators are scale-invariant
+            // (recalibrated) only.
+            // Raw Brownian-correlation partials of the joint reverse.
+            (
+                Self::StochasticDividend,
+                MeasureKind::Correlations | MeasureKind::ModelParameters,
+            ) => &[M::Native],
+            (Self::StochasticDividend, MeasureKind::SpotDelta) => &[M::Native, M::BumpAndRevalue],
+            (Self::StochasticDividend, MeasureKind::SpotGamma) => {
+                &[M::NativeSpotBump, M::BumpAndRevalue]
+            }
+            (Self::StochasticDividendLsv, MeasureKind::SpotDelta) => {
+                &[M::NativeCalibrated, M::BumpAndRevalue]
+            }
+            (Self::StochasticDividendLsv, MeasureKind::SpotGamma) => {
+                &[M::NativeSpotBumpCalibrated, M::BumpAndRevalue]
+            }
             // Every source reprices under a moved Spot.
             (_, MeasureKind::SpotDelta | MeasureKind::SpotGamma) => &[M::BumpAndRevalue],
             // A Black-Scholes equity with Hull-White rates has one volatility.

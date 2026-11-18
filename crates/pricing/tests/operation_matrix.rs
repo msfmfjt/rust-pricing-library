@@ -224,6 +224,16 @@ fn measure_methods_are_an_explicit_reviewed_table() {
                 (F::DirectRoughVolatility, K::SpotDelta) => &[M::Native, M::BumpAndRevalue],
                 (F::DirectRoughVolatility, K::SpotGamma) => &[M::NativeSpotBump, M::BumpAndRevalue],
                 (F::DirectRoughVolatility, K::ModelParameters) => &[M::Native],
+                (F::StochasticDividend, K::Correlations | K::ModelParameters) => &[M::Native],
+                (_, K::Correlations) => &[],
+                (F::StochasticDividend, K::SpotDelta) => &[M::Native, M::BumpAndRevalue],
+                (F::StochasticDividend, K::SpotGamma) => &[M::NativeSpotBump, M::BumpAndRevalue],
+                (F::StochasticDividendLsv, K::SpotDelta) => {
+                    &[M::NativeCalibrated, M::BumpAndRevalue]
+                }
+                (F::StochasticDividendLsv, K::SpotGamma) => {
+                    &[M::NativeSpotBumpCalibrated, M::BumpAndRevalue]
+                }
                 (_, K::ModelParameters) if family != F::RoughFamilyLsv => &[],
                 (F::StandardSingleAsset, _) => &[M::Native, M::BumpAndRevalue],
                 (F::RoughFamilyLsv, K::SpotDelta) => &[M::NativeCalibrated, M::BumpAndRevalue],

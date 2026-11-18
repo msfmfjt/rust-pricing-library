@@ -80,6 +80,45 @@ enum MeasureV3 {
     ParallelMarketIvVega {},
     VegaKt { grid: VegaKtV1 },
     ModelParameters { parameters: Vec<ModelParameterV3> },
+    Correlations { correlations: Vec<CorrelationV3> },
+}
+/// A Brownian correlation, named by the roles of its drivers; a factor
+/// correlation carries the factor index.
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(tag = "name", rename_all = "snake_case", deny_unknown_fields)]
+pub(in crate::wire) enum CorrelationV3 {
+    EquityDividend {},
+    EquityRate {},
+    DividendRate {},
+    SpotVolatility { factor: u16 },
+    DividendVolatility { factor: u16 },
+    VolatilityFactors {},
+}
+impl From<crate::CorrelationId> for CorrelationV3 {
+    fn from(v: crate::CorrelationId) -> Self {
+        use crate::CorrelationId as C;
+        match v {
+            C::EquityDividend => Self::EquityDividend {},
+            C::EquityRate => Self::EquityRate {},
+            C::DividendRate => Self::DividendRate {},
+            C::SpotVolatility { factor } => Self::SpotVolatility { factor },
+            C::DividendVolatility { factor } => Self::DividendVolatility { factor },
+            C::VolatilityFactors => Self::VolatilityFactors {},
+        }
+    }
+}
+impl From<CorrelationV3> for crate::CorrelationId {
+    fn from(v: CorrelationV3) -> Self {
+        use CorrelationV3 as W;
+        match v {
+            W::EquityDividend {} => Self::EquityDividend,
+            W::EquityRate {} => Self::EquityRate,
+            W::DividendRate {} => Self::DividendRate,
+            W::SpotVolatility { factor } => Self::SpotVolatility { factor },
+            W::DividendVolatility { factor } => Self::DividendVolatility { factor },
+            W::VolatilityFactors {} => Self::VolatilityFactors,
+        }
+    }
 }
 /// A model parameter, named by its role; a component parameter carries its
 /// index.
@@ -97,6 +136,14 @@ pub(in crate::wire) enum ModelParameterV3 {
     Quadratic {},
     Shift {},
     VarianceFloor {},
+    InitialVolatility {},
+    DividendMeanReversion {},
+    EquityLinkage {},
+    DividendVolatility {},
+    FactorMeanReversion { factor: u16 },
+    MixingWeight {},
+    RateMeanReversion {},
+    RateVolatility { knot: u16 },
 }
 impl From<crate::ModelParameterId> for ModelParameterV3 {
     fn from(v: crate::ModelParameterId) -> Self {
@@ -113,6 +160,14 @@ impl From<crate::ModelParameterId> for ModelParameterV3 {
             P::Quadratic => Self::Quadratic {},
             P::Shift => Self::Shift {},
             P::VarianceFloor => Self::VarianceFloor {},
+            P::InitialVolatility => Self::InitialVolatility {},
+            P::DividendMeanReversion => Self::DividendMeanReversion {},
+            P::EquityLinkage => Self::EquityLinkage {},
+            P::DividendVolatility => Self::DividendVolatility {},
+            P::FactorMeanReversion { factor } => Self::FactorMeanReversion { factor },
+            P::MixingWeight => Self::MixingWeight {},
+            P::RateMeanReversion => Self::RateMeanReversion {},
+            P::RateVolatility { knot } => Self::RateVolatility { knot },
         }
     }
 }
@@ -131,6 +186,14 @@ impl From<ModelParameterV3> for crate::ModelParameterId {
             W::Quadratic {} => Self::Quadratic,
             W::Shift {} => Self::Shift,
             W::VarianceFloor {} => Self::VarianceFloor,
+            W::InitialVolatility {} => Self::InitialVolatility,
+            W::DividendMeanReversion {} => Self::DividendMeanReversion,
+            W::EquityLinkage {} => Self::EquityLinkage,
+            W::DividendVolatility {} => Self::DividendVolatility,
+            W::FactorMeanReversion { factor } => Self::FactorMeanReversion { factor },
+            W::MixingWeight {} => Self::MixingWeight,
+            W::RateMeanReversion {} => Self::RateMeanReversion,
+            W::RateVolatility { knot } => Self::RateVolatility { knot },
         }
     }
 }
@@ -228,6 +291,9 @@ impl From<&crate::MeasureRequest> for MeasureRequestV3 {
                 M::ModelParameters(selection) => MeasureV3::ModelParameters {
                     parameters: selection.parameters().iter().map(|&p| p.into()).collect(),
                 },
+                M::Correlations(selection) => MeasureV3::Correlations {
+                    correlations: selection.correlations().iter().map(|&c| c.into()).collect(),
+                },
             },
             method: (&v.method).into(),
         }
@@ -250,6 +316,12 @@ impl MeasureRequestV3 {
                     parameters.into_iter().map(Into::into).collect(),
                 )
                 .map_err(|e| domain_at(at("measure/parameters"), e))?,
+            ),
+            MeasureV3::Correlations { correlations } => M::Correlations(
+                crate::CorrelationSelection::new(
+                    correlations.into_iter().map(Into::into).collect(),
+                )
+                .map_err(|e| domain_at(at("measure/correlations"), e))?,
             ),
         };
         let method = match self.method {

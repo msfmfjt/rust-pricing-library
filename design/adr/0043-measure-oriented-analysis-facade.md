@@ -533,7 +533,8 @@ Implemented (B3):
   (`"component_vol_of_vol.1"`). A model refuses an identifier it lacks with
   `model_combination`, listing its own. `CorrelationId` waits for its first
   adapter (step D).
-- **Scope.** Rough-family LSV only. It is the step-B backend with a native
+- **Scope.** Rough-family LSV only (step C adds direct rough volatility and
+  D3 stochastic dividends). It is the step-B backend with a native
   parameter estimator; deterministic Bergomi LSV has none, so it does not get
   the measure. The four models with an estimator map to their dedicated APIs:
   rough and lifted Heston, quadratic rough Heston, and mixed rough Bergomi.
@@ -586,7 +587,100 @@ Implemented (C):
   `bump_and_revalue` (relative 1e-4, same draws) to 3.3e-13 against a
   sampling error of 9.0e-3.
 
-Phase 3 steps B and C are complete. Steps D and E remain.
+Phase 3 steps B and C are complete.
+
+Step D is split in four: D1 the Spot measures, D2 a correlation
+vocabulary and its risks, D3 dividend and volatility model parameters, D4
+cash-dividend risk.
+
+Implemented (D1):
+
+- **Methods.** Without a calibration step (Black-Scholes, Bergomi and rough
+  Bergomi residual equity, deterministic or Hull-White rates), `SpotDelta`
+  is `Native` (the first coordinate of `evaluate_aad`) and `SpotGamma` is
+  `NativeSpotBump` (`evaluate_gamma`, a common-noise difference of AAD
+  Deltas). Residual-equity LSV re-anchors the calibrated surface to the
+  moved funded residual equity with unchanged squared leverage, which by
+  scale invariance is the recalibrated Delta, so it offers
+  `NativeCalibrated` and `NativeSpotBumpCalibrated` with `Recalibrated`
+  only (`evaluate_lsv_spot_risk`, `evaluate_lsv_gamma`). `Fixed` is
+  `no_native_estimator`, since no frozen-leverage estimator exists; the
+  fixed-calibration bump remains.
+- **Bitwise to the dedicated APIs.** The native result is
+  `PricingTaskOutput::StochasticDividendMeasureRisk`, holding each result
+  unchanged. Its price is the Delta's, which is the plan's, or the plan's
+  when only Gamma is asked. A test checks rows, errors and price bit for bit
+  on BS, Hull-White and LSV dividends under both samplers.
+- **Acceptance.** Under RQMC the native Delta agrees with
+  `bump_and_revalue` on the same draws to about 2e-11 against errors near
+  1e-2, on BS and on LSV. The bump is relative 1e-6: at 1e-4 one path
+  crossed the call's kink and moved the difference by 8e-4, about 0.1 of
+  the error, which is the finite difference's resolution and not an
+  estimator disagreement.
+
+Implemented (D2):
+
+- **One request, many correlations.** As for parameters (B3),
+  `Measure::Correlations(CorrelationSelection)` carries a non-empty,
+  duplicate-free, ordered list (wire name `correlations`), and the report
+  has one row per correlation, each with a new optional
+  `ReportedRisk::correlation` (report v3, additive);
+  `ValuationReport::correlation_risk` finds one.
+- **`CorrelationId`.** One variant per pair of driver roles:
+  `EquityDividend`, `EquityRate`, `DividendRate`,
+  `SpotVolatility { factor }`, `DividendVolatility { factor }`,
+  `VolatilityFactors`. On the wire it is `{"name": ...}`, with `factor` for
+  a factor pair; Python uses labels (`"spot_volatility.0"`). A source
+  refuses a pair it lacks with `model_combination`, listing its own. Step E
+  adds the asset pairs of baskets.
+- **Scope.** Stochastic dividends without a calibration step, by `Native`:
+  `evaluate_correlation_aad` on Black-Scholes, one-, two-factor and rough
+  Bergomi residual equity, and on Black-Scholes with Hull-White rates. Each
+  row is a raw partial that varies one symmetric pair with the others held,
+  without projection or recalibration. The adapter identifies the pairs by
+  the native labels before copying, and the other coordinates of the joint
+  reverse stay in the native result.
+- **Not adapted.** Residual-LSV correlation risk is a central difference
+  with caller-chosen correlation bumps, and only the equity/volatility pair
+  recalibrates. It needs a method that carries a bump per correlation, which
+  the measure methods do not have, so it stays on its dedicated API.
+- A test checks every row, error and price bit for bit on the five
+  correlation structures under both samplers, with correlations requested in
+  reverse order.
+
+Implemented (D3):
+
+- **Vocabulary.** `ModelParameterId` gains the dividend and rate roles:
+  `InitialVolatility`, `DividendMeanReversion`, `EquityLinkage`,
+  `DividendVolatility`, `FactorMeanReversion { factor }`, `MixingWeight`,
+  `RateMeanReversion` and `RateVolatility { knot }`. The wire carries
+  `factor` or `knot` like `component`, and Python labels are
+  `factor_mean_reversion.0` and `rate_volatility.0`. Bergomi and rough
+  Bergomi vol-of-vol and rough Hurst reuse `VolOfVol` and `Hurst`, so one
+  role keeps one name across direct, LSV and dividend sources.
+- **Scope.** Stochastic dividends without a calibration step, by `Native`
+  with `not_applicable`: Black-Scholes, one-, two-factor and rough Bergomi
+  residual equity, and Black-Scholes with Hull-White rates. The four
+  Buehler and residual-volatility coordinates of `evaluate_aad` are on
+  every source; the model's extended reverse adds the Bergomi factors
+  (`evaluate_bergomi_aad`), rough Hurst and vol-of-vol
+  (`evaluate_rough_aad`) or the rate mean reversion and volatility knots
+  (`evaluate_hull_white_aad`).
+- **Run selection.** The adapter runs the extended reverse exactly when a
+  listed parameter needs it, else `evaluate_aad`, and reuses the Delta's
+  `evaluate_aad` run when both are listed. It identifies the coordinates by
+  their native labels before copying. The specification-level capability
+  derives the same list from the source without compiling.
+- **Not adapted.** Residual-LSV dividend-model and Bergomi parameter risks
+  are central differences with caller-chosen bumps, the Bergomi ones with
+  a full recalibration per bump. As for LSV correlations (D2), they need a
+  method that carries a bump per parameter, so they stay on their dedicated
+  APIs.
+- A test checks every row, error and price bit for bit on the five
+  structures under both samplers, with parameters requested in reverse
+  order. Another checks the run selection and the shared Delta run.
+
+Steps D4 and E remain.
 
 ### Out of scope
 

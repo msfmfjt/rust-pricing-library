@@ -8,6 +8,7 @@ use crate::multi_asset::{
     MultiAssetRiskConfig,
 };
 use crate::rough_volatility::RoughVolatilityMeasureRisk;
+use crate::stochastic_dividends::StochasticDividendMeasureRisk;
 use crate::stochastic_dividends::{
     StochasticDividendAadRisk, StochasticDividendHullWhitePricingPlan,
     StochasticDividendLocalVarianceRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
@@ -71,6 +72,9 @@ pub enum PricingTaskOutput {
     /// Native measures of a direct rough-volatility source, from a
     /// `Measures` task.
     RoughVolatilityMeasureRisk(Box<RoughVolatilityMeasureRisk>),
+    /// Native Spot measures of a stochastic-dividend source, from a
+    /// `Measures` task.
+    StochasticDividendMeasureRisk(Box<StochasticDividendMeasureRisk>),
     StochasticDividendRisk(Box<StochasticDividendAadRisk>),
     StochasticDividendLocalVarianceRisk(Box<StochasticDividendLocalVarianceRisk>),
 }
@@ -276,6 +280,21 @@ fn compile_dividend(s: &StochasticDividendSpecification) -> Result<TaskBackend, 
 }
 
 impl CompiledPricingTask {
+    /// The compiled stochastic-dividend plans, for comparisons in tests.
+    #[cfg(test)]
+    pub(crate) fn dividend_plans(
+        &self,
+    ) -> (
+        Option<&StochasticDividendPricingPlan>,
+        Option<&StochasticDividendHullWhitePricingPlan>,
+    ) {
+        match self.backend.as_ref() {
+            TaskBackend::Dividend(p) => (Some(p), None),
+            TaskBackend::DividendHullWhite(p) => (None, Some(p)),
+            _ => (None, None),
+        }
+    }
+
     fn from_backend(
         task: PricingTask,
         backend: Arc<TaskBackend>,

@@ -169,6 +169,9 @@ pub(super) fn build(
         PricingTaskOutput::RoughVolatilityMeasureRisk(r) => {
             rough_volatility_rows(&mut report, task, &ids, r)
         }
+        PricingTaskOutput::StochasticDividendMeasureRisk(r) => {
+            stochastic_dividend_rows(&mut report, task, &ids, r, calibrated)
+        }
         PricingTaskOutput::StochasticDividend(_) => {}
     }
     report.validate()?;
@@ -256,6 +259,15 @@ pub(super) fn headline(out: &PricingTaskOutput) -> (f64, f64, u64, u128) {
                 p.evaluated_paths,
             )
         }
+        PricingTaskOutput::StochasticDividendMeasureRisk(r) => {
+            let p = &r.price;
+            (
+                p.value,
+                p.standard_error,
+                p.independent_sampling_units,
+                p.evaluated_paths,
+            )
+        }
         PricingTaskOutput::RoughVolatilityMeasureRisk(r) => {
             let p = &r.price;
             (
@@ -312,6 +324,7 @@ fn rough_family_lsv_rows(
             measure: Some(kind),
             method_detail: Some(requested.method),
             model_parameter: None,
+            correlation: None,
         });
     };
     if let Some(d) = &r.delta {
@@ -412,6 +425,7 @@ fn rough_family_lsv_rows(
                 measure: Some(MeasureKind::ModelParameters),
                 method_detail: Some(requested.method),
                 model_parameter: Some(parameter),
+                correlation: None,
             });
         }
     }
@@ -450,6 +464,7 @@ fn rough_volatility_rows(
         measure: Some(kind),
         method_detail: Some(requested(kind).method),
         model_parameter,
+        correlation: None,
     };
     let name = |kind: MeasureKind| {
         format!(
@@ -518,6 +533,140 @@ fn rough_volatility_rows(
                 ),
                 Some(parameter),
             ));
+        }
+    }
+}
+
+/// Native Spot rows of a stochastic-dividend source, copied from the
+/// dedicated results. `treatment` is `Recalibrated` on a residual-equity LSV.
+fn stochastic_dividend_rows(
+    report: &mut ValuationReport,
+    task: &PricingTask,
+    ids: &[u32],
+    r: &crate::stochastic_dividends::StochasticDividendMeasureRisk,
+    treatment: CalibrationTreatment,
+) {
+    let held = if treatment == CalibrationTreatment::Recalibrated {
+        "residual-equity LSV surface re-anchored to the moved funded residual equity, its squared-leverage values unchanged (recalibrated by scale invariance); Q-mean cash dividends, dividend model, curves, dates and grid held; error conditional on one calibration"
+    } else {
+        "Q-mean cash dividends, volatility and dividend model parameters, correlations, curves, dates and grid held"
+    };
+    let mut push = |kind: MeasureKind, value: f64, error: f64, unit, method: &str, convention| {
+        let requested = task
+            .measures()
+            .and_then(|set| set.get(kind))
+            .expect("native rows answer listed measures");
+        report.risks.push(ReportedRisk {
+            name: format!("{}.{}", kind.as_str(), requested.method.kind().as_str()),
+            underlying_ids: ids.to_vec(),
+            axes: Vec::new(),
+            values: vec![value],
+            standard_errors: Some(vec![error]),
+            unit,
+            method: method.into(),
+            calibration: treatment,
+            convention,
+            measure: Some(kind),
+            method_detail: Some(requested.method),
+            model_parameter: None,
+            correlation: None,
+        });
+    };
+    if let Some(d) = &r.delta {
+        push(
+            MeasureKind::SpotDelta,
+            d.delta(),
+            d.standard_error(),
+            SensitivityUnit::CurrencyPerSpot,
+            d.method(),
+            format!("physical Spot; pathwise through the Buehler escrow split; {held}"),
+        );
+    }
+    if let Some(g) = &r.gamma {
+        push(
+            MeasureKind::SpotGamma,
+            g.gamma(),
+            g.standard_error(),
+            SensitivityUnit::CurrencyPerSpotSquared,
+            g.method,
+            format!(
+                "physical Spot; central difference of native Deltas with absolute bump {} on common random numbers; the half- and double-bump Gammas and their paired differences are in the native result; {held}; error excludes bump bias",
+                g.spot_bumps[1]
+            ),
+        );
+    }
+    if let Some(c) = &r.correlations {
+        let requested = task
+            .measures()
+            .and_then(|set| set.get(MeasureKind::Correlations))
+            .expect("native rows answer listed measures");
+        let Measure::Correlations(selection) = &requested.measure else {
+            unreachable!("the kind selects the variant")
+        };
+        for &correlation in selection.correlations() {
+            let (value, error) = c
+                .coordinate(correlation)
+                .expect("preflight admitted only the source's correlations");
+            report.risks.push(ReportedRisk {
+                name: format!(
+                    "{}.{}.{}",
+                    MeasureKind::Correlations.as_str(),
+                    correlation.label(),
+                    requested.method.kind().as_str()
+                ),
+                underlying_ids: ids.to_vec(),
+                axes: Vec::new(),
+                values: vec![value],
+                standard_errors: Some(vec![error]),
+                unit: SensitivityUnit::CurrencyPerUnitParameter,
+                method: c.risk.method.into(),
+                calibration: treatment,
+                convention: format!(
+                    "per one absolute unit of the {} Brownian correlation, varying that symmetric pair of the driver correlation matrix with every other entry held; no projection to a valid matrix and no recalibration; Spot, cash means, model parameters, curves, dates and grid held; the other coordinates of the joint reverse are in the native result",
+                    correlation.label()
+                ),
+                measure: Some(MeasureKind::Correlations),
+                method_detail: Some(requested.method),
+                model_parameter: None,
+                correlation: Some(correlation),
+            });
+        }
+    }
+    if let Some(p) = &r.model_parameters {
+        let requested = task
+            .measures()
+            .and_then(|set| set.get(MeasureKind::ModelParameters))
+            .expect("native rows answer listed measures");
+        let Measure::ModelParameters(selection) = &requested.measure else {
+            unreachable!("the kind selects the variant")
+        };
+        for &parameter in selection.parameters() {
+            let (value, error) = p
+                .coordinate(parameter)
+                .expect("preflight admitted only the source's parameters");
+            report.risks.push(ReportedRisk {
+                name: format!(
+                    "{}.{}.{}",
+                    MeasureKind::ModelParameters.as_str(),
+                    parameter.label(),
+                    requested.method.kind().as_str()
+                ),
+                underlying_ids: ids.to_vec(),
+                axes: Vec::new(),
+                values: vec![value],
+                standard_errors: Some(vec![error]),
+                unit: SensitivityUnit::CurrencyPerUnitParameter,
+                method: p.risk.method.into(),
+                calibration: treatment,
+                convention: format!(
+                    "per one absolute unit of the model's {}; fixed model: pathwise through the Buehler escrow split and the discrete path, with every other parameter, Spot, correlations, cash means, curves, dates, grid and Gaussian draws held; not a recalibrated or market-IV sensitivity",
+                    parameter.label()
+                ),
+                measure: Some(MeasureKind::ModelParameters),
+                method_detail: Some(requested.method),
+                model_parameter: Some(parameter),
+                correlation: None,
+            });
         }
     }
 }
@@ -630,6 +779,7 @@ fn block(
         measure: None,
         method_detail: None,
         model_parameter: None,
+        correlation: None,
     });
 }
 #[allow(clippy::too_many_arguments)]
@@ -1038,6 +1188,7 @@ pub(super) fn bump_rows(
             measure: Some(kind),
             method_detail: Some(e.request.method),
             model_parameter: None,
+            correlation: None,
         });
     }
     report.validate()

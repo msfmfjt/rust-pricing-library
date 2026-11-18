@@ -1,6 +1,7 @@
 //! The adapter every native plan implements for the `Measures` operation.
 //! Adapters call existing evaluations; they add no estimator (ADR 0043).
 use crate::MonteCarloError;
+use crate::engine::risk::stochastic_dividends::DividendMeasureSelection;
 use crate::lsv::{RoughFamilyLsvDeltaConvention, RoughFamilyLsvPricingPlan};
 use crate::market::MarketIvSurface;
 use crate::mc::lsv::LsvError;
@@ -11,9 +12,9 @@ use crate::stochastic_dividends::{
     StochasticDividendHullWhitePricingPlan, StochasticDividendPricingPlan,
 };
 use crate::{
-    BumpCalibration, CapabilityReason, CapabilityStatus, CompiledPricingSpecification, Measure,
-    MeasureCapability, MeasureKind, MeasureMethod, MeasureRequest, ModelParameterId,
-    ModelParameterSelection, PricingTaskError, PricingTaskOutput,
+    BumpCalibration, CapabilityReason, CapabilityStatus, CompiledPricingSpecification,
+    CorrelationId, CorrelationSelection, Measure, MeasureCapability, MeasureKind, MeasureMethod,
+    MeasureRequest, ModelParameterId, ModelParameterSelection, PricingTaskError, PricingTaskOutput,
 };
 
 pub(crate) trait MeasureBackend {
@@ -413,27 +414,167 @@ impl MeasureBackend for MultiAssetPricingPlan {
     }
 }
 
+pub(crate) const DIVIDEND_LSV_FIXED: &str = "the residual-equity LSV Spot estimators re-anchor the calibrated surface (recalibrated by scale invariance); there is no frozen-leverage estimator, so state recalibrated, or use bump_and_revalue with fixed";
+pub(crate) const DIVIDEND_LSV_CALIBRATION: &str = "this source is calibrated; state recalibrated (the scale-invariant residual-equity LSV estimator)";
+
+/// What a stochastic-dividend source offers the measures facade.
+struct DividendSource {
+    calibrated: bool,
+    pathwise: bool,
+    correlations: Vec<CorrelationId>,
+    parameters: Vec<ModelParameterId>,
+}
+
+/// Stochastic dividends: AAD Delta, the bump of AAD Deltas, correlation and
+/// model-parameter AAD, or on a residual-equity LSV the scale-invariant
+/// (recalibrated) Delta and Gamma.
+fn stochastic_dividend_preflight(
+    source: &DividendSource,
+    request: &MeasureRequest,
+) -> MeasureCapability {
+    let DividendSource {
+        calibrated,
+        pathwise,
+        ref correlations,
+        ref parameters,
+    } = *source;
+    let refused = |reason, detail: String| {
+        MeasureCapability::new(request, CapabilityStatus::Unsupported, Some(reason), detail)
+    };
+    match (calibrated, &request.measure, request.method) {
+        (_, Measure::Price, MeasureMethod::Native) => return supported(request),
+        (false, Measure::SpotDelta, MeasureMethod::Native)
+        | (false, Measure::SpotGamma, MeasureMethod::NativeSpotBump { .. }) => {}
+        (false, Measure::Correlations(selection), MeasureMethod::Native) => {
+            if let Some(detail) = missing_correlation(selection, correlations) {
+                return refused(CapabilityReason::ModelCombination, detail);
+            }
+        }
+        (false, Measure::ModelParameters(selection), MeasureMethod::Native) => {
+            if let Some(detail) = missing_parameter(selection, parameters, false) {
+                return refused(CapabilityReason::ModelCombination, detail);
+            }
+        }
+        (true, Measure::SpotDelta, MeasureMethod::NativeCalibrated { calibration })
+        | (true, Measure::SpotGamma, MeasureMethod::NativeSpotBumpCalibrated { calibration, .. }) => {
+            match calibration {
+                BumpCalibration::Recalibrated => {}
+                BumpCalibration::Fixed => {
+                    return refused(
+                        CapabilityReason::NoNativeEstimator,
+                        DIVIDEND_LSV_FIXED.into(),
+                    );
+                }
+                BumpCalibration::NotApplicable => {
+                    return refused(
+                        CapabilityReason::BumpCalibrationMismatch,
+                        DIVIDEND_LSV_CALIBRATION.into(),
+                    );
+                }
+            }
+        }
+        _ => return price_only(request),
+    }
+    if !pathwise {
+        return refused(
+            CapabilityReason::DiscontinuousPayoff,
+            "native risk requires a differentiable payoff or explicit smoothing".into(),
+        );
+    }
+    supported(request)
+}
+
+/// The detail of the first requested correlation the source lacks.
+pub(crate) fn missing_correlation(
+    selection: &CorrelationSelection,
+    available: &[CorrelationId],
+) -> Option<String> {
+    selection
+        .correlations()
+        .iter()
+        .find(|c| !available.contains(c))
+        .map(|c| {
+            format!(
+                "this source has no correlation {}; available: {}",
+                c.label(),
+                available
+                    .iter()
+                    .map(|a| a.label())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })
+}
+
+/// The native selection of a validated list.
+fn dividend_selection(requests: &[MeasureRequest]) -> DividendMeasureSelection<'_> {
+    let mut selection = DividendMeasureSelection::default();
+    for request in requests {
+        match (&request.measure, request.method) {
+            (Measure::Correlations(_), MeasureMethod::Native) => selection.correlations = true,
+            (Measure::ModelParameters(listed), MeasureMethod::Native) => {
+                selection.parameters = Some(listed.parameters());
+            }
+            (
+                Measure::SpotDelta,
+                MeasureMethod::Native | MeasureMethod::NativeCalibrated { .. },
+            ) => selection.delta = true,
+            (
+                Measure::SpotGamma,
+                MeasureMethod::NativeSpotBump { bump }
+                | MeasureMethod::NativeSpotBumpCalibrated { bump, .. },
+            ) => selection.gamma = Some(GammaConfig::new(bump)),
+            _ => {}
+        }
+    }
+    selection
+}
+
 impl MeasureBackend for StochasticDividendPricingPlan {
     fn preflight(&self, request: &MeasureRequest) -> MeasureCapability {
-        price_only(request)
+        let source = DividendSource {
+            calibrated: self.is_calibrated(),
+            pathwise: self.supports_spot_risk(),
+            correlations: self.correlation_ids(),
+            parameters: self.parameter_ids(),
+        };
+        stochastic_dividend_preflight(&source, request)
     }
     fn evaluate_measures(
         &self,
-        _requests: &[MeasureRequest],
+        requests: &[MeasureRequest],
     ) -> Result<PricingTaskOutput, PricingTaskError> {
-        Ok(PricingTaskOutput::StochasticDividend(self.evaluate()?))
+        let selection = dividend_selection(requests);
+        if selection.is_empty() {
+            return Ok(PricingTaskOutput::StochasticDividend(self.evaluate()?));
+        }
+        Ok(PricingTaskOutput::StochasticDividendMeasureRisk(Box::new(
+            self.evaluate_measure_risk(selection)?,
+        )))
     }
 }
 
 impl MeasureBackend for StochasticDividendHullWhitePricingPlan {
     fn preflight(&self, request: &MeasureRequest) -> MeasureCapability {
-        price_only(request)
+        let source = DividendSource {
+            calibrated: false,
+            pathwise: self.supports_spot_risk(),
+            correlations: self.correlation_ids(),
+            parameters: self.parameter_ids(),
+        };
+        stochastic_dividend_preflight(&source, request)
     }
     fn evaluate_measures(
         &self,
-        _requests: &[MeasureRequest],
+        requests: &[MeasureRequest],
     ) -> Result<PricingTaskOutput, PricingTaskError> {
-        Ok(PricingTaskOutput::StochasticDividend(self.evaluate()?))
+        let selection = dividend_selection(requests);
+        if selection.is_empty() {
+            return Ok(PricingTaskOutput::StochasticDividend(self.evaluate()?));
+        }
+        Ok(PricingTaskOutput::StochasticDividendMeasureRisk(Box::new(
+            self.evaluate_measure_risk(selection)?,
+        )))
     }
 }
 
@@ -1683,5 +1824,776 @@ mod rough_volatility_tests {
         .unwrap();
         assert_eq!(again, report);
         assert!(again.model_parameter_risk(P::Hurst).is_some());
+    }
+}
+
+#[cfg(test)]
+mod stochastic_dividend_tests {
+    use serde_json::{Value, json};
+
+    use crate::risk::{GammaConfig, SpotBump};
+    use crate::*;
+
+    /// The saved task's source, optionally under RQMC or with a digital.
+    fn source(name: &str, rqmc: bool, digital: bool) -> PricingSource {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/task-v1")
+            .join(format!("stochastic_dividend_{name}.golden.json"));
+        let mut v: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        let equity = &mut v["source"]["equity"];
+        if rqmc {
+            equity["engine"] = json!({"type":"randomized_quasi_monte_carlo",
+                "points_per_scramble":32,"scramble_count":8,"master_scramble_seed":819,
+                "variance_reduction":{"antithetic":true,"brownian_bridge":false}});
+        }
+        if digital {
+            equity["product"] = json!({"type":"digital","underlying_id":1,"currency_id":2,
+                "expiry":"2027-09-04","strike":100.0,"payout":1.0,
+                "side":{"type":"call"},"payout_kind":{"type":"cash"},
+                "payment_date":"2027-09-04"});
+        }
+        v["operation"] = json!({"type":"evaluate"});
+        parse_pricing_task_json(&serde_json::to_vec(&v).unwrap(), JsonLimits::DEFAULT)
+            .unwrap()
+            .source()
+            .clone()
+    }
+
+    /// A Bergomi-family residual equity on the BS fixture's market.
+    fn sv_source(factor: Value, correlations: Vec<f64>, rqmc: bool) -> PricingSource {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/task-v1/stochastic_dividend_bs.golden.json");
+        let mut v: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        v["source"]["equity"]["model"]["equity"] = json!({"type":"stochastic_volatility",
+            "initial_volatility":0.2,"factor":factor});
+        v["source"]["equity"]["numerics"]["maximum_step"] = json!(0.5);
+        v["source"]["volatility_correlations"] = json!(correlations);
+        if rqmc {
+            v["source"]["equity"]["engine"] = json!({"type":"randomized_quasi_monte_carlo",
+                "points_per_scramble":32,"scramble_count":8,"master_scramble_seed":819,
+                "variance_reduction":{"antithetic":true,"brownian_bridge":false}});
+        }
+        v["operation"] = json!({"type":"evaluate"});
+        parse_pricing_task_json(&serde_json::to_vec(&v).unwrap(), JsonLimits::DEFAULT)
+            .unwrap()
+            .source()
+            .clone()
+    }
+
+    /// Sources without a calibration step, with their correlations in the
+    /// native order.
+    fn correlated_sources(rqmc: bool) -> Vec<(&'static str, PricingSource, Vec<CorrelationId>)> {
+        use CorrelationId as C;
+        let (s0, d0) = (
+            C::SpotVolatility { factor: 0 },
+            C::DividendVolatility { factor: 0 },
+        );
+        let (s1, d1) = (
+            C::SpotVolatility { factor: 1 },
+            C::DividendVolatility { factor: 1 },
+        );
+        vec![
+            ("bs", source("bs", rqmc, false), vec![C::EquityDividend]),
+            (
+                "hw",
+                source("hw", rqmc, false),
+                vec![C::EquityDividend, C::EquityRate, C::DividendRate],
+            ),
+            (
+                "bergomi",
+                sv_source(
+                    json!({"type":"bergomi","mean_reversion":1.2,"vol_of_vol":0.3,
+                        "correlation":-0.4}),
+                    vec![0.1],
+                    rqmc,
+                ),
+                vec![C::EquityDividend, s0, d0],
+            ),
+            (
+                "bergomi_two_factor",
+                sv_source(
+                    json!({"type":"bergomi_two_factor","mean_reversions":[1.0,4.0],
+                        "vol_of_vol":0.5,"mixing_weight":0.3,"spot_correlations":[-0.5,-0.3],
+                        "factor_correlation":0.4}),
+                    vec![0.1, 0.05],
+                    rqmc,
+                ),
+                vec![C::EquityDividend, s0, s1, d0, d1, C::VolatilityFactors],
+            ),
+            (
+                "rough_bergomi",
+                sv_source(
+                    json!({"type":"rough_bergomi","hurst":0.2,"vol_of_vol":0.5,
+                        "correlation":-0.5}),
+                    vec![0.1],
+                    rqmc,
+                ),
+                vec![C::EquityDividend, s0, d0],
+            ),
+        ]
+    }
+
+    fn correlations(ids: Vec<CorrelationId>) -> MeasureRequest {
+        MeasureRequest::native(Measure::Correlations(
+            CorrelationSelection::new(ids).unwrap(),
+        ))
+    }
+
+    /// Every correlation row is `evaluate_correlation_aad`'s partial and
+    /// error bit for bit, in the requested (reversed) order, on BS,
+    /// Hull-White and the three Bergomi drivers under both samplers.
+    #[test]
+    fn correlation_rows_equal_the_dedicated_api() {
+        for rqmc in [false, true] {
+            for (name, s, ids) in correlated_sources(rqmc) {
+                let mut reversed = ids.clone();
+                reversed.reverse();
+                let compiled = task(&s, vec![correlations(reversed.clone())])
+                    .compile()
+                    .unwrap();
+                let result = compiled.evaluate().unwrap();
+                let (expected, price) = match compiled.dividend_plans() {
+                    (Some(p), None) => {
+                        (p.evaluate_correlation_aad().unwrap(), p.evaluate().unwrap())
+                    }
+                    (None, Some(p)) => {
+                        (p.evaluate_correlation_aad().unwrap(), p.evaluate().unwrap())
+                    }
+                    _ => unreachable!(),
+                };
+                let report = &result.report;
+                assert_eq!(report.value().to_bits(), price.value.to_bits(), "{name}");
+                let rows = report
+                    .risks()
+                    .iter()
+                    .filter(|r| r.measure == Some(MeasureKind::Correlations))
+                    .map(|r| r.correlation.unwrap())
+                    .collect::<Vec<_>>();
+                assert_eq!(rows, reversed, "{name}");
+                for id in &ids {
+                    let label = match id {
+                        CorrelationId::EquityDividend => "equity_dividend_correlation".to_owned(),
+                        CorrelationId::EquityRate => "equity_rate_correlation".to_owned(),
+                        CorrelationId::DividendRate => "dividend_rate_correlation".to_owned(),
+                        CorrelationId::SpotVolatility { factor } => {
+                            format!("spot_volatility_correlation[{factor}]")
+                        }
+                        CorrelationId::DividendVolatility { factor } => {
+                            format!("dividend_volatility_correlation[{factor}]")
+                        }
+                        CorrelationId::VolatilityFactors => {
+                            "volatility_factor_correlation".to_owned()
+                        }
+                    };
+                    let i = expected
+                        .parameter_labels
+                        .iter()
+                        .position(|l| *l == label)
+                        .unwrap_or_else(|| panic!("{name} {label}"));
+                    let row = report.correlation_risk(*id).unwrap();
+                    assert_eq!(
+                        row.values[0].to_bits(),
+                        expected.derivatives[i].to_bits(),
+                        "{name} {id:?}"
+                    );
+                    assert_eq!(
+                        row.standard_errors.as_ref().unwrap()[0].to_bits(),
+                        expected.standard_errors[i].to_bits()
+                    );
+                    assert_eq!(row.method, expected.method);
+                    assert_eq!(row.calibration, CalibrationTreatment::NotApplicable);
+                    assert_eq!(row.name, format!("correlations.{}.native", id.label()));
+                }
+                let PricingTaskOutput::StochasticDividendMeasureRisk(native) =
+                    &result.native_result
+                else {
+                    panic!("native risk expected")
+                };
+                let identified = native.correlations.as_ref().unwrap();
+                assert_eq!(identified.risk, expected);
+                assert_eq!(&*identified.correlations, &ids[..]);
+                assert_eq!(native.price, price, "{name}");
+            }
+        }
+    }
+
+    #[test]
+    fn correlations_must_belong_to_the_source() {
+        use CorrelationId as C;
+        let bs = source("bs", false, false);
+        for id in [C::EquityRate, C::SpotVolatility { factor: 0 }] {
+            assert_eq!(
+                reason(&bs, correlations(vec![id])),
+                Some(CapabilityReason::ModelCombination)
+            );
+        }
+        let one = &correlated_sources(false)[2].1;
+        assert_eq!(
+            reason(one, correlations(vec![C::SpotVolatility { factor: 1 }])),
+            Some(CapabilityReason::ModelCombination)
+        );
+        assert_eq!(
+            reason(one, correlations(vec![C::VolatilityFactors])),
+            Some(CapabilityReason::ModelCombination)
+        );
+        // Residual LSV correlation risk is a finite difference with stated
+        // bumps; it has no measure adapter yet.
+        assert_eq!(
+            reason(
+                &source("lsv", false, false),
+                correlations(vec![C::EquityDividend])
+            ),
+            Some(CapabilityReason::DedicatedRiskApi)
+        );
+        assert_eq!(
+            reason(
+                &source("bs", false, true),
+                correlations(vec![C::EquityDividend])
+            ),
+            Some(CapabilityReason::DiscontinuousPayoff)
+        );
+        assert!(CorrelationSelection::new(vec![]).is_err());
+        assert!(CorrelationSelection::new(vec![C::EquityRate, C::EquityRate]).is_err());
+        for id in [
+            C::EquityDividend,
+            C::SpotVolatility { factor: 3 },
+            C::DividendVolatility { factor: 0 },
+            C::VolatilityFactors,
+        ] {
+            assert_eq!(C::from_label(&id.label()), Some(id));
+        }
+        assert_eq!(C::from_label("spot_volatility"), None);
+    }
+
+    #[test]
+    fn correlation_task_and_report_round_trip() {
+        use CorrelationId as C;
+        let s = &correlated_sources(true)[3].1;
+        let t = task(
+            s,
+            vec![
+                MeasureRequest::native(Measure::SpotDelta),
+                correlations(vec![C::VolatilityFactors, C::SpotVolatility { factor: 1 }]),
+            ],
+        );
+        let text = pricing_task_to_json(&t).unwrap();
+        let compact = text.split_whitespace().collect::<String>();
+        assert!(
+            compact.contains(r#"{"name":"spot_volatility","factor":1}"#),
+            "{text}"
+        );
+        let back = parse_pricing_task_json(text.as_bytes(), JsonLimits::DEFAULT).unwrap();
+        assert_eq!(back.fingerprint().unwrap(), t.fingerprint().unwrap());
+        let report = t.compile().unwrap().evaluate().unwrap().report;
+        let again = parse_valuation_report_json(
+            valuation_report_to_json(&report).unwrap().as_bytes(),
+            JsonLimits::DEFAULT,
+        )
+        .unwrap();
+        assert_eq!(again, report);
+        assert!(again.correlation_risk(C::VolatilityFactors).is_some());
+    }
+
+    fn parameters(ids: Vec<ModelParameterId>) -> MeasureRequest {
+        MeasureRequest::native(Measure::ModelParameters(
+            ModelParameterSelection::new(ids).unwrap(),
+        ))
+    }
+
+    /// The native label the dividend AAD gives a parameter on a source.
+    fn native_label(name: &str, id: ModelParameterId) -> String {
+        use ModelParameterId as P;
+        let prefix = if name == "rough_bergomi" {
+            "rough"
+        } else {
+            "bergomi"
+        };
+        match id {
+            P::FactorMeanReversion { factor } => format!("bergomi_mean_reversion[{factor}]"),
+            P::RateVolatility { knot } => format!("rate_volatility[{knot}]"),
+            P::VolOfVol => format!("{prefix}_vol_of_vol"),
+            P::Hurst => "rough_hurst".into(),
+            P::MixingWeight => "bergomi_mixing_weight".into(),
+            other => other.as_str().into(),
+        }
+    }
+
+    /// Sources without a calibration step with every parameter they have,
+    /// in the native order.
+    fn parameterized_sources(
+        rqmc: bool,
+    ) -> Vec<(&'static str, PricingSource, Vec<ModelParameterId>)> {
+        use ModelParameterId as P;
+        let basic = vec![
+            P::InitialVolatility,
+            P::DividendMeanReversion,
+            P::EquityLinkage,
+            P::DividendVolatility,
+        ];
+        let with =
+            |extra: Vec<ModelParameterId>| basic.iter().copied().chain(extra).collect::<Vec<_>>();
+        let hw = source("hw", rqmc, false);
+        let PricingSource::StochasticDividend(d) = &hw else {
+            unreachable!()
+        };
+        let RateModelSpec::HullWhite { model, .. } = &d.equity().model().rates else {
+            unreachable!()
+        };
+        let knots = u16::try_from(model.volatilities().len()).unwrap();
+        let mut rate = vec![P::RateMeanReversion];
+        rate.extend((0..knots).map(|knot| P::RateVolatility { knot }));
+        correlated_sources(rqmc)
+            .into_iter()
+            .map(|(name, s, _)| {
+                let ids = match name {
+                    "bs" => basic.clone(),
+                    "hw" => with(rate.clone()),
+                    "bergomi" => with(vec![P::FactorMeanReversion { factor: 0 }, P::VolOfVol]),
+                    "bergomi_two_factor" => with(vec![
+                        P::FactorMeanReversion { factor: 0 },
+                        P::FactorMeanReversion { factor: 1 },
+                        P::VolOfVol,
+                        P::MixingWeight,
+                    ]),
+                    _ => with(vec![P::Hurst, P::VolOfVol]),
+                };
+                (name, s, ids)
+            })
+            .collect()
+    }
+
+    /// The dedicated API a full parameter list selects.
+    fn parameter_api(
+        compiled: &CompiledPricingTask,
+        name: &str,
+    ) -> crate::stochastic_dividends::StochasticDividendAadRisk {
+        match (compiled.dividend_plans(), name) {
+            ((Some(p), None), "bs") => p.evaluate_aad().unwrap(),
+            ((Some(p), None), "rough_bergomi") => p.evaluate_rough_aad().unwrap(),
+            ((Some(p), None), _) => p.evaluate_bergomi_aad().unwrap(),
+            ((None, Some(p)), _) => p.evaluate_hull_white_aad().unwrap(),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Every parameter row is the dedicated reverse's derivative and error
+    /// bit for bit, in the requested (reversed) order, on BS, Hull-White and
+    /// the three Bergomi drivers under both samplers; the specification's
+    /// capability agrees with the plan's.
+    #[test]
+    fn parameter_rows_equal_the_dedicated_apis() {
+        for rqmc in [false, true] {
+            for (name, s, ids) in parameterized_sources(rqmc) {
+                let mut reversed = ids.clone();
+                reversed.reverse();
+                let request = parameters(reversed.clone());
+                let capability = s.measure_capabilities(std::slice::from_ref(&request));
+                assert_ne!(
+                    capability[0].status,
+                    CapabilityStatus::Unsupported,
+                    "{name}: {}",
+                    capability[0].detail
+                );
+                let compiled = task(&s, vec![request]).compile().unwrap();
+                let result = compiled.evaluate().unwrap();
+                let expected = parameter_api(&compiled, name);
+                let report = &result.report;
+                assert_eq!(
+                    report.value().to_bits(),
+                    expected.price.value.to_bits(),
+                    "{name}"
+                );
+                let rows = report
+                    .risks()
+                    .iter()
+                    .filter(|r| r.measure == Some(MeasureKind::ModelParameters))
+                    .map(|r| r.model_parameter.unwrap())
+                    .collect::<Vec<_>>();
+                assert_eq!(rows, reversed, "{name}");
+                for &id in &ids {
+                    let label = native_label(name, id);
+                    let i = expected
+                        .parameter_labels
+                        .iter()
+                        .position(|l| *l == label)
+                        .unwrap_or_else(|| panic!("{name} {label}"));
+                    let row = report.model_parameter_risk(id).unwrap();
+                    assert_eq!(
+                        row.values[0].to_bits(),
+                        expected.derivatives[i].to_bits(),
+                        "{name} {id:?}"
+                    );
+                    assert_eq!(
+                        row.standard_errors.as_ref().unwrap()[0].to_bits(),
+                        expected.standard_errors[i].to_bits()
+                    );
+                    assert_eq!(row.method, expected.method);
+                    assert_eq!(row.calibration, CalibrationTreatment::NotApplicable);
+                    assert_eq!(row.name, format!("model_parameters.{}.native", id.label()));
+                }
+                let PricingTaskOutput::StochasticDividendMeasureRisk(native) =
+                    &result.native_result
+                else {
+                    panic!("native risk expected")
+                };
+                let identified = native.model_parameters.as_ref().unwrap();
+                assert_eq!(identified.risk, expected);
+                assert_eq!(&*identified.parameters, &ids[..]);
+            }
+        }
+    }
+
+    /// Basic parameters alone come from `evaluate_aad`, shared with the
+    /// Delta's run; one extended parameter selects the model's reverse.
+    #[test]
+    fn parameter_runs_follow_the_listed_parameters() {
+        use ModelParameterId as P;
+        let s = &parameterized_sources(false)[2].1;
+        let compiled = task(
+            s,
+            vec![
+                MeasureRequest::native(Measure::SpotDelta),
+                parameters(vec![P::EquityLinkage, P::InitialVolatility]),
+            ],
+        )
+        .compile()
+        .unwrap();
+        let result = compiled.evaluate().unwrap();
+        let (Some(plan), None) = compiled.dividend_plans() else {
+            unreachable!()
+        };
+        let basic = plan.evaluate_aad().unwrap();
+        let PricingTaskOutput::StochasticDividendMeasureRisk(native) = &result.native_result else {
+            panic!("native risk expected")
+        };
+        let identified = native.model_parameters.as_ref().unwrap();
+        assert_eq!(identified.risk, basic);
+        assert_eq!(identified.parameters.len(), 4);
+        let row = result
+            .report
+            .model_parameter_risk(P::EquityLinkage)
+            .unwrap();
+        assert_eq!(row.values[0].to_bits(), basic.derivatives[3].to_bits());
+        assert!(identified.coordinate(P::VolOfVol).is_none());
+
+        let compiled = task(s, vec![parameters(vec![P::InitialVolatility, P::VolOfVol])])
+            .compile()
+            .unwrap();
+        let result = compiled.evaluate().unwrap();
+        let (Some(plan), None) = compiled.dividend_plans() else {
+            unreachable!()
+        };
+        let PricingTaskOutput::StochasticDividendMeasureRisk(native) = &result.native_result else {
+            panic!("native risk expected")
+        };
+        assert_eq!(
+            native.model_parameters.as_ref().unwrap().risk,
+            plan.evaluate_bergomi_aad().unwrap()
+        );
+    }
+
+    #[test]
+    fn parameters_must_belong_to_the_source() {
+        use ModelParameterId as P;
+        let sources = parameterized_sources(false);
+        let missing = [
+            ("bs", P::VolOfVol),
+            ("bs", P::RateMeanReversion),
+            ("hw", P::RateVolatility { knot: 99 }),
+            ("bergomi", P::MixingWeight),
+            ("bergomi", P::FactorMeanReversion { factor: 1 }),
+            ("bergomi", P::Hurst),
+            ("rough_bergomi", P::FactorMeanReversion { factor: 0 }),
+            ("bergomi_two_factor", P::InitialVariance),
+        ];
+        for (name, id) in missing {
+            let s = &sources.iter().find(|(n, ..)| *n == name).unwrap().1;
+            assert_eq!(
+                reason(s, parameters(vec![id])),
+                Some(CapabilityReason::ModelCombination),
+                "{name} {id:?}"
+            );
+        }
+        // Residual LSV parameter risks are finite differences with stated
+        // bumps; they keep their dedicated APIs.
+        assert_eq!(
+            reason(
+                &source("lsv", false, false),
+                parameters(vec![P::DividendVolatility])
+            ),
+            Some(CapabilityReason::DedicatedRiskApi)
+        );
+        assert_eq!(
+            reason(
+                &source("bs", false, true),
+                parameters(vec![P::DividendVolatility])
+            ),
+            Some(CapabilityReason::DiscontinuousPayoff)
+        );
+        for id in [
+            P::InitialVolatility,
+            P::FactorMeanReversion { factor: 1 },
+            P::RateVolatility { knot: 3 },
+            P::MixingWeight,
+            P::RateMeanReversion,
+        ] {
+            assert_eq!(P::from_label(&id.label()), Some(id));
+        }
+        assert_eq!(P::from_label("rate_volatility"), None);
+        assert_eq!(P::from_label("factor_mean_reversion.x"), None);
+
+        let s = &sources[1].1;
+        let t = task(
+            s,
+            vec![parameters(vec![
+                P::RateVolatility { knot: 0 },
+                P::DividendMeanReversion,
+            ])],
+        );
+        let text = pricing_task_to_json(&t).unwrap();
+        let compact = text.split_whitespace().collect::<String>();
+        assert!(
+            compact.contains(r#"{"name":"rate_volatility","knot":0}"#),
+            "{text}"
+        );
+        let back = parse_pricing_task_json(text.as_bytes(), JsonLimits::DEFAULT).unwrap();
+        assert_eq!(back.fingerprint().unwrap(), t.fingerprint().unwrap());
+        let report = t.compile().unwrap().evaluate().unwrap().report;
+        let again = parse_valuation_report_json(
+            valuation_report_to_json(&report).unwrap().as_bytes(),
+            JsonLimits::DEFAULT,
+        )
+        .unwrap();
+        assert_eq!(again, report);
+    }
+
+    fn calibrated(name: &str) -> bool {
+        name == "lsv"
+    }
+
+    fn delta(name: &str) -> MeasureRequest {
+        if calibrated(name) {
+            MeasureRequest::new(
+                Measure::SpotDelta,
+                MeasureMethod::NativeCalibrated {
+                    calibration: BumpCalibration::Recalibrated,
+                },
+            )
+        } else {
+            MeasureRequest::native(Measure::SpotDelta)
+        }
+    }
+
+    fn bump() -> SpotBump {
+        SpotBump::relative(0.01).unwrap()
+    }
+
+    fn gamma(name: &str) -> MeasureRequest {
+        let method = if calibrated(name) {
+            MeasureMethod::NativeSpotBumpCalibrated {
+                bump: bump(),
+                calibration: BumpCalibration::Recalibrated,
+            }
+        } else {
+            MeasureMethod::NativeSpotBump { bump: bump() }
+        };
+        MeasureRequest::new(Measure::SpotGamma, method)
+    }
+
+    fn task(s: &PricingSource, requests: Vec<MeasureRequest>) -> PricingTask {
+        PricingTask::new(
+            s.clone(),
+            PricingOperation::Measures(MeasureSet::new(requests).unwrap()),
+        )
+        .unwrap()
+    }
+
+    /// Delta and Gamma rows are the dedicated APIs' estimates and errors bit
+    /// for bit, on BS, Hull-White and residual-LSV dividends under both
+    /// samplers; the price is the plan's price.
+    #[test]
+    fn spot_rows_equal_the_dedicated_apis() {
+        for name in ["bs", "hw", "lsv"] {
+            for rqmc in [false, true] {
+                let s = source(name, rqmc, false);
+                let compiled = task(&s, vec![delta(name), gamma(name)]).compile().unwrap();
+                let result = compiled.evaluate().unwrap();
+                let config = GammaConfig::new(bump());
+                let (price, d, d_se, d_method, g) = match compiled.dividend_plans() {
+                    (Some(p), None) if calibrated(name) => {
+                        let d = p.evaluate_lsv_spot_risk().unwrap();
+                        (
+                            p.evaluate().unwrap(),
+                            d.delta,
+                            d.delta_standard_error,
+                            d.method,
+                            p.evaluate_lsv_gamma(config).unwrap(),
+                        )
+                    }
+                    (Some(p), None) => {
+                        let d = p.evaluate_aad().unwrap();
+                        (
+                            p.evaluate().unwrap(),
+                            d.delta(),
+                            d.standard_errors[0],
+                            d.method,
+                            p.evaluate_gamma(config).unwrap(),
+                        )
+                    }
+                    (None, Some(p)) => {
+                        let d = p.evaluate_aad().unwrap();
+                        (
+                            p.evaluate().unwrap(),
+                            d.delta(),
+                            d.standard_errors[0],
+                            d.method,
+                            p.evaluate_gamma(config).unwrap(),
+                        )
+                    }
+                    _ => unreachable!(),
+                };
+                let report = &result.report;
+                assert_eq!(report.value().to_bits(), price.value.to_bits(), "{name}");
+                let row = report.risk(MeasureKind::SpotDelta).unwrap();
+                assert_eq!(row.values[0].to_bits(), d.to_bits(), "{name}");
+                assert_eq!(
+                    row.standard_errors.as_ref().unwrap()[0].to_bits(),
+                    d_se.to_bits()
+                );
+                assert_eq!(row.method, d_method);
+                let treatment = if calibrated(name) {
+                    CalibrationTreatment::Recalibrated
+                } else {
+                    CalibrationTreatment::NotApplicable
+                };
+                assert_eq!(row.calibration, treatment);
+                let row = report.risk(MeasureKind::SpotGamma).unwrap();
+                assert_eq!(row.values[0].to_bits(), g.gamma().to_bits(), "{name}");
+                assert_eq!(
+                    row.standard_errors.as_ref().unwrap()[0].to_bits(),
+                    g.standard_error().to_bits()
+                );
+                assert_eq!(row.calibration, treatment);
+                let PricingTaskOutput::StochasticDividendMeasureRisk(native) =
+                    &result.native_result
+                else {
+                    panic!("native risk expected")
+                };
+                assert_eq!(native.gamma.as_ref(), Some(&g));
+                assert_eq!(native.price, price, "{name}");
+
+                // Gamma alone: the plan's price.
+                let only = task(&s, vec![gamma(name)])
+                    .compile()
+                    .unwrap()
+                    .evaluate()
+                    .unwrap();
+                assert_eq!(only.report.value().to_bits(), price.value.to_bits());
+                assert!(only.report.risk(MeasureKind::SpotDelta).is_none());
+            }
+        }
+    }
+
+    fn reason(s: &PricingSource, request: MeasureRequest) -> Option<CapabilityReason> {
+        let c = s.measure_capabilities(std::slice::from_ref(&request));
+        assert_eq!(c[0].status, CapabilityStatus::Unsupported, "{request:?}");
+        let refused = PricingTask::new(
+            s.clone(),
+            PricingOperation::Measures(MeasureSet::new(vec![request]).unwrap()),
+        )
+        .map_or(true, |t| t.compile().and_then(|c| c.evaluate()).is_err());
+        assert!(refused);
+        c[0].reason
+    }
+
+    #[test]
+    fn refusals_name_their_reason() {
+        let lsv = source("lsv", false, false);
+        let stated = |calibration| {
+            MeasureRequest::new(
+                Measure::SpotDelta,
+                MeasureMethod::NativeCalibrated { calibration },
+            )
+        };
+        assert_eq!(
+            reason(&lsv, stated(BumpCalibration::Fixed)),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        assert_eq!(
+            reason(&lsv, stated(BumpCalibration::NotApplicable)),
+            Some(CapabilityReason::BumpCalibrationMismatch)
+        );
+        assert_eq!(
+            reason(&lsv, MeasureRequest::native(Measure::SpotDelta)),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        let bs = source("bs", false, false);
+        assert_eq!(
+            reason(&bs, stated(BumpCalibration::Recalibrated)),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        for name in ["bs", "hw"] {
+            let digital = source(name, false, true);
+            for request in [delta(name), gamma(name)] {
+                assert_eq!(
+                    reason(&digital, request),
+                    Some(CapabilityReason::DiscontinuousPayoff),
+                    "{name}"
+                );
+            }
+        }
+        // A price-only list keeps the ordinary result.
+        let result = task(&bs, vec![MeasureRequest::native(Measure::Price)])
+            .compile()
+            .unwrap()
+            .evaluate()
+            .unwrap();
+        assert!(matches!(
+            result.native_result,
+            PricingTaskOutput::StochasticDividend(_)
+        ));
+    }
+
+    /// The native Delta agrees with the bump fallback on the same draws (to
+    /// about 2e-11 against errors near 1e-2). The relative bump is 1e-6: a
+    /// wider one lets a path cross the call's kink, where a difference and
+    /// a pathwise derivative differ by up to half a path's slope.
+    #[test]
+    fn native_delta_agrees_with_bump_and_revalue() {
+        for name in ["bs", "lsv"] {
+            let s = source(name, true, false);
+            let calibration = if calibrated(name) {
+                BumpCalibration::Recalibrated
+            } else {
+                BumpCalibration::NotApplicable
+            };
+            let bumped = MeasureRequest::new(
+                Measure::SpotDelta,
+                MeasureMethod::BumpAndRevalue {
+                    size: crate::BumpSize::relative(1e-6).unwrap(),
+                    calibration,
+                },
+            );
+            let evaluate = |r| {
+                task(&s, vec![r])
+                    .compile()
+                    .unwrap()
+                    .evaluate()
+                    .unwrap()
+                    .report
+            };
+            let (n, b) = (evaluate(delta(name)), evaluate(bumped));
+            let (n, b) = (
+                n.risk(MeasureKind::SpotDelta).unwrap(),
+                b.risk(MeasureKind::SpotDelta).unwrap(),
+            );
+            let se = n.standard_errors.as_ref().unwrap()[0];
+            assert!(
+                (n.values[0] - b.values[0]).abs() < 1e-8 && se > 1e-3,
+                "{name}: {} vs {} (se {se})",
+                n.values[0],
+                b.values[0]
+            );
+        }
     }
 }

@@ -55,6 +55,24 @@ impl PricingSource {
             .collect()
     }
 
+    /// Whether the payoff admits native pathwise estimators: differentiable,
+    /// or smoothed explicitly. A standard source reports its own reason
+    /// through `measured_request`.
+    fn native_pathwise(&self) -> bool {
+        match self {
+            Self::SingleAsset(_) if self.family() == SourceFamily::StandardSingleAsset => true,
+            Self::SingleAsset(s) => {
+                s.product().supports_pathwise_risk() || s.risk().payoff_smoothing().is_some()
+            }
+            Self::StochasticDividend(s) => {
+                let equity = s.equity();
+                equity.product().supports_pathwise_risk()
+                    || equity.risk().payoff_smoothing().is_some()
+            }
+            Self::MultiAsset(s) => s.product().supports_pathwise_risk(),
+        }
+    }
+
     fn selects_nested_risk(&self) -> bool {
         match self {
             Self::SingleAsset(s) => s.selects_nested_risk(),
@@ -111,9 +129,34 @@ impl PricingSource {
             if let MeasureMethod::BumpAndRevalue { calibration, .. } = request.method {
                 return self.revaluation_capability(request, calibration);
             }
+            if !self.native_pathwise() {
+                return denied(
+                    R::DiscontinuousPayoff,
+                    "native risk requires a differentiable payoff or explicit smoothing".into(),
+                );
+            }
             if let Some(calibration) = request.method.calibration() {
                 // A calibrated native estimator: the table only offers it on
                 // calibrated single-asset sources.
+                if family == SourceFamily::StochasticDividendLsv
+                    && matches!(kind, MeasureKind::SpotDelta | MeasureKind::SpotGamma)
+                {
+                    match calibration {
+                        BumpCalibration::Recalibrated => {}
+                        BumpCalibration::Fixed => {
+                            return denied(
+                                R::NoNativeEstimator,
+                                super::measure_backend::DIVIDEND_LSV_FIXED.into(),
+                            );
+                        }
+                        BumpCalibration::NotApplicable => {
+                            return denied(
+                                R::BumpCalibrationMismatch,
+                                super::measure_backend::DIVIDEND_LSV_CALIBRATION.into(),
+                            );
+                        }
+                    }
+                }
                 if calibration == BumpCalibration::NotApplicable
                     && matches!(kind, MeasureKind::SpotDelta | MeasureKind::SpotGamma)
                 {
@@ -128,15 +171,6 @@ impl PricingSource {
                     return denied(
                         R::BumpCalibrationMismatch,
                         "a market-IV move reaches LSV prices only through the calibration; state recalibrated".into(),
-                    );
-                }
-                if let Self::SingleAsset(s) = self
-                    && !s.product().supports_pathwise_risk()
-                    && s.risk().payoff_smoothing().is_none()
-                {
-                    return denied(
-                        R::DiscontinuousPayoff,
-                        "native risk requires a differentiable payoff or explicit smoothing".into(),
                     );
                 }
                 if let Measure::ModelParameters(selection) = &request.measure
@@ -184,18 +218,64 @@ impl PricingSource {
                         );
                     }
                 }
+            } else if let Measure::Correlations(selection) = &request.measure
+                && let Self::StochasticDividend(s) = self
+            {
+                let factors = match &s.equity().model().equity {
+                    EquityModelSpec::StochasticVolatility {
+                        factor: VolatilityFactorSpec::BergomiTwoFactor(_),
+                        ..
+                    } => 2,
+                    EquityModelSpec::StochasticVolatility { .. } => 1,
+                    _ => 0,
+                };
+                let hull_white =
+                    matches!(s.equity().model().rates, RateModelSpec::HullWhite { .. });
+                let available =
+                    super::stochastic_dividends::dividend_correlations(factors, hull_white);
+                if let Some(detail) =
+                    super::measure_backend::missing_correlation(selection, &available)
+                {
+                    return denied(R::ModelCombination, detail);
+                }
+            } else if let Measure::ModelParameters(selection) = &request.measure
+                && let Self::StochasticDividend(s) = self
+            {
+                use super::stochastic_dividends::DividendVolatility as V;
+                let model = s.equity().model();
+                let volatility = match (&model.equity, &model.rates) {
+                    (_, RateModelSpec::HullWhite { model, .. }) => V::HullWhite {
+                        knots: u16::try_from(model.volatilities().len()).unwrap_or(u16::MAX),
+                    },
+                    (
+                        EquityModelSpec::StochasticVolatility {
+                            factor: VolatilityFactorSpec::RoughBergomi(_),
+                            ..
+                        },
+                        _,
+                    ) => V::Rough,
+                    (
+                        EquityModelSpec::StochasticVolatility {
+                            factor: VolatilityFactorSpec::BergomiTwoFactor(_),
+                            ..
+                        },
+                        _,
+                    ) => V::Bergomi { factors: 2 },
+                    (EquityModelSpec::StochasticVolatility { .. }, _) => V::Bergomi { factors: 1 },
+                    _ => V::Flat,
+                };
+                let available = super::stochastic_dividends::dividend_parameter_ids(volatility);
+                if let Some(detail) =
+                    super::measure_backend::missing_parameter(selection, &available, false)
+                {
+                    return denied(R::ModelCombination, detail);
+                }
             } else if let Self::SingleAsset(s) = self
                 && family == SourceFamily::DirectRoughVolatility
                 && let EquityModelSpec::RoughVolatility(model) = &s.model().equity
             {
                 // Direct rough volatility: fixed-model estimators on the
                 // compiled plan; no standard risk request is built.
-                if !s.product().supports_pathwise_risk() && s.risk().payoff_smoothing().is_none() {
-                    return denied(
-                        R::DiscontinuousPayoff,
-                        "native risk requires a differentiable payoff or explicit smoothing".into(),
-                    );
-                }
                 if let Measure::ModelParameters(selection) = &request.measure {
                     let Some((available, hurst)) = model.native_parameters() else {
                         return denied(

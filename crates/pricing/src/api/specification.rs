@@ -293,6 +293,12 @@ impl PricingSpecification {
                         "model_parameters has no estimator on a standard single-asset plan",
                     ));
                 }
+                (Measure::Correlations(_), _) => {
+                    return Err(invalid(
+                        "operation.measures",
+                        "correlations has no estimator on a standard single-asset plan",
+                    ));
+                }
             }
         }
         let mut risk = RiskRequest::new(

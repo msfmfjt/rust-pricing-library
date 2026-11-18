@@ -185,6 +185,7 @@ let task = PricingTask::new(source, PricingOperation::Measures(measures))?;
 | `parallel_market_iv_vega` | Parallel shift of the market implied-volatility surface; for a constant-volatility model, its single volatility. |
 | `vega_kt` | Bucketed quote-node Vega on the grid given with the request. |
 | `model_parameters` | Derivatives to the native model parameters listed with the request, one row per parameter. Not a Vega. |
+| `correlations` | Derivatives to the Brownian correlations listed with the request, one row per correlation. |
 
 | Method | Meaning |
 | --- | --- |
@@ -312,20 +313,110 @@ measures=[M.spot_delta(), M.spot_gamma(relative_bump=0.01),
   result unchanged; `model_parameters` has typed `heston`, `hurst`,
   `quadratic_heston` and `mixed_bergomi` parts, present when they were run.
 
+Stochastic-dividend sources have native Spot Delta and Gamma:
+
+- Without a calibration step (`stochastic_dividend`: Black-Scholes, Bergomi
+  or rough Bergomi residual equity, deterministic or Hull-White rates),
+  `spot_delta` with `native` is the first coordinate of `evaluate_aad`, and
+  `spot_gamma` with `native_spot_bump` is `evaluate_gamma`: a central
+  difference of AAD Deltas on common random numbers. The Q-mean cash
+  dividends, the dividend model, correlations, curves, dates and grid are
+  held, and the rows are `not_applicable`.
+- On a residual-equity LSV (`stochastic_dividend_lsv`) they are
+  `evaluate_lsv_spot_risk` and `evaluate_lsv_gamma`. A Spot move re-anchors
+  the calibrated surface to the moved funded residual equity, and its
+  squared-leverage values do not change: by scale invariance this is the
+  recalibrated Delta. So the methods are `native_calibrated` and
+  `native_spot_bump_calibrated` with `recalibrated`. There is no
+  frozen-leverage estimator, so `fixed` is `no_native_estimator`;
+  `bump_and_revalue` with `fixed` remains. `not_applicable` is
+  `bump_calibration_mismatch`.
+- Each row is the dedicated API's estimate and error, bit for bit; the
+  Gamma row is the base-bump estimate, with the half- and double-bump
+  ladder in `native_result`. A discontinuous payoff without smoothing is
+  `discontinuous_payoff`. The native result is a
+  `StochasticDividendMeasureRisk`.
+
+A stochastic-dividend source without a calibration step also has native
+correlation risk. One `correlations` request lists the correlations by the
+roles of their drivers, and the report has one row per correlation in that
+order, each with its typed `correlation`:
+
+```python
+M.correlations(["equity_dividend", "spot_volatility.0"])
+report.correlation_risk("equity_dividend")
+```
+
+| Source | Correlations |
+| --- | --- |
+| Black-Scholes residual equity | `equity_dividend` |
+| Black-Scholes with Hull-White rates | `equity_dividend`, `equity_rate`, `dividend_rate` |
+| One-factor or rough Bergomi | `equity_dividend`, `spot_volatility.0`, `dividend_volatility.0` |
+| Two-factor Bergomi | `equity_dividend`, `spot_volatility.0`, `spot_volatility.1`, `dividend_volatility.0`, `dividend_volatility.1`, `volatility_factors` |
+
+- Each row is the raw partial of `evaluate_correlation_aad`, bit for bit:
+  one symmetric pair of the driver correlation matrix is varied and every
+  other entry held, with no projection to a valid matrix and no
+  recalibration. The method is `native` and the row is `not_applicable`.
+- The joint reverse also differentiates Spot, volatility, cash means,
+  curves and the volatility model's parameters; those coordinates stay in
+  `native_result.correlations.risk`.
+- A correlation the source does not have is `model_combination`, with the
+  source's list in the detail. A discontinuous payoff without smoothing is
+  `discontinuous_payoff`; a correlation at the edge of the valid domain
+  fails at evaluation.
+- Residual-equity LSV correlation risk is a finite difference with stated
+  bumps, partly recalibrated, and has no measure adapter yet.
+
+The same sources have native model-parameter risk through the
+`model_parameters` measure with no calibration treatment. The labels are the
+same vocabulary as on rough-volatility sources, with the dividend and rate
+roles added:
+
+```python
+M.model_parameters(["dividend_volatility", "rate_volatility.0"])
+report.model_parameter_risk("dividend_volatility")
+```
+
+| Source | Parameters | Native API |
+| --- | --- | --- |
+| Black-Scholes residual equity | `initial_volatility`, `dividend_mean_reversion`, `equity_linkage`, `dividend_volatility` | `evaluate_aad` |
+| One-factor Bergomi | the four above, `factor_mean_reversion.0`, `vol_of_vol` | `evaluate_bergomi_aad` |
+| Two-factor Bergomi | the four above, `factor_mean_reversion.0`, `factor_mean_reversion.1`, `vol_of_vol`, `mixing_weight` | `evaluate_bergomi_aad` |
+| Rough Bergomi | the four above, `hurst`, `vol_of_vol` | `evaluate_rough_aad` |
+| Black-Scholes with Hull-White rates | the four above, `rate_mean_reversion`, `rate_volatility.<i>` per knot | `evaluate_hull_white_aad` |
+
+- The run follows the list. When only the four Buehler and residual
+  volatility parameters are listed it is `evaluate_aad`, the same run as a
+  listed native Delta. When any model parameter is listed it is the model's
+  extended reverse from the table. Each row is that run's derivative and
+  error, bit for bit.
+- The model is fixed: every other parameter, Spot, correlations, cash
+  means, curves, dates, grid and Gaussian draws are held. The method is
+  `native` and the row is `not_applicable`. `initial_volatility` is the
+  derivative to the initial residual volatility, not a market-IV Vega.
+- The whole run, with every coordinate it produced, is in
+  `native_result.model_parameters.risk`.
+- A parameter the source does not have is `model_combination`, with the
+  source's list in the detail.
+- Residual-equity LSV parameter risks (`evaluate_lsv_dividend_model_risk`,
+  the Bergomi and rough Bergomi LSV parameter risks) are finite differences
+  with stated bumps and have no measure adapter yet.
+
 Which measures a source family produces, and by which method:
 
 <!-- measure-matrix:begin (generated; see crates/pricing/tests/operation_matrix.rs) -->
-| Source family | `price` | `spot_delta` | `spot_gamma` | `parallel_market_iv_vega` | `vega_kt` | `model_parameters` |
-| --- | --- | --- | --- | --- | --- | --- |
-| `standard_single_asset` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | `native`, `bump_and_revalue` | `native` | not exposed |
-| `stochastic_volatility` | `native` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed |
-| `local_stochastic_volatility` | `native` | `bump_and_revalue` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed |
-| `rough_family_lsv` | `native` | `native_calibrated`, `bump_and_revalue` | `native_spot_bump_calibrated`, `bump_and_revalue` | `native_calibrated`, `bump_and_revalue` | not exposed | `native_calibrated` |
-| `single_asset_hull_white` | `native` | `bump_and_revalue` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed |
-| `direct_rough_volatility` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | not exposed | not exposed | `native` |
-| `multi_asset` | `native` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed |
-| `stochastic_dividend` | `native` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed |
-| `stochastic_dividend_lsv` | `native` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed |
+| Source family | `price` | `spot_delta` | `spot_gamma` | `parallel_market_iv_vega` | `vega_kt` | `model_parameters` | `correlations` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `standard_single_asset` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | `native`, `bump_and_revalue` | `native` | not exposed | not exposed |
+| `stochastic_volatility` | `native` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed |
+| `local_stochastic_volatility` | `native` | `bump_and_revalue` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed |
+| `rough_family_lsv` | `native` | `native_calibrated`, `bump_and_revalue` | `native_spot_bump_calibrated`, `bump_and_revalue` | `native_calibrated`, `bump_and_revalue` | not exposed | `native_calibrated` | not exposed |
+| `single_asset_hull_white` | `native` | `bump_and_revalue` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed |
+| `direct_rough_volatility` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | not exposed | not exposed | `native` | not exposed |
+| `multi_asset` | `native` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed |
+| `stochastic_dividend` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | not exposed | not exposed | `native` | `native` |
+| `stochastic_dividend_lsv` | `native` | `native_calibrated`, `bump_and_revalue` | `native_spot_bump_calibrated`, `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed |
 <!-- measure-matrix:end -->
 
 `task.available_measures()` returns the row for one source, and

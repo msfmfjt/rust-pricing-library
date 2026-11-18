@@ -402,9 +402,11 @@ fn every_source_family_prices_through_measures() {
         let (a, b) = (price.evaluate().unwrap(), listed.evaluate().unwrap());
         assert_eq!(a.native_result, b.native_result, "{name}");
         assert_eq!(a.report.value().to_bits(), b.report.value().to_bits());
-        assert!(
+        // Stochastic dividends have a native Delta (ADR 0043 step D1).
+        assert_eq!(
             task.with_operation(measures(vec![MeasureRequest::native(Measure::SpotDelta)]))
                 .is_err(),
+            name.starts_with("multi_asset"),
             "{name}"
         );
     }

@@ -459,6 +459,110 @@ class PricingTaskTests(unittest.TestCase):
         self.assertEqual(
             rp.ValuationReport.from_json(report.to_json()).to_json(), report.to_json())
 
+    def test_stochastic_dividend_spot_measures_are_native_rows(self) -> None:
+        M = rp.MeasureRequest
+        base = rp.PricingTask.from_json(fixture('stochastic_dividend_bs'))
+        self.assertEqual(base.available_measures()['spot_gamma'],
+                         ['native_spot_bump', 'bump_and_revalue'])
+        task = base.with_operation(
+            'measures', measures=[M.spot_delta(), M.spot_gamma(relative_bump=0.01)])
+        result = task.compile().evaluate()
+        native = result.native_result
+        self.assertIsInstance(native, rp.StochasticDividendMeasureRisk)
+        self.assertIsInstance(native.delta, rp.StochasticDividendAadRisk)
+        self.assertIsInstance(native.gamma, rp.StochasticDividendGammaRisk)
+        delta = result.report.risk('spot_delta')
+        self.assertEqual(delta.values, [native.delta.delta])
+        self.assertEqual(delta.calibration, 'not_applicable')
+        self.assertEqual(result.report.risk('spot_gamma').values, [native.gamma.gamma])
+
+        lsv = rp.PricingTask.from_json(fixture('stochastic_dividend_lsv'))
+        self.assertEqual(lsv.available_measures()['spot_delta'],
+                         ['native_calibrated', 'bump_and_revalue'])
+        reasons = [c.reason for c in lsv.measure_capabilities([
+            M.spot_delta(calibration='fixed'), M.spot_delta()])]
+        self.assertEqual(reasons, ['no_native_estimator', 'no_native_estimator'])
+        result = lsv.with_operation(
+            'measures', measures=[M.spot_delta(calibration='recalibrated')]
+        ).compile().evaluate()
+        self.assertIsInstance(result.native_result.delta, rp.StochasticDividendLsvSpotRisk)
+        row = result.report.risk('spot_delta')
+        self.assertEqual(row.values, [result.native_result.delta.delta])
+        self.assertEqual(row.calibration, 'recalibrated')
+        self.assertIsNone(result.native_result.gamma)
+
+    def test_stochastic_dividend_correlations_are_typed_rows(self) -> None:
+        M = rp.MeasureRequest
+        request = M.correlations(['equity_rate', 'equity_dividend'])
+        self.assertEqual((request.measure, request.method), ('correlations', 'native'))
+        self.assertEqual(request.correlation_labels, ['equity_rate', 'equity_dividend'])
+        for bad in (['equity'], [], ['equity_rate', 'equity_rate'], ['spot_volatility']):
+            with self.assertRaises(ValueError):
+                M.correlations(bad)
+        hw = rp.PricingTask.from_json(fixture('stochastic_dividend_hw'))
+        self.assertEqual(hw.available_measures()['correlations'], ['native'])
+        bs = rp.PricingTask.from_json(fixture('stochastic_dividend_bs'))
+        self.assertEqual(
+            bs.measure_capabilities([M.correlations(['equity_rate'])])[0].reason,
+            'model_combination')
+        lsv = rp.PricingTask.from_json(fixture('stochastic_dividend_lsv'))
+        self.assertNotIn('correlations', lsv.available_measures())
+
+        result = hw.with_operation('measures', measures=[request]).compile().evaluate()
+        identified = result.native_result.correlations
+        self.assertIsInstance(identified, rp.StochasticDividendCorrelationRisk)
+        self.assertEqual(identified.correlations,
+                         ['equity_dividend', 'equity_rate', 'dividend_rate'])
+        risk = identified.risk
+        self.assertIsInstance(risk, rp.StochasticDividendAadRisk)
+        rows = [r for r in result.report.risks if r.measure == 'correlations']
+        self.assertEqual([r.correlation for r in rows], ['equity_rate', 'equity_dividend'])
+        for row in rows:
+            index = risk.parameter_labels.index(f'{row.correlation}_correlation')
+            self.assertEqual(row.values, [risk.derivatives[index]])
+            self.assertEqual(row.calibration, 'not_applicable')
+        self.assertEqual(result.report.correlation_risk('equity_rate').name,
+                         'correlations.equity_rate.native')
+        self.assertIsNone(result.report.correlation_risk('dividend_rate'))
+        self.assertEqual(
+            rp.ValuationReport.from_json(result.report.to_json()).to_json(),
+            result.report.to_json())
+
+    def test_stochastic_dividend_model_parameters_are_typed_rows(self) -> None:
+        M = rp.MeasureRequest
+        request = M.model_parameters(['rate_volatility.0', 'equity_linkage'])
+        self.assertEqual(request.parameters, ['rate_volatility.0', 'equity_linkage'])
+        for bad in (['rate_volatility'], ['factor_mean_reversion.x']):
+            with self.assertRaises(ValueError):
+                M.model_parameters(bad)
+        hw = rp.PricingTask.from_json(fixture('stochastic_dividend_hw'))
+        self.assertEqual(hw.available_measures()['model_parameters'], ['native'])
+        bs = rp.PricingTask.from_json(fixture('stochastic_dividend_bs'))
+        self.assertEqual(
+            bs.measure_capabilities([M.model_parameters(['vol_of_vol'])])[0].reason,
+            'model_combination')
+        lsv = rp.PricingTask.from_json(fixture('stochastic_dividend_lsv'))
+        self.assertNotIn('model_parameters', lsv.available_measures())
+
+        result = hw.with_operation('measures', measures=[request]).compile().evaluate()
+        identified = result.native_result.model_parameters
+        self.assertIsInstance(identified, rp.StochasticDividendModelParameterRisk)
+        self.assertEqual(identified.parameters[:5], [
+            'initial_volatility', 'dividend_mean_reversion', 'equity_linkage',
+            'dividend_volatility', 'rate_mean_reversion'])
+        risk = identified.risk
+        rows = [r for r in result.report.risks if r.measure == 'model_parameters']
+        self.assertEqual([r.model_parameter for r in rows],
+                         ['rate_volatility.0', 'equity_linkage'])
+        native = {'rate_volatility.0': 'rate_volatility[0]', 'equity_linkage': 'equity_linkage'}
+        for row in rows:
+            index = risk.parameter_labels.index(native[row.model_parameter])
+            self.assertEqual(row.values, [risk.derivatives[index]])
+            self.assertEqual(row.calibration, 'not_applicable')
+        self.assertEqual(
+            rp.ValuationReport.from_json(result.report.to_json()).to_json(),
+            result.report.to_json())
+
     def test_source_family_and_operation_discovery(self):
         expected = {
             'standard_risk': ('standard_single_asset', ['conditional', 'unsupported', 'unsupported']),

@@ -24,6 +24,10 @@ pub enum Measure {
     /// volatility inputs are parameters here, compared across models only
     /// through the market-IV measures.
     ModelParameters(ModelParameterSelection),
+    /// Derivatives with respect to the stated Brownian correlations, one
+    /// report row per correlation in the stated order. Each varies one
+    /// symmetric pair of the driver correlation matrix, holding the others.
+    Correlations(CorrelationSelection),
 }
 
 /// A native model parameter, identified by its role in the source's model.
@@ -55,6 +59,26 @@ pub enum ModelParameterId {
     Shift,
     /// Variance floor of the feedback map (quadratic rough Heston).
     VarianceFloor,
+    /// Initial volatility of the residual equity (stochastic dividends).
+    InitialVolatility,
+    /// Mean reversion of the Buehler dividend factor.
+    DividendMeanReversion,
+    /// Equity linkage of the Buehler dividend split.
+    EquityLinkage,
+    /// Volatility of the Buehler dividend factor.
+    DividendVolatility,
+    /// Mean reversion of one Bergomi variance factor.
+    FactorMeanReversion {
+        factor: u16,
+    },
+    /// Mixing weight of a two-factor Bergomi variance.
+    MixingWeight,
+    /// Hull-White rate mean reversion.
+    RateMeanReversion,
+    /// One knot of the Hull-White piecewise-constant rate volatility.
+    RateVolatility {
+        knot: u16,
+    },
 }
 
 impl ModelParameterId {
@@ -73,9 +97,17 @@ impl ModelParameterId {
             Self::Quadratic => "quadratic",
             Self::Shift => "shift",
             Self::VarianceFloor => "variance_floor",
+            Self::InitialVolatility => "initial_volatility",
+            Self::DividendMeanReversion => "dividend_mean_reversion",
+            Self::EquityLinkage => "equity_linkage",
+            Self::DividendVolatility => "dividend_volatility",
+            Self::FactorMeanReversion { .. } => "factor_mean_reversion",
+            Self::MixingWeight => "mixing_weight",
+            Self::RateMeanReversion => "rate_mean_reversion",
+            Self::RateVolatility { .. } => "rate_volatility",
         }
     }
-    /// The scalar parameter of a wire name; `None` for a component name or
+    /// The scalar parameter of a wire name; `None` for an indexed name or
     /// an unknown one.
     #[must_use]
     pub fn scalar(name: &str) -> Option<Self> {
@@ -90,18 +122,32 @@ impl ModelParameterId {
             "quadratic" => Self::Quadratic,
             "shift" => Self::Shift,
             "variance_floor" => Self::VarianceFloor,
+            "initial_volatility" => Self::InitialVolatility,
+            "dividend_mean_reversion" => Self::DividendMeanReversion,
+            "equity_linkage" => Self::EquityLinkage,
+            "dividend_volatility" => Self::DividendVolatility,
+            "mixing_weight" => Self::MixingWeight,
+            "rate_mean_reversion" => Self::RateMeanReversion,
             _ => return None,
         })
     }
-    /// A stable label: the wire name, with the component index for a
-    /// component parameter (`component_vol_of_vol.1`).
+    /// The index of an indexed parameter (component, factor or knot).
+    #[must_use]
+    pub const fn index(self) -> Option<u16> {
+        match self {
+            Self::ComponentVolOfVol { component: i }
+            | Self::FactorMeanReversion { factor: i }
+            | Self::RateVolatility { knot: i } => Some(i),
+            _ => None,
+        }
+    }
+    /// A stable label: the wire name, with the index for an indexed
+    /// parameter (`component_vol_of_vol.1`, `rate_volatility.0`).
     #[must_use]
     pub fn label(self) -> String {
-        match self {
-            Self::ComponentVolOfVol { component } => {
-                format!("{}.{component}", self.as_str())
-            }
-            _ => self.as_str().to_owned(),
+        match self.index() {
+            Some(i) => format!("{}.{i}", self.as_str()),
+            None => self.as_str().to_owned(),
         }
     }
 }
@@ -110,11 +156,14 @@ impl ModelParameterId {
     /// The parameter a `label` names; `None` for an unknown label.
     #[must_use]
     pub fn from_label(label: &str) -> Option<Self> {
-        if let Some(index) = label.strip_prefix("component_vol_of_vol.") {
-            return index
-                .parse()
-                .ok()
-                .map(|component| Self::ComponentVolOfVol { component });
+        if let Some((name, index)) = label.split_once('.') {
+            let index = index.parse().ok()?;
+            return match name {
+                "component_vol_of_vol" => Some(Self::ComponentVolOfVol { component: index }),
+                "factor_mean_reversion" => Some(Self::FactorMeanReversion { factor: index }),
+                "rate_volatility" => Some(Self::RateVolatility { knot: index }),
+                _ => None,
+            };
         }
         Self::scalar(label)
     }
@@ -146,6 +195,97 @@ impl ModelParameterSelection {
     }
 }
 
+/// A Brownian correlation between two drivers of a source, identified by
+/// the roles of the drivers. The same identifier names the same pair on
+/// every source that has it; a source without it refuses it.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[non_exhaustive]
+pub enum CorrelationId {
+    /// Residual equity and the stochastic dividend driver.
+    EquityDividend,
+    /// Residual equity and the short rate.
+    EquityRate,
+    /// Stochastic dividend driver and the short rate.
+    DividendRate,
+    /// Spot and one volatility factor.
+    SpotVolatility { factor: u16 },
+    /// Stochastic dividend driver and one volatility factor.
+    DividendVolatility { factor: u16 },
+    /// The two factors of a two-factor volatility.
+    VolatilityFactors,
+}
+
+impl CorrelationId {
+    /// The wire name. A factor correlation also carries its index.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::EquityDividend => "equity_dividend",
+            Self::EquityRate => "equity_rate",
+            Self::DividendRate => "dividend_rate",
+            Self::SpotVolatility { .. } => "spot_volatility",
+            Self::DividendVolatility { .. } => "dividend_volatility",
+            Self::VolatilityFactors => "volatility_factors",
+        }
+    }
+    /// A stable label: the wire name, with the factor index for a factor
+    /// correlation (`spot_volatility.0`).
+    #[must_use]
+    pub fn label(self) -> String {
+        match self {
+            Self::SpotVolatility { factor } | Self::DividendVolatility { factor } => {
+                format!("{}.{factor}", self.as_str())
+            }
+            _ => self.as_str().to_owned(),
+        }
+    }
+    /// The correlation a `label` names; `None` for an unknown label.
+    #[must_use]
+    pub fn from_label(label: &str) -> Option<Self> {
+        if let Some((name, index)) = label.split_once('.') {
+            let factor = index.parse().ok()?;
+            return match name {
+                "spot_volatility" => Some(Self::SpotVolatility { factor }),
+                "dividend_volatility" => Some(Self::DividendVolatility { factor }),
+                _ => None,
+            };
+        }
+        Some(match label {
+            "equity_dividend" => Self::EquityDividend,
+            "equity_rate" => Self::EquityRate,
+            "dividend_rate" => Self::DividendRate,
+            "volatility_factors" => Self::VolatilityFactors,
+            _ => return None,
+        })
+    }
+}
+
+/// A non-empty, duplicate-free, ordered list of correlations.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorrelationSelection(Arc<[CorrelationId]>);
+
+impl CorrelationSelection {
+    pub fn new(correlations: Vec<CorrelationId>) -> Result<Self, SpecificationValidationError> {
+        let invalid = |message: String| SpecificationValidationError::Invalid {
+            field: "operation.measures.correlations",
+            message,
+        };
+        if correlations.is_empty() {
+            return Err(invalid("state at least one correlation".into()));
+        }
+        for (i, c) in correlations.iter().enumerate() {
+            if correlations[..i].contains(c) {
+                return Err(invalid(format!("{} is listed more than once", c.label())));
+            }
+        }
+        Ok(Self(correlations.into()))
+    }
+    #[must_use]
+    pub fn correlations(&self) -> &[CorrelationId] {
+        &self.0
+    }
+}
+
 /// Identity of a measure without its configuration. Used for discovery,
 /// duplicate detection and report lookup.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -157,16 +297,18 @@ pub enum MeasureKind {
     ParallelMarketIvVega,
     VegaKt,
     ModelParameters,
+    Correlations,
 }
 
 impl MeasureKind {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Price,
         Self::SpotDelta,
         Self::SpotGamma,
         Self::ParallelMarketIvVega,
         Self::VegaKt,
         Self::ModelParameters,
+        Self::Correlations,
     ];
 
     #[must_use]
@@ -178,6 +320,7 @@ impl MeasureKind {
             Self::ParallelMarketIvVega => "parallel_market_iv_vega",
             Self::VegaKt => "vega_kt",
             Self::ModelParameters => "model_parameters",
+            Self::Correlations => "correlations",
         }
     }
 }
@@ -192,6 +335,7 @@ impl Measure {
             Self::ParallelMarketIvVega => MeasureKind::ParallelMarketIvVega,
             Self::VegaKt(_) => MeasureKind::VegaKt,
             Self::ModelParameters(_) => MeasureKind::ModelParameters,
+            Self::Correlations(_) => MeasureKind::Correlations,
         }
     }
 }

@@ -18,6 +18,14 @@ mod lsv_hard_barrier;
 #[cfg(test)]
 mod lsv_hard_refinement_tests;
 mod lsv_market;
+mod measure;
+pub(crate) use measure::{
+    DividendMeasureSelection, DividendVolatility, dividend_correlations, dividend_parameter_ids,
+};
+pub use measure::{
+    StochasticDividendCorrelationRisk, StochasticDividendDelta, StochasticDividendMeasureRisk,
+    StochasticDividendModelParameterRisk,
+};
 mod lsv_parameters;
 mod lsv_parameters_2f;
 #[cfg(test)]

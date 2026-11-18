@@ -1709,6 +1709,9 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<stochastic_dividends::PyStochasticDividendPrice>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendAadRisk>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendGammaRisk>()?;
+    module.add_class::<stochastic_dividends::PyStochasticDividendMeasureRisk>()?;
+    module.add_class::<stochastic_dividends::PyStochasticDividendCorrelationRisk>()?;
+    module.add_class::<stochastic_dividends::PyStochasticDividendModelParameterRisk>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendLocalVarianceRisk>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendLsvSpotRisk>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendLsvMarketRisk>()?;

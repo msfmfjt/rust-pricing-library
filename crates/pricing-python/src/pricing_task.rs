@@ -393,6 +393,13 @@ impl PyPricingTaskResult {
                 },
             )?
             .into_any(),
+            PricingTaskOutput::StochasticDividendMeasureRisk(p) => Py::new(
+                py,
+                stochastic_dividends::PyStochasticDividendMeasureRisk {
+                    inner: (**p).clone(),
+                },
+            )?
+            .into_any(),
             _ => return Err(crate::errors::internal_exception("unknown task output")),
         })
     }
@@ -468,6 +475,11 @@ impl PyReportedRisk {
     #[getter]
     fn model_parameter(&self) -> Option<String> {
         self.inner.model_parameter.map(|p| p.label())
+    }
+    /// The correlation label of a `correlations` row.
+    #[getter]
+    fn correlation(&self) -> Option<String> {
+        self.inner.correlation.map(|c| c.label())
     }
 }
 fn calibration_name(c: pricing::CalibrationTreatment) -> &'static str {
@@ -691,6 +703,24 @@ impl PyValuationReport {
         Ok(self
             .inner
             .model_parameter_risk(id)
+            .map(|r| PyReportedRisk { inner: r.clone() }))
+    }
+    /// The `correlations` row of one correlation label, if requested.
+    fn correlation_risk(
+        &self,
+        py: Python<'_>,
+        correlation: &str,
+    ) -> PyResult<Option<PyReportedRisk>> {
+        let id = pricing::CorrelationId::from_label(correlation).ok_or_else(|| {
+            errors::ErrorMetadata::domain("invalid_correlation", Some("correlation".into())).attach(
+                py,
+                PyValueError::new_err("unknown correlation label"),
+                Some("measures"),
+            )
+        })?;
+        Ok(self
+            .inner
+            .correlation_risk(id)
             .map(|r| PyReportedRisk { inner: r.clone() }))
     }
     /// The price and every risk coordinate as flat rows of plain data.

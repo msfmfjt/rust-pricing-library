@@ -126,6 +126,8 @@ struct RiskV1 {
     method_detail: Option<MethodDetailV3>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     model_parameter: Option<specification::task::ModelParameterV3>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    correlation: Option<specification::task::CorrelationV3>,
 }
 wire_enum!(
     MeasureKindV3,
@@ -136,7 +138,8 @@ wire_enum!(
         SpotGamma,
         ParallelMarketIvVega,
         VegaKt,
-        ModelParameters
+        ModelParameters,
+        Correlations
     ]
 );
 #[derive(Serialize, Deserialize)]
@@ -244,6 +247,7 @@ impl From<&ValuationReport> for ReportDocument {
                     convention: v.convention.clone(),
                     measure: v.measure.map(Into::into),
                     model_parameter: v.model_parameter.map(Into::into),
+                    correlation: v.correlation.map(Into::into),
                     method_detail: v.method_detail.map(|m| match m {
                         MeasureMethod::Native => MethodDetailV3::Native {},
                         MeasureMethod::NativeSpotBump { bump } => {
@@ -426,6 +430,7 @@ fn report_from_document(text: &str, header: Envelope) -> Result<ValuationReport,
                     measure: v.measure.map(Into::into),
                     method_detail,
                     model_parameter: v.model_parameter.map(Into::into),
+                    correlation: v.correlation.map(Into::into),
                 })
             })
             .collect::<Result<_, WireError>>()?,
