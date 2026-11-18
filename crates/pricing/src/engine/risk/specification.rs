@@ -27,6 +27,12 @@ enum Backend {
 pub struct CompiledPricingSpecification {
     fingerprint: Fingerprint,
     backend: Backend,
+    /// The risk selection compiled into a standard plan. An operation is valid
+    /// on that plan only when it asks for exactly this selection.
+    standard_risk: Option<crate::risk::RiskRequest>,
+    /// A rough-family LSV target's reproducing market-IV basis, which the
+    /// native parallel market-IV Vega differentiates through.
+    market_iv: Option<Box<crate::market::MarketIvSurface>>,
 }
 
 /// Preserve the backend's native diagnostics and risk conventions.
@@ -71,7 +77,31 @@ impl PricingSpecification {
     }
 
     pub fn compile(&self) -> Result<CompiledPricingSpecification, MonteCarloError> {
-        let request = self.carrier_request();
+        self.compile_request(self.carrier_request())
+    }
+
+    /// Compile for a `Measures` operation. A standard source compiles the
+    /// plan a request with the same Greeks selected would compile; every
+    /// other source prices only, so its ordinary plan is used.
+    pub(crate) fn compile_measures(
+        &self,
+        measures: &crate::MeasureSet,
+    ) -> Result<CompiledPricingSpecification, crate::PricingTaskError> {
+        let standard = matches!(self.model().rates, RateModelSpec::Deterministic)
+            && matches!(self.model().equity, EquityModelSpec::Standard(_));
+        if !standard {
+            return Ok(self.compile()?);
+        }
+        let request = self
+            .measured_request(measures.requests())
+            .map_err(crate::PricingTaskError::Validation)?;
+        Ok(self.compile_request(&request)?)
+    }
+
+    fn compile_request(
+        &self,
+        request: &crate::PricingRequest,
+    ) -> Result<CompiledPricingSpecification, MonteCarloError> {
         let policy = self.numerics().execution_policy;
         let step = || {
             self.numerics()
@@ -149,9 +179,19 @@ impl PricingSpecification {
                 )?)),
             },
         };
+        let standard_risk = matches!(backend, Backend::Standard(_)).then(|| request.risk().clone());
+        let market_iv = match (&backend, &self.model().equity) {
+            (
+                Backend::RoughFamilyLsv(_),
+                EquityModelSpec::RoughLocalStochasticVolatility { target, .. },
+            ) => target.market_iv_source().ok().map(Box::new),
+            _ => None,
+        };
         Ok(CompiledPricingSpecification {
             fingerprint: self.fingerprint()?,
             backend,
+            standard_risk,
+            market_iv,
         })
     }
 }
@@ -317,47 +357,64 @@ impl CompiledPricingSpecification {
             Backend::Stochastic(_) | Backend::Rough(_) => Vec::new(),
         }
     }
+    /// `source` is the specification this plan was compiled from.
     pub(crate) fn validate_operation(
         &self,
-        operation: crate::PricingOperation,
-    ) -> Result<(), MonteCarloError> {
+        operation: &crate::PricingOperation,
+        source: &PricingSpecification,
+    ) -> Result<(), crate::PricingTaskError> {
         use crate::PricingOperation as O;
+        use crate::engine::risk::measure_backend::MeasureBackend;
         match (&self.backend, operation) {
+            (_, O::Measures(set)) => self.validate_measures(&set.native_requests()),
+            (Backend::Standard(_), O::Evaluate) => {
+                if self.standard_risk.as_ref() == Some(source.risk()) {
+                    Ok(())
+                } else {
+                    Err(reselected())
+                }
+            }
             (_, O::Evaluate) => Ok(()),
             (
                 Backend::Stochastic(p),
                 O::Aad {
                     gamma_relative_bump: None,
                 },
-            ) => p.validate_source_aad(),
+            ) => p.validate_source_aad().map_err(Into::into),
             (
                 Backend::Hybrid(p),
                 O::Aad {
                     gamma_relative_bump: None,
                 },
-            ) => p.validate_source_aad(),
-            (Backend::BergomiLsv(p), O::LocalVarianceRisk) => p.validate_source_local_variance(),
+            ) => p.validate_source_aad().map_err(Into::into),
+            (Backend::BergomiLsv(p), O::LocalVarianceRisk) => {
+                p.validate_source_local_variance().map_err(Into::into)
+            }
             (Backend::BergomiTwoFactorLsv(p), O::LocalVarianceRisk) => {
-                p.validate_source_local_variance()
+                p.validate_source_local_variance().map_err(Into::into)
             }
             (Backend::RoughBergomiLsv(p), O::LocalVarianceRisk) => {
-                p.validate_source_local_variance()
+                p.validate_source_local_variance().map_err(Into::into)
             }
             (Backend::RoughFamilyLsv(p), O::LocalVarianceRisk) => {
-                p.validate_source_local_variance()
+                p.validate_source_local_variance().map_err(Into::into)
             }
             _ => Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "operation is not exposed by this source adapter",
-            }),
+            }
+            .into()),
         }
     }
     pub(crate) fn evaluate_operation(
         &self,
-        operation: crate::PricingOperation,
-    ) -> Result<crate::PricingTaskOutput, MonteCarloError> {
+        operation: &crate::PricingOperation,
+        source: &PricingSpecification,
+    ) -> Result<crate::PricingTaskOutput, crate::PricingTaskError> {
+        use crate::engine::risk::measure_backend::MeasureBackend;
         use crate::{PricingOperation as O, PricingTaskOutput as Out};
-        self.validate_operation(operation)?;
+        self.validate_operation(operation, source)?;
         Ok(match (&self.backend, operation) {
+            (_, O::Measures(set)) => self.evaluate_measures(&set.native_requests())?,
             (_, O::Evaluate) => Out::SingleAsset(self.evaluate()?),
             (Backend::Stochastic(p), O::Aad { .. }) => {
                 Out::HullWhiteRisk(Box::new(p.evaluate_aad()?))
@@ -376,6 +433,76 @@ impl CompiledPricingSpecification {
                 Out::LocalVarianceRisk(Box::new(p.evaluate_local_variance_risk()?))
             }
             _ => unreachable!("validated operation"),
+        })
+    }
+    /// The risk selection of a standard plan, `None` for every other backend.
+    pub(crate) fn standard_risk(&self) -> Option<&crate::risk::RiskRequest> {
+        self.standard_risk.as_ref()
+    }
+    /// The reproducing market-IV basis of a rough-family LSV source.
+    pub(crate) fn market_iv(&self) -> Option<&crate::market::MarketIvSurface> {
+        self.market_iv.as_deref()
+    }
+    /// The plan of a rough-family LSV source.
+    pub(crate) fn rough_family_lsv(&self) -> Option<&RoughFamilyLsvPricingPlan> {
+        match &self.backend {
+            Backend::RoughFamilyLsv(p) => Some(p),
+            _ => None,
+        }
+    }
+    /// The plan of a direct rough-volatility source.
+    pub(crate) fn rough_volatility(&self) -> Option<&RoughVolatilityPricingPlan> {
+        match &self.backend {
+            Backend::Rough(p) => Some(p),
+            _ => None,
+        }
+    }
+    /// A plan for `side` that reuses this plan's calibration. Implemented for
+    /// single-asset LSV; see `PricingSource::supports_fixed_calibration`.
+    pub(crate) fn with_fixed_calibration(
+        &self,
+        side: &PricingSpecification,
+    ) -> Result<Self, MonteCarloError> {
+        let request = side.carrier_request();
+        let backend = match &self.backend {
+            Backend::BergomiLsv(p) => {
+                Backend::BergomiLsv(Box::new(p.with_fixed_calibration(request)?))
+            }
+            Backend::BergomiTwoFactorLsv(p) => {
+                Backend::BergomiTwoFactorLsv(Box::new(p.with_fixed_calibration(request)?))
+            }
+            Backend::RoughBergomiLsv(p) => {
+                Backend::RoughBergomiLsv(Box::new(p.with_fixed_calibration(request)?))
+            }
+            Backend::RoughFamilyLsv(p) => {
+                Backend::RoughFamilyLsv(Box::new(p.with_fixed_calibration(request)?))
+            }
+            Backend::Hybrid(p) => {
+                let EquityModelSpec::LocalStochasticVolatility {
+                    particles,
+                    forward_density: Some(target),
+                    ..
+                } = &side.model().equity
+                else {
+                    return Err(MonteCarloError::UnsupportedRiskForModel {
+                        model: "a fixed calibration requires a Hull-White LSV source",
+                    });
+                };
+                Backend::Hybrid(Box::new(
+                    p.with_fixed_calibration(request, target, particles)?,
+                ))
+            }
+            _ => {
+                return Err(MonteCarloError::UnsupportedRiskForModel {
+                    model: "a fixed calibration is available only for single-asset LSV",
+                });
+            }
+        };
+        Ok(Self {
+            fingerprint: side.fingerprint()?,
+            backend,
+            standard_risk: None,
+            market_iv: None,
         })
     }
     #[must_use]
@@ -417,4 +544,13 @@ impl CompiledPricingSpecification {
             output,
         })
     }
+}
+
+/// A standard plan fixes its Greeks at compilation, so another selection
+/// cannot be evaluated on it.
+pub(crate) fn reselected() -> crate::PricingTaskError {
+    crate::PricingTaskError::Validation(crate::SpecificationValidationError::Invalid {
+        field: "operation",
+        message: "this standard plan was compiled for a different risk selection; compile a task for the requested operation".into(),
+    })
 }

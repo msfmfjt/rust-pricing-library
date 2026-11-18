@@ -499,6 +499,10 @@ impl HullWhiteEquityPlan {
     pub const fn correlation(&self) -> HybridCorrelation {
         self.correlation
     }
+    /// The volatility driver, with or without calibrated leverage.
+    pub(in crate::engine) fn volatility_factor(&self) -> Option<HybridVolatilityFactor> {
+        self.volatility.factor()
+    }
     #[must_use]
     pub fn parameter_fingerprint_bytes(&self) -> Vec<u8> {
         let values = match &self.volatility {

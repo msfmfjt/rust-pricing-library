@@ -1291,7 +1291,7 @@ fn copied_date_array(
     Ok(dates)
 }
 
-fn vega_kt_from_python(
+pub(crate) fn vega_kt_from_python(
     py: Python<'_>,
     maturity_nodes: Option<&Bound<'_, PyAny>>,
     log_forward_moneyness_nodes: Option<&Bound<'_, PyAny>>,

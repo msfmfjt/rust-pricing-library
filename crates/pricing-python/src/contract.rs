@@ -213,7 +213,7 @@ impl PyContract {
         brownian_bridge: bool,
     ) -> PyResult<PyPricingTask> {
         let source = crate::pricing_source::extract_source(source)?;
-        let operation = crate::pricing_task::operation(operation, gamma_relative_bump)?;
+        let operation = crate::pricing_task::operation(operation, gamma_relative_bump, &None)?;
         let settings = c::AdvancedMcSettings {
             lsm: lsm.map(|l| l.inner.clone()),
             american_grid: american_grid.map(|g| dates(py, g)).transpose()?,

@@ -5,7 +5,7 @@
 //! conversion is a separate market-data operation.
 
 use crate::core::DayCountConvention;
-use crate::engine::compile::hybrid::HybridLsvComposition;
+use crate::engine::compile::hybrid::{CalibratedHybridLsv, HybridLsvComposition};
 use crate::mc::hull_white::{
     CalibratedHullWhiteLsv, HullWhiteEquityPlan, HullWhiteLsvTarget, HybridEquityVolatility,
     HybridVolatilityFactor,
@@ -389,6 +389,79 @@ impl HullWhiteEquityPricingPlan {
         particles: LsvParticleConfig,
         policy: ExecutionPolicy,
     ) -> Result<Self, MonteCarloError> {
+        Self::compile_lsv_with(
+            request,
+            target,
+            &rates,
+            correlation,
+            &particles,
+            policy,
+            |spot, dividends| {
+                HybridLsvComposition {
+                    target,
+                    factor,
+                    rates: &rates,
+                    correlation,
+                    particles: &particles,
+                }
+                .calibrate(spot, dividends)
+            },
+        )
+    }
+
+    /// A plan for `request` that reuses this plan's leverage instead of
+    /// calibrating. The surface is re-anchored at the request's Spot so the
+    /// leverage stays the same function of the absolute escrowed-forward
+    /// state (sticky strike); paths start at the request's Spot. No
+    /// calibration runs. The fingerprint has its own domain.
+    pub(crate) fn with_fixed_calibration(
+        &self,
+        request: &PricingRequest,
+        target: &HullWhiteLsvTarget,
+        particles: &LsvParticleConfig,
+    ) -> Result<Self, MonteCarloError> {
+        let (Some(calibration), Some(factor)) = (&self.calibration, self.path.volatility_factor())
+        else {
+            return Err(MonteCarloError::UnsupportedRiskForModel {
+                model: "a fixed calibration requires a calibrated Hull-White LSV plan",
+            });
+        };
+        let rates = self.path.rates().clone();
+        let mut plan = Self::compile_lsv_with(
+            request,
+            target,
+            &rates,
+            self.path.correlation(),
+            particles,
+            self.policy,
+            |spot, _| {
+                let mut reused = calibration.clone();
+                reused.surface = reused.surface.reanchored(spot)?;
+                Ok(CalibratedHybridLsv::from_parts(factor, reused))
+            },
+        )?;
+        let mut hash = blake3::Hasher::new();
+        hash.update(b"pricing/hull-white-lsv-fixed-calibration-plan/v1\0");
+        hash.update(plan.fingerprint.as_bytes());
+        hash.update(self.fingerprint.as_bytes());
+        plan.fingerprint = Fingerprint::from_bytes(*hash.finalize().as_bytes());
+        Ok(plan)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn compile_lsv_with(
+        request: &PricingRequest,
+        target: &HullWhiteLsvTarget,
+        rates: &HullWhite1Factor,
+        correlation: HybridCorrelation,
+        particles: &LsvParticleConfig,
+        policy: ExecutionPolicy,
+        calibrate: impl FnOnce(
+            f64,
+            &HullWhiteDividendPlan,
+        )
+            -> Result<CalibratedHybridLsv, crate::mc::hull_white::HullWhiteMcError>,
+    ) -> Result<Self, MonteCarloError> {
         let ModelSpec::LocalVolatility(lv) = request.model() else {
             return Err(HullWhiteError::Unsupported {
                 feature: "LSV-HW compile requires a LocalVolatility target request",
@@ -402,7 +475,7 @@ impl HullWhiteEquityPricingPlan {
             }
             .into());
         }
-        let base = compile_base(request, policy, &rates)?;
+        let base = compile_base(request, policy, rates)?;
         let expiry = expiry_time(request);
         for &t in base
             .hybrid_observation_times()
@@ -418,18 +491,11 @@ impl HullWhiteEquityPricingPlan {
             }
         }
         let dividends = HullWhiteDividendPlan::new(
-            &rates,
+            rates,
             request.market().equity().forward(),
             target.grid().time_nodes(),
         )?;
-        let calibrated = HybridLsvComposition {
-            target,
-            factor,
-            rates: &rates,
-            correlation,
-            particles: &particles,
-        }
-        .calibrate(request.market().equity().forward().spot().get(), &dividends)?;
+        let calibrated = calibrate(request.market().equity().forward().spot().get(), &dividends)?;
         let events = target
             .grid()
             .time_nodes()
@@ -440,14 +506,14 @@ impl HullWhiteEquityPricingPlan {
         let grid = LocalVolTimeGrid::compile(events, expiry)
             .map_err(|e| MonteCarloError::HullWhite(e.into()))?;
         let (volatility, calibration) = calibrated.into_parts();
-        let mut path = HullWhiteEquityPlan::new(rates, volatility, correlation, &grid)?;
+        let mut path = HullWhiteEquityPlan::new(rates.clone(), volatility, correlation, &grid)?;
         path = path.with_dividends(dividends)?;
         Self::finish(
             request,
             base,
             path,
             Some(calibration),
-            Some(&particles),
+            Some(particles),
             Some(target),
             policy,
         )

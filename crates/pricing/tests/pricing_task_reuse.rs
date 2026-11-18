@@ -24,11 +24,11 @@ fn assert_reuse(task: PricingTask) {
     let price_before = price.evaluate().unwrap();
     assert_eq!(price.capability().operation, PricingOperation::Evaluate);
     assert_eq!(
-        price.capability_for(operation).status,
+        price.capability_for(operation.clone()).status,
         CapabilityStatus::Supported
     );
 
-    let reused = price.with_operation(operation).unwrap();
+    let reused = price.with_operation(operation.clone()).unwrap();
     assert_eq!(reused.operation(), operation);
     assert_eq!(reused.task_fingerprint(), task.fingerprint().unwrap());
     assert_eq!(reused.plan_fingerprint(), price.plan_fingerprint());
@@ -89,7 +89,7 @@ fn changing_gamma_changes_the_task_but_not_the_compiled_plan() {
         let operation = PricingOperation::Aad {
             gamma_relative_bump: bump,
         };
-        let reused = base.with_operation(operation).unwrap();
+        let reused = base.with_operation(operation.clone()).unwrap();
         assert_ne!(reused.task_fingerprint(), base.task_fingerprint());
         assert_eq!(reused.plan_fingerprint(), base.plan_fingerprint());
         let fresh = fixture("multi_asset_bs")
@@ -114,18 +114,18 @@ fn failed_selection_preserves_native_preflight_and_the_original_plan() {
         gamma_relative_bump: Some(0.2),
     };
     assert_eq!(
-        task.source().capability(operation).status,
+        task.source().capability(operation.clone()).status,
         CapabilityStatus::Conditional
     );
     let compiled = task.compile().unwrap();
     let before = compiled.evaluate().unwrap();
-    let capability = compiled.capability_for(operation);
+    let capability = compiled.capability_for(operation.clone());
     assert_eq!(capability.status, CapabilityStatus::Unsupported);
     assert_eq!(
         capability.reason,
         Some(CapabilityReason::NativePreflightRequired)
     );
-    let failure = compiled.with_operation(operation).unwrap_err();
+    let failure = compiled.with_operation(operation.clone()).unwrap_err();
     let fresh_failure = task
         .with_operation(operation)
         .unwrap()
@@ -152,10 +152,10 @@ fn unrepresentable_gamma_bumps_fail_native_preflight_before_pricing() {
                 gamma_relative_bump: Some(bump),
             };
             assert_eq!(
-                task.source().capability(operation).status,
+                task.source().capability(operation.clone()).status,
                 CapabilityStatus::Conditional
             );
-            let capability = compiled.capability_for(operation);
+            let capability = compiled.capability_for(operation.clone());
             assert_eq!(
                 capability.status,
                 CapabilityStatus::Unsupported,
@@ -170,7 +170,7 @@ fn unrepresentable_gamma_bumps_fail_native_preflight_before_pricing() {
                     .detail
                     .contains("unrepresentable Gamma Spot bump")
             );
-            let reused = compiled.with_operation(operation).unwrap_err();
+            let reused = compiled.with_operation(operation.clone()).unwrap_err();
             let fresh = task
                 .with_operation(operation)
                 .unwrap()
@@ -198,10 +198,10 @@ fn source_prerequisites_cannot_be_upgraded_by_reusing_a_plan() {
     let compiled = task.compile().unwrap();
     let operation = PricingOperation::LocalVarianceRisk;
     assert_eq!(
-        compiled.capability_for(operation).reason,
+        compiled.capability_for(operation.clone()).reason,
         Some(CapabilityReason::ReverseTraceRequired)
     );
-    assert!(compiled.with_operation(operation).is_err());
+    assert!(compiled.with_operation(operation.clone()).is_err());
     assert!(task.with_operation(operation).is_err());
     assert!(compiled.evaluate().is_ok());
     let basket = fixture("multi_asset_bs").compile().unwrap();
@@ -210,7 +210,7 @@ fn source_prerequisites_cannot_be_upgraded_by_reusing_a_plan() {
             gamma_relative_bump: Some(bump),
         };
         assert_eq!(
-            basket.capability_for(operation).reason,
+            basket.capability_for(operation.clone()).reason,
             Some(CapabilityReason::InvalidGammaBump)
         );
         assert!(basket.with_operation(operation).is_err());

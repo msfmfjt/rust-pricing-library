@@ -5,16 +5,25 @@ use pricing::{
     PricingTaskOutput, ReportedCalibration, ReportedRisk, ValuationReport,
 };
 
-pub(crate) fn operation(name: &str, bump: Option<f64>) -> PyResult<PricingOperation> {
-    match (name, bump) {
-        ("evaluate", None) => Ok(PricingOperation::Evaluate),
-        ("aad", gamma_relative_bump) => Ok(PricingOperation::Aad {
+type Measures<'py> = Option<Vec<PyRef<'py, measures::PyMeasureRequest>>>;
+
+pub(crate) fn operation(
+    name: &str,
+    bump: Option<f64>,
+    measures: &Measures<'_>,
+) -> PyResult<PricingOperation> {
+    match (name, bump, measures) {
+        ("evaluate", None, None) => Ok(PricingOperation::Evaluate),
+        ("aad", gamma_relative_bump, None) => Ok(PricingOperation::Aad {
             gamma_relative_bump,
         }),
-        ("local_variance_risk", None) => Ok(PricingOperation::LocalVarianceRisk),
+        ("local_variance_risk", None, None) => Ok(PricingOperation::LocalVarianceRisk),
+        ("measures", None, Some(list)) => {
+            Ok(PricingOperation::Measures(measures::measure_set(list)?))
+        }
         _ => Err(Python::attach(|py| {
             errors::ErrorMetadata::domain("invalid_operation", Some("operation".into())).attach(
-                py, PyValueError::new_err("operation must be evaluate, aad or local_variance_risk; Gamma bump belongs to aad"), Some(name))
+                py, PyValueError::new_err("operation must be evaluate, aad, local_variance_risk or measures; Gamma bump belongs to aad and a measure list belongs to measures"), Some(name))
         })),
     }
 }
@@ -39,7 +48,7 @@ pub struct PyPricingCapability {
 impl PyPricingCapability {
     #[getter]
     fn operation(&self) -> &'static str {
-        errors::operation_name(self.inner.operation)
+        errors::operation_name(self.inner.operation.clone())
     }
     #[getter]
     fn gamma_relative_bump(&self) -> Option<f64> {
@@ -75,15 +84,16 @@ pub struct PyPricingTask {
 #[pymethods]
 impl PyPricingTask {
     #[staticmethod]
-    #[pyo3(signature=(source, *, operation="evaluate", gamma_relative_bump=None))]
+    #[pyo3(signature=(source, *, operation="evaluate", gamma_relative_bump=None, measures=None))]
     fn from_source(
         source: &Bound<'_, PyAny>,
         operation: &str,
         gamma_relative_bump: Option<f64>,
+        measures: Measures<'_>,
     ) -> PyResult<Self> {
         PricingTask::new(
             pricing_source::extract_source(source)?,
-            self::operation(operation, gamma_relative_bump)?,
+            self::operation(operation, gamma_relative_bump, &measures)?,
         )
         .map(|inner| Self { inner })
         .map_err(|e| errors::exception(e, errors::Stage::Validation, Some(operation)))
@@ -95,38 +105,111 @@ impl PyPricingTask {
             .map_err(|e| wire_error(py, &e, "pricing_task", 1))
     }
     #[staticmethod]
-    #[pyo3(signature=(specification, *, operation="evaluate", gamma_relative_bump=None))]
+    #[pyo3(signature=(specification, *, operation="evaluate", gamma_relative_bump=None, measures=None))]
     fn from_specification(
         specification: &specification::PyPricingSpecification,
         operation: &str,
         gamma_relative_bump: Option<f64>,
+        measures: Measures<'_>,
     ) -> PyResult<Self> {
         PricingTask::new(
             specification.inner.clone(),
-            self::operation(operation, gamma_relative_bump)?,
+            self::operation(operation, gamma_relative_bump, &measures)?,
         )
         .map(|inner| Self { inner })
         .map_err(|e| errors::exception(e, errors::Stage::Validation, Some(operation)))
     }
-    #[pyo3(signature=(operation, *, gamma_relative_bump=None))]
-    fn with_operation(&self, operation: &str, gamma_relative_bump: Option<f64>) -> PyResult<Self> {
+    #[pyo3(signature=(operation, *, gamma_relative_bump=None, measures=None))]
+    fn with_operation(
+        &self,
+        operation: &str,
+        gamma_relative_bump: Option<f64>,
+        measures: Measures<'_>,
+    ) -> PyResult<Self> {
         self.inner
-            .with_operation(self::operation(operation, gamma_relative_bump)?)
+            .with_operation(self::operation(operation, gamma_relative_bump, &measures)?)
             .map(|inner| Self { inner })
             .map_err(|e| errors::exception(e, errors::Stage::Validation, Some(operation)))
     }
-    #[pyo3(signature=(operation, *, gamma_relative_bump=None))]
+    #[pyo3(signature=(operation, *, gamma_relative_bump=None, measures=None))]
     fn capability(
         &self,
         operation: &str,
         gamma_relative_bump: Option<f64>,
+        measures: Measures<'_>,
     ) -> PyResult<PyPricingCapability> {
         Ok(PyPricingCapability {
-            inner: self
-                .inner
-                .source()
-                .capability(self::operation(operation, gamma_relative_bump)?),
+            inner: self.inner.source().capability(self::operation(
+                operation,
+                gamma_relative_bump,
+                &measures,
+            )?),
         })
+    }
+    /// Capabilities of `evaluate`, first-order `aad` and `local_variance_risk`,
+    /// in that order, from pure source inspection.
+    fn available_operations(&self) -> Vec<PyPricingCapability> {
+        self.inner
+            .source()
+            .available_operations()
+            .into_iter()
+            .map(|inner| PyPricingCapability { inner })
+            .collect()
+    }
+    /// The requested measures, or `None` for the three legacy operations.
+    #[getter]
+    fn measures(&self) -> Option<Vec<measures::PyMeasureRequest>> {
+        self.inner.measures().map(|set| {
+            set.requests()
+                .iter()
+                .map(|inner| measures::PyMeasureRequest {
+                    inner: inner.clone(),
+                })
+                .collect()
+        })
+    }
+    /// Measures the `measures` operation does not statically refuse for this
+    /// source, each mapped to the methods that apply.
+    fn available_measures<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let available = PyDict::new(py);
+        for row in self.inner.source().available_measures() {
+            available.set_item(
+                row.measure.as_str(),
+                row.methods.iter().map(|m| m.as_str()).collect::<Vec<_>>(),
+            )?;
+        }
+        Ok(available)
+    }
+    /// One answer per request, in request order, from pure source inspection.
+    fn measure_capabilities(
+        &self,
+        measures: Vec<PyRef<'_, measures::PyMeasureRequest>>,
+    ) -> Vec<measures::PyMeasureCapability> {
+        self.inner
+            .source()
+            .measure_capabilities(&measures::requests(&measures))
+            .into_iter()
+            .map(|inner| measures::PyMeasureCapability { inner })
+            .collect()
+    }
+    /// Calibrations and evaluations the bump-and-revalue requests among
+    /// `measures` would run beyond the base price. Nothing is compiled.
+    fn bump_cost<'py>(
+        &self,
+        py: Python<'py>,
+        measures: Vec<PyRef<'_, measures::PyMeasureRequest>>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let cost = self
+            .inner
+            .source()
+            .bump_cost(&measures::requests(&measures))
+            .map_err(|e| errors::exception(e, errors::Stage::Validation, Some("measures")))?;
+        measures::cost(py, cost)
+    }
+    /// The source composition's row in the common operation matrix.
+    #[getter]
+    fn source_family(&self) -> &'static str {
+        self.inner.source().family().as_str()
     }
     fn to_json(&self) -> PyResult<String> {
         pricing::pricing_task_to_json(&self.inner).map_err(crate::errors::serialize_exception)
@@ -168,30 +251,47 @@ impl PyCompiledPricingTask {
         }
     }
     /// Select an operation using this plan's existing compilation and calibration.
-    #[pyo3(signature=(operation, *, gamma_relative_bump=None))]
+    #[pyo3(signature=(operation, *, gamma_relative_bump=None, measures=None))]
     fn with_operation(
         &self,
         py: Python<'_>,
         operation: &str,
         gamma_relative_bump: Option<f64>,
+        measures: Measures<'_>,
     ) -> PyResult<Self> {
-        let selected = self::operation(operation, gamma_relative_bump)?;
+        let selected = self::operation(operation, gamma_relative_bump, &measures)?;
         py.detach(|| self.inner.with_operation(selected))
             .map(|inner| Self { inner })
             .map_err(|e| errors::exception(e, errors::Stage::Compile, Some(operation)))
     }
     /// Inspect source prerequisites and the realized plan's native preflight.
-    #[pyo3(signature=(operation, *, gamma_relative_bump=None))]
+    #[pyo3(signature=(operation, *, gamma_relative_bump=None, measures=None))]
     fn capability_for(
         &self,
         py: Python<'_>,
         operation: &str,
         gamma_relative_bump: Option<f64>,
+        measures: Measures<'_>,
     ) -> PyResult<PyPricingCapability> {
-        let selected = self::operation(operation, gamma_relative_bump)?;
+        let selected = self::operation(operation, gamma_relative_bump, &measures)?;
         Ok(PyPricingCapability {
             inner: py.detach(|| self.inner.capability_for(selected)),
         })
+    }
+    /// Calibrations realized for bumped sides and side evaluations run so far.
+    fn bump_cost<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        measures::cost(py, self.inner.bump_cost())
+    }
+    /// One answer per request against the source and the realized plan.
+    fn measure_capabilities(
+        &self,
+        measures: Vec<PyRef<'_, measures::PyMeasureRequest>>,
+    ) -> Vec<measures::PyMeasureCapability> {
+        self.inner
+            .measure_capabilities(&measures::requests(&measures))
+            .into_iter()
+            .map(|inner| measures::PyMeasureCapability { inner })
+            .collect()
     }
     #[getter]
     fn task_fingerprint(&self) -> String {
@@ -279,6 +379,20 @@ impl PyPricingTaskResult {
                 },
             )?
             .into_any(),
+            PricingTaskOutput::RoughFamilyLsvMeasureRisk(p) => Py::new(
+                py,
+                lsv::PyRoughFamilyLsvMeasureRisk {
+                    inner: (**p).clone(),
+                },
+            )?
+            .into_any(),
+            PricingTaskOutput::RoughVolatilityMeasureRisk(p) => Py::new(
+                py,
+                rough_volatility::PyRoughVolatilityMeasureRisk {
+                    inner: (**p).clone(),
+                },
+            )?
+            .into_any(),
             _ => return Err(crate::errors::internal_exception("unknown task output")),
         })
     }
@@ -335,6 +449,41 @@ impl PyReportedRisk {
             C::FixedCalibration => "fixed_calibration",
             C::FixedExercisePolicy => "fixed_exercise_policy",
         }
+    }
+    /// The requested measure this row answers; `None` on rows of the three
+    /// legacy operations.
+    #[getter]
+    fn measure(&self) -> Option<&'static str> {
+        self.inner.measure.map(|m| m.as_str())
+    }
+    /// The method the task requested for `measure`, with any bump.
+    #[getter]
+    fn method_detail<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
+        self.inner
+            .method_detail
+            .map(|m| measures::method_detail(py, m))
+            .transpose()
+    }
+    /// The parameter label of a `model_parameters` row.
+    #[getter]
+    fn model_parameter(&self) -> Option<String> {
+        self.inner.model_parameter.map(|p| p.label())
+    }
+}
+fn calibration_name(c: pricing::CalibrationTreatment) -> &'static str {
+    use pricing::CalibrationTreatment as C;
+    match c {
+        C::NotApplicable => "not_applicable",
+        C::Recalibrated => "recalibrated",
+        C::FixedCalibration => "fixed_calibration",
+        C::FixedExercisePolicy => "fixed_exercise_policy",
+    }
+}
+fn scope_name(s: pricing::UncertaintyScope) -> &'static str {
+    match s {
+        pricing::UncertaintyScope::PricingSampling => "pricing_sampling",
+        pricing::UncertaintyScope::ConditionalOnCalibration => "conditional_on_calibration",
+        pricing::UncertaintyScope::ConditionalOnExercisePolicy => "conditional_on_exercise_policy",
     }
 }
 #[pyclass(frozen, name = "CalibrationMetric")]
@@ -507,6 +656,71 @@ impl PyValuationReport {
         self.inner
             .vega_kt()
             .map(|v| PyVegaKtResult { inner: v.clone() })
+    }
+    /// The raw-unit row answering `measure`, if the task requested it.
+    fn risk(&self, py: Python<'_>, measure: &str) -> PyResult<Option<PyReportedRisk>> {
+        let kind = pricing::MeasureKind::ALL
+            .into_iter()
+            .find(|k| k.as_str() == measure)
+            .ok_or_else(|| {
+                errors::ErrorMetadata::domain("invalid_measure", Some("measure".into())).attach(
+                    py,
+                    PyValueError::new_err("unknown measure name"),
+                    Some("measures"),
+                )
+            })?;
+        Ok(self
+            .inner
+            .risk(kind)
+            .map(|r| PyReportedRisk { inner: r.clone() }))
+    }
+    /// The `model_parameters` row of one parameter label, if requested.
+    fn model_parameter_risk(
+        &self,
+        py: Python<'_>,
+        parameter: &str,
+    ) -> PyResult<Option<PyReportedRisk>> {
+        let id = pricing::ModelParameterId::from_label(parameter).ok_or_else(|| {
+            errors::ErrorMetadata::domain("invalid_model_parameter", Some("parameter".into()))
+                .attach(
+                    py,
+                    PyValueError::new_err("unknown model parameter label"),
+                    Some("measures"),
+                )
+        })?;
+        Ok(self
+            .inner
+            .model_parameter_risk(id)
+            .map(|r| PyReportedRisk { inner: r.clone() }))
+    }
+    /// The price and every risk coordinate as flat rows of plain data.
+    fn to_records<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyDict>>> {
+        self.inner
+            .to_records()
+            .into_iter()
+            .map(|r| {
+                let row = PyDict::new(py);
+                row.set_item("measure", r.measure)?;
+                row.set_item("name", r.name)?;
+                row.set_item("underlying_ids", r.underlying_ids)?;
+                let coordinate = PyDict::new(py);
+                for (axis, value) in r.coordinate {
+                    coordinate.set_item(axis, value)?;
+                }
+                row.set_item("coordinate", coordinate)?;
+                row.set_item("value", r.value)?;
+                row.set_item("standard_error", r.standard_error)?;
+                row.set_item("unit", r.unit)?;
+                row.set_item("method", r.method)?;
+                row.set_item("calibration", calibration_name(r.calibration))?;
+                row.set_item("uncertainty_scope", scope_name(r.uncertainty_scope))?;
+                row.set_item(
+                    "task_fingerprint",
+                    self.inner.task_fingerprint().to_string(),
+                )?;
+                Ok(row)
+            })
+            .collect()
     }
 }
 #[pyfunction]

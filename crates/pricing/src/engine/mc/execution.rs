@@ -1,8 +1,10 @@
+use std::cell::RefCell;
 use std::collections::{HashMap, TryReserveError};
 use std::error::Error;
 use std::fmt;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::ops::Range;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use pricing_numerics::{
@@ -193,6 +195,75 @@ impl<E: Error + 'static> Error for TryExecutionError<E> {
     }
 }
 
+/// One scalar reduction recorded by [`capture_reductions`]: the value of
+/// every sampling unit in index order, and the reduced sum the caller saw.
+#[derive(Clone, Debug)]
+pub(crate) struct RecordedReduction {
+    pub values: Vec<f64>,
+    pub sum: f64,
+    /// True when an engine that forms its sampling units itself (Bass-LV,
+    /// early exercise) recorded them directly: one value per unit.
+    pub units: bool,
+}
+
+/// Records sampling units an engine formed itself, in unit order, while this
+/// thread records. Engines that reduce through the executor need not call it.
+pub(crate) fn record_units(values: &[f64]) {
+    RECORDING.with(|r| {
+        if let Some(calls) = r.borrow_mut().as_mut() {
+            calls.push(RecordedReduction {
+                values: values.to_vec(),
+                sum: f64::NAN,
+                units: true,
+            });
+        }
+    });
+}
+
+/// Units above this count are not recorded; the reduction is still run.
+const MAX_RECORDED_UNITS: u64 = 1 << 26;
+
+thread_local! {
+    static RECORDING: RefCell<Option<Vec<RecordedReduction>>> = const { RefCell::new(None) };
+}
+
+/// Runs `f` and returns the scalar reductions (and component 0 of vector
+/// reductions) it started on this thread, in call order. Recording stores
+/// each unit's value as it is produced; it changes no value, block or order.
+/// Reductions started on other threads are not recorded.
+pub(crate) fn capture_reductions<R>(f: impl FnOnce() -> R) -> (R, Vec<RecordedReduction>) {
+    let previous = RECORDING.with(|r| r.borrow_mut().replace(Vec::new()));
+    let result = f();
+    let recorded = RECORDING.with(|r| std::mem::replace(&mut *r.borrow_mut(), previous));
+    (result, recorded.unwrap_or_default())
+}
+
+/// Per-unit slots, present only while this thread records.
+fn recording_slots(units: u64) -> Option<Vec<AtomicU64>> {
+    let recording = RECORDING.with(|r| r.borrow().is_some());
+    (recording && units <= MAX_RECORDED_UNITS)
+        .then(|| (0..units).map(|_| AtomicU64::new(0)).collect())
+}
+
+fn record(slots: Option<Vec<AtomicU64>>, sum: f64) {
+    let values = slots
+        .map(|s| {
+            s.into_iter()
+                .map(|v| f64::from_bits(v.into_inner()))
+                .collect()
+        })
+        .unwrap_or_default();
+    RECORDING.with(|r| {
+        if let Some(calls) = r.borrow_mut().as_mut() {
+            calls.push(RecordedReduction {
+                values,
+                sum,
+                units: false,
+            });
+        }
+    });
+}
+
 /// Marginal statistics and optional upper-triangular centered cross-moments.
 pub(crate) struct VectorStatistics {
     pub components: Vec<DeterministicStatistics>,
@@ -322,6 +393,7 @@ impl DeterministicExecutor {
 
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
+        let slots = recording_slots(sampling_units);
         let block_results = self.pool.install(|| {
             blocks
                 .into_par_iter()
@@ -335,6 +407,9 @@ impl DeterministicExecutor {
                                 source,
                             }
                         })?;
+                        if let Some(slots) = &slots {
+                            slots[sampling_unit as usize].store(value.to_bits(), Ordering::Relaxed);
+                        }
                         sum.add(value);
                         moments.add(value);
                     }
@@ -349,10 +424,14 @@ impl DeterministicExecutor {
             sums.push(block.sum);
             moments.push(block.moments);
         }
-        Ok(DeterministicStatistics {
+        let statistics = DeterministicStatistics {
             sum: reduce_sums(sums),
             moments: reduce_moments(moments),
-        })
+        };
+        if RECORDING.with(|r| r.borrow().is_some()) {
+            record(slots, statistics.sum.total());
+        }
+        Ok(statistics)
     }
 
     /// Dynamic-width counterpart used by surface adjoints. Callback output is
@@ -400,6 +479,11 @@ impl DeterministicExecutor {
         };
         let mut output =
             VectorStatistics::try_new(components, full_covariance).map_err(allocation_failed)?;
+        let slots = if components > 0 {
+            recording_slots(sampling_units)
+        } else {
+            None
+        };
         let results = self.pool.install(|| {
             blocks
                 .into_par_iter()
@@ -416,6 +500,10 @@ impl DeterministicExecutor {
                                 source,
                             }
                         })?;
+                        if let Some(slots) = &slots {
+                            slots[sampling_unit as usize]
+                                .store(values[0].to_bits(), Ordering::Relaxed);
+                        }
                         for (statistic, &value) in statistics.components.iter_mut().zip(&values) {
                             statistic.sum.add(value);
                             statistic.moments.add(value);
@@ -451,6 +539,9 @@ impl DeterministicExecutor {
                 moments: reduce_moments(results.iter().map(|r| r.components[i].moments).collect()),
             };
         }
+        if components > 0 && RECORDING.with(|r| r.borrow().is_some()) {
+            record(slots, output.components[0].sum.total());
+        }
         Ok(output)
     }
 
@@ -473,6 +564,11 @@ impl DeterministicExecutor {
 
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
+        let slots = if N > 0 {
+            recording_slots(sampling_units)
+        } else {
+            None
+        };
         let tile_capacity = u64::from(tile_capacity.get());
         let block_results = self.pool.install(|| {
             blocks
@@ -489,6 +585,10 @@ impl DeterministicExecutor {
                                     source,
                                 }
                             })?;
+                            if let Some(slots) = &slots {
+                                slots[sampling_unit as usize]
+                                    .store(values[0].to_bits(), Ordering::Relaxed);
+                            }
                             for (statistic, value) in statistics.iter_mut().zip(values) {
                                 statistic.sum.add(value);
                                 statistic.moments.add(value);
@@ -515,10 +615,15 @@ impl DeterministicExecutor {
                 moments.push(statistic.moments);
             }
         }
-        Ok(std::array::from_fn(|component| DeterministicStatistics {
-            sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
-            moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
-        }))
+        let statistics: [DeterministicStatistics; N] =
+            std::array::from_fn(|component| DeterministicStatistics {
+                sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
+                moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
+            });
+        if N > 0 && RECORDING.with(|r| r.borrow().is_some()) {
+            record(slots, statistics[0].sum.total());
+        }
+        Ok(statistics)
     }
 
     /// Executes AAD paths in fixed tiles backed by one reusable aligned SoA
@@ -541,6 +646,11 @@ impl DeterministicExecutor {
 
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
+        let slots = if N > 0 {
+            recording_slots(sampling_units)
+        } else {
+            None
+        };
         let logical_capacity =
             usize::try_from(tile_capacity.get()).map_err(|_| TryExecutionError::Evaluation {
                 sampling_unit: 0,
@@ -573,6 +683,10 @@ impl DeterministicExecutor {
                                             source,
                                         },
                                     )?;
+                                    if let Some(slots) = &slots {
+                                        slots[sampling_unit as usize]
+                                            .store(values[0].to_bits(), Ordering::Relaxed);
+                                    }
                                     for (statistic, value) in statistics.iter_mut().zip(values) {
                                         statistic.sum.add(value);
                                         statistic.moments.add(value);
@@ -600,10 +714,15 @@ impl DeterministicExecutor {
                 moments.push(statistic.moments);
             }
         }
-        Ok(std::array::from_fn(|component| DeterministicStatistics {
-            sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
-            moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
-        }))
+        let statistics: [DeterministicStatistics; N] =
+            std::array::from_fn(|component| DeterministicStatistics {
+                sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
+                moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
+            });
+        if N > 0 && RECORDING.with(|r| r.borrow().is_some()) {
+            record(slots, statistics[0].sum.total());
+        }
+        Ok(statistics)
     }
 }
 

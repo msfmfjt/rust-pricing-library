@@ -252,6 +252,70 @@ impl PricingSpecification {
     pub(crate) fn carrier_request(&self) -> &PricingRequest {
         &self.request
     }
+    /// Whether the nested risk request itself selects a Greek. A `Measures`
+    /// operation requires that it does not.
+    pub(crate) fn selects_nested_risk(&self) -> bool {
+        let risk = self.risk();
+        risk.delta() || risk.gamma().is_some() || risk.vega() || risk.vega_kt().is_some()
+    }
+    /// The request a `Measures` operation compiles for a standard source: the
+    /// nested numerical settings with exactly the listed measures selected.
+    /// It is validated like a request that had set those flags itself.
+    pub(crate) fn measured_request(
+        &self,
+        measures: &[crate::MeasureRequest],
+    ) -> Result<PricingRequest, SpecificationValidationError> {
+        use crate::{Measure, MeasureMethod};
+        let base = self.risk();
+        let (mut delta, mut gamma, mut vega, mut vega_kt) = (false, None, false, None);
+        for request in measures {
+            // Revaluation is run above the plan and selects nothing in it.
+            if request.method.is_revaluation() {
+                continue;
+            }
+            match (&request.measure, request.method) {
+                (Measure::Price, _) => {}
+                (Measure::SpotDelta, _) => delta = true,
+                (Measure::SpotGamma, MeasureMethod::NativeSpotBump { bump }) => {
+                    gamma = Some(crate::risk::GammaConfig::new(bump));
+                }
+                (Measure::SpotGamma, _) => {
+                    return Err(invalid(
+                        "operation.measures",
+                        "spot_gamma requires the native_spot_bump method",
+                    ));
+                }
+                (Measure::ParallelMarketIvVega, _) => vega = true,
+                (Measure::VegaKt(config), _) => vega_kt = Some(config.clone()),
+                (Measure::ModelParameters(_), _) => {
+                    return Err(invalid(
+                        "operation.measures",
+                        "model_parameters has no estimator on a standard single-asset plan",
+                    ));
+                }
+            }
+        }
+        let mut risk = RiskRequest::new(
+            delta,
+            gamma,
+            vega,
+            vega_kt,
+            base.smile_dynamics(),
+            base.checkpoint_interval().map(std::num::NonZeroU32::get),
+            base.aad_tile_capacity().map(std::num::NonZeroU32::get),
+        )
+        .map_err(|e| invalid("operation.measures", e))?;
+        if let Some(smoothing) = base.payoff_smoothing() {
+            risk = risk.with_payoff_smoothing(smoothing);
+        }
+        if let Some(ladder) = base.payoff_smoothing_width_ladder() {
+            risk = risk.with_payoff_smoothing_width_ladder(ladder.clone());
+        }
+        self.request
+            .clone()
+            .with_risk(risk)
+            .map_err(SpecificationValidationError::Request)
+    }
 }
 
 fn validate(

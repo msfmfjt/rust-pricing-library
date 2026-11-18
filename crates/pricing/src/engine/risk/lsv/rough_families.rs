@@ -13,6 +13,15 @@ pub struct RoughFamilyLsvPricingPlan {
     core: LsvPricingCore<CalibratedRoughFamilyLsv>,
 }
 impl RoughFamilyLsvPricingPlan {
+    /// This plan's calibration reused for `request`.
+    pub(crate) fn with_fixed_calibration(
+        &self,
+        request: &PricingRequest,
+    ) -> Result<Self, MonteCarloError> {
+        self.core
+            .with_fixed_calibration(request)
+            .map(|core| Self { core })
+    }
     pub fn compile(
         target_request: &PricingRequest,
         model: RoughVolatilityModel,
@@ -123,7 +132,9 @@ impl LeveragePathModel for RoughFamilyLsvPlan {
 }
 
 mod spot_delta;
-pub use spot_delta::{RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention};
+pub use spot_delta::{
+    RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvMeasureRisk,
+};
 
 mod market_iv;
 pub use market_iv::{RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan};
@@ -141,6 +152,9 @@ mod quadratic_parameter;
 pub use quadratic_parameter::QuadraticHestonLsvParameterRisk;
 mod mixed_parameter;
 pub use mixed_parameter::MixedBergomiLsvParameterRisk;
+
+mod parameter_measure;
+pub use parameter_measure::{RoughFamilyLsvModelParameterRisk, RoughFamilyLsvParameterRisk};
 
 #[cfg(test)]
 mod mixed_parameter_tests;

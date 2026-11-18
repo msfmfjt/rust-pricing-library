@@ -11,7 +11,174 @@ pub(super) fn build(
     calibration_diagnostics: Vec<ReportedCalibration>,
 ) -> Result<ValuationReport, WireError> {
     let (engine, currency, ids, seeds) = source_metadata(task.source());
-    let (value, error, units, paths) = match out {
+    let (value, error, units, paths) = headline(out);
+    let mut report = ValuationReport {
+        task_fingerprint: fingerprint,
+        plan_fingerprint,
+        library_version: crate::version().into(),
+        platform: format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
+        currency_id: currency,
+        value,
+        standard_error: error,
+        estimator: match engine {
+            EngineConfig::PseudoMonteCarlo(_) => EstimatorKind::PseudoMonteCarlo,
+            EngineConfig::RandomizedQuasiMonteCarlo(_) => EstimatorKind::RandomizedQuasiMonteCarlo,
+        },
+        independent_sampling_units: units,
+        evaluated_paths: paths,
+        uncertainty_scope: if seeds.is_empty() {
+            UncertaintyScope::PricingSampling
+        } else {
+            UncertaintyScope::ConditionalOnCalibration
+        },
+        calibration_seeds: seeds,
+        calibration_diagnostics: Some(calibration_diagnostics),
+        risks: Vec::new(),
+        vega_kt: None,
+    };
+    let calibrated = if report.calibration_seeds.is_empty() {
+        CalibrationTreatment::NotApplicable
+    } else {
+        CalibrationTreatment::Recalibrated
+    };
+    match out {
+        PricingTaskOutput::SingleAsset(r) => {
+            if let SpecificationOutput::Standard(p) = &r.output {
+                if p.early_exercise_diagnostics.is_some() {
+                    report.uncertainty_scope = UncertaintyScope::ConditionalOnExercisePolicy;
+                }
+                let d = &p.risk_diagnostics.methods;
+                let treatment = if p.early_exercise_diagnostics.is_some() {
+                    CalibrationTreatment::FixedExercisePolicy
+                } else {
+                    CalibrationTreatment::NotApplicable
+                };
+                let convention = format!(
+                    "smile={:?}; exercise_strategy={:?}; stopping_indices={:?}; gamma_spot_bump={:?}; bump_policy_version={}",
+                    d.smile_dynamics,
+                    d.exercise_strategy,
+                    d.stopping_indices,
+                    d.gamma_spot_bump,
+                    d.bump_policy_version
+                );
+                for (name, kind, risk, method) in [
+                    (
+                        "delta",
+                        MeasureKind::SpotDelta,
+                        p.pricing_result.risks.delta,
+                        d.delta,
+                    ),
+                    (
+                        "gamma",
+                        MeasureKind::SpotGamma,
+                        p.pricing_result.risks.gamma,
+                        d.gamma,
+                    ),
+                    (
+                        "vega",
+                        MeasureKind::ParallelMarketIvVega,
+                        p.pricing_result.risks.vega,
+                        d.vega,
+                    ),
+                ] {
+                    if let Some(risk) = risk {
+                        // A measures task types its rows; legacy rows stay
+                        // named only, so their documents are unchanged.
+                        let requested = task.measures().and_then(|set| set.get(kind));
+                        let first = report.risks.len();
+                        for (suffix, e, u) in [
+                            ("raw", risk.raw(), risk.raw_unit()),
+                            (
+                                "market_scaled",
+                                risk.market_scaled(),
+                                risk.market_scaled_unit(),
+                            ),
+                        ] {
+                            scalar(
+                                &mut report,
+                                &format!("{name}.{suffix}"),
+                                &ids,
+                                e,
+                                unit(u),
+                                method.map(method_name).unwrap_or("native"),
+                                treatment,
+                                &convention,
+                            );
+                        }
+                        if let Some(requested) = requested {
+                            for row in &mut report.risks[first..] {
+                                row.measure = Some(kind);
+                                row.method_detail = Some(requested.method);
+                            }
+                        }
+                    }
+                }
+                report.vega_kt = p.pricing_result.risks.vega_kt.clone();
+            }
+        }
+        PricingTaskOutput::HullWhiteRisk(r) => labeled(
+            &mut report,
+            &ids,
+            &r.parameter_labels,
+            &r.parameter_kinds,
+            &r.derivatives,
+            r.standard_errors.as_deref(),
+            r.method,
+            calibrated,
+            "native escrowed equity coordinates; fixed model parameters, correlations, dates and grid; target derivatives include retained calibration",
+        )?,
+        PricingTaskOutput::StochasticDividendRisk(r) => labeled(
+            &mut report,
+            &ids,
+            &r.parameter_labels,
+            &r.parameter_kinds,
+            &r.derivatives,
+            Some(&r.standard_errors),
+            r.method,
+            CalibrationTreatment::NotApplicable,
+            "physical Spot; initial volatility of residual equity; Q-mean cash dividends; fixed correlations, rates parameters, dates and grid",
+        )?,
+        PricingTaskOutput::LocalVarianceRisk(r) => block(
+            &mut report,
+            "local_variance",
+            &ids,
+            grid(&r.time_nodes, &r.log_moneyness_nodes),
+            &r.node_adjoints,
+            r.standard_errors.as_deref(),
+            SensitivityUnit::CurrencyPerVariance,
+            r.method,
+            CalibrationTreatment::Recalibrated,
+            "effective target variance; finite-particle recalibration with fixed calibration seed, model and grid",
+        ),
+        PricingTaskOutput::StochasticDividendLocalVarianceRisk(r) => block(
+            &mut report,
+            "residual_local_variance",
+            &ids,
+            grid(&r.time_nodes, &r.log_moneyness_nodes),
+            &r.node_adjoints,
+            r.standard_errors.as_deref(),
+            SensitivityUnit::CurrencyPerVariance,
+            r.method,
+            CalibrationTreatment::Recalibrated,
+            "funded residual-equity target variance; finite-particle recalibration with fixed calibration seed, model and grid",
+        ),
+        PricingTaskOutput::MultiAsset(p) => multi_asset(&mut report, p, calibrated),
+        PricingTaskOutput::RoughFamilyLsvMeasureRisk(r) => {
+            rough_family_lsv_rows(&mut report, task, &ids, r)
+        }
+        PricingTaskOutput::RoughVolatilityMeasureRisk(r) => {
+            rough_volatility_rows(&mut report, task, &ids, r)
+        }
+        PricingTaskOutput::StochasticDividend(_) => {}
+    }
+    report.validate()?;
+    Ok(report)
+}
+
+/// Price, its standard error, independent sampling units and evaluated paths
+/// of any native output.
+pub(super) fn headline(out: &PricingTaskOutput) -> (f64, f64, u64, u128) {
+    match out {
         PricingTaskOutput::SingleAsset(r) => match &r.output {
             SpecificationOutput::Standard(p) => (
                 p.pricing_result.value.value().get(),
@@ -80,137 +247,279 @@ pub(super) fn build(
                 p.evaluated_paths,
             )
         }
-    };
-    let mut report = ValuationReport {
-        task_fingerprint: fingerprint,
-        plan_fingerprint,
-        library_version: crate::version().into(),
-        platform: format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
-        currency_id: currency,
-        value,
-        standard_error: error,
-        estimator: match engine {
-            EngineConfig::PseudoMonteCarlo(_) => EstimatorKind::PseudoMonteCarlo,
-            EngineConfig::RandomizedQuasiMonteCarlo(_) => EstimatorKind::RandomizedQuasiMonteCarlo,
-        },
-        independent_sampling_units: units,
-        evaluated_paths: paths,
-        uncertainty_scope: if seeds.is_empty() {
-            UncertaintyScope::PricingSampling
-        } else {
-            UncertaintyScope::ConditionalOnCalibration
-        },
-        calibration_seeds: seeds,
-        calibration_diagnostics: Some(calibration_diagnostics),
-        risks: Vec::new(),
-        vega_kt: None,
-    };
-    let calibrated = if report.calibration_seeds.is_empty() {
-        CalibrationTreatment::NotApplicable
-    } else {
-        CalibrationTreatment::Recalibrated
-    };
-    match out {
-        PricingTaskOutput::SingleAsset(r) => {
-            if let SpecificationOutput::Standard(p) = &r.output {
-                if p.early_exercise_diagnostics.is_some() {
-                    report.uncertainty_scope = UncertaintyScope::ConditionalOnExercisePolicy;
-                }
-                let d = &p.risk_diagnostics.methods;
-                let treatment = if p.early_exercise_diagnostics.is_some() {
-                    CalibrationTreatment::FixedExercisePolicy
-                } else {
-                    CalibrationTreatment::NotApplicable
-                };
-                let convention = format!(
-                    "smile={:?}; exercise_strategy={:?}; stopping_indices={:?}; gamma_spot_bump={:?}; bump_policy_version={}",
-                    d.smile_dynamics,
-                    d.exercise_strategy,
-                    d.stopping_indices,
-                    d.gamma_spot_bump,
-                    d.bump_policy_version
-                );
-                for (name, risk, method) in [
-                    ("delta", p.pricing_result.risks.delta, d.delta),
-                    ("gamma", p.pricing_result.risks.gamma, d.gamma),
-                    ("vega", p.pricing_result.risks.vega, d.vega),
-                ] {
-                    if let Some(risk) = risk {
-                        for (suffix, e, u) in [
-                            ("raw", risk.raw(), risk.raw_unit()),
-                            (
-                                "market_scaled",
-                                risk.market_scaled(),
-                                risk.market_scaled_unit(),
-                            ),
-                        ] {
-                            scalar(
-                                &mut report,
-                                &format!("{name}.{suffix}"),
-                                &ids,
-                                e,
-                                unit(u),
-                                method.map(method_name).unwrap_or("native"),
-                                treatment,
-                                &convention,
-                            );
-                        }
-                    }
-                }
-                report.vega_kt = p.pricing_result.risks.vega_kt.clone();
-            }
+        PricingTaskOutput::RoughFamilyLsvMeasureRisk(r) => {
+            let p = &r.price;
+            (
+                p.value,
+                p.standard_error,
+                p.independent_sampling_units,
+                p.evaluated_paths,
+            )
         }
-        PricingTaskOutput::HullWhiteRisk(r) => labeled(
-            &mut report,
-            &ids,
-            &r.parameter_labels,
-            &r.parameter_kinds,
-            &r.derivatives,
-            r.standard_errors.as_deref(),
-            r.method,
-            calibrated,
-            "native escrowed equity coordinates; fixed model parameters, correlations, dates and grid; target derivatives include retained calibration",
-        )?,
-        PricingTaskOutput::StochasticDividendRisk(r) => labeled(
-            &mut report,
-            &ids,
-            &r.parameter_labels,
-            &r.parameter_kinds,
-            &r.derivatives,
-            Some(&r.standard_errors),
-            r.method,
-            CalibrationTreatment::NotApplicable,
-            "physical Spot; initial volatility of residual equity; Q-mean cash dividends; fixed correlations, rates parameters, dates and grid",
-        )?,
-        PricingTaskOutput::LocalVarianceRisk(r) => block(
-            &mut report,
-            "local_variance",
-            &ids,
-            grid(&r.time_nodes, &r.log_moneyness_nodes),
-            &r.node_adjoints,
-            r.standard_errors.as_deref(),
-            SensitivityUnit::CurrencyPerVariance,
-            r.method,
-            CalibrationTreatment::Recalibrated,
-            "effective target variance; finite-particle recalibration with fixed calibration seed, model and grid",
-        ),
-        PricingTaskOutput::StochasticDividendLocalVarianceRisk(r) => block(
-            &mut report,
-            "residual_local_variance",
-            &ids,
-            grid(&r.time_nodes, &r.log_moneyness_nodes),
-            &r.node_adjoints,
-            r.standard_errors.as_deref(),
-            SensitivityUnit::CurrencyPerVariance,
-            r.method,
-            CalibrationTreatment::Recalibrated,
-            "funded residual-equity target variance; finite-particle recalibration with fixed calibration seed, model and grid",
-        ),
-        PricingTaskOutput::MultiAsset(p) => multi_asset(&mut report, p, calibrated),
-        PricingTaskOutput::StochasticDividend(_) => {}
+        PricingTaskOutput::RoughVolatilityMeasureRisk(r) => {
+            let p = &r.price;
+            (
+                p.value,
+                p.standard_error,
+                p.independent_sampling_units,
+                p.evaluated_paths,
+            )
+        }
     }
-    report.validate()?;
-    Ok(report)
+}
+
+/// Native rows of rough-family LSV, copied from the dedicated results.
+fn rough_family_lsv_rows(
+    report: &mut ValuationReport,
+    task: &PricingTask,
+    ids: &[u32],
+    r: &crate::lsv::RoughFamilyLsvMeasureRisk,
+) {
+    use crate::lsv::RoughFamilyLsvDeltaConvention as C;
+    let treatment = |c: C| match c {
+        C::FrozenLeverage => CalibrationTreatment::FixedCalibration,
+        C::StickyRelativeLocalVariance => CalibrationTreatment::Recalibrated,
+    };
+    let held = |c: C| match c {
+        C::FrozenLeverage => {
+            "calibrated leverage and its reference funded-forward anchor held; initial residual equity moves with Spot"
+        }
+        C::StickyRelativeLocalVariance => {
+            "relative local-variance target held in log-moneyness and recalibrated (scale equivariant: leverage values unchanged, anchor follows Spot); not sticky-strike market-IV risk"
+        }
+    };
+    let mut push = |kind: MeasureKind,
+                    value,
+                    error: Option<f64>,
+                    unit,
+                    method: &str,
+                    calibration,
+                    convention| {
+        let requested = task
+            .measures()
+            .and_then(|set| set.get(kind))
+            .expect("native rows answer listed measures");
+        report.risks.push(ReportedRisk {
+            name: format!("{}.{}", kind.as_str(), requested.method.kind().as_str()),
+            underlying_ids: ids.to_vec(),
+            axes: Vec::new(),
+            values: vec![value],
+            standard_errors: error.map(|e| vec![e]),
+            unit,
+            method: method.into(),
+            calibration,
+            convention,
+            measure: Some(kind),
+            method_detail: Some(requested.method),
+            model_parameter: None,
+        });
+    };
+    if let Some(d) = &r.delta {
+        push(
+            MeasureKind::SpotDelta,
+            d.delta,
+            Some(d.delta_standard_error),
+            SensitivityUnit::CurrencyPerSpot,
+            d.method,
+            treatment(d.convention),
+            format!(
+                "physical Spot; {}: {}; error conditional on one calibration",
+                d.convention.as_str(),
+                held(d.convention)
+            ),
+        );
+    }
+    if let Some(g) = &r.gamma {
+        let c = if g.convention == C::FrozenLeverage.as_str() {
+            C::FrozenLeverage
+        } else {
+            C::StickyRelativeLocalVariance
+        };
+        push(
+            MeasureKind::SpotGamma,
+            g.gamma,
+            Some(g.gamma_standard_error),
+            SensitivityUnit::CurrencyPerSpotSquared,
+            g.method,
+            treatment(c),
+            format!(
+                "physical Spot; {}: {}; central second difference with absolute bump {}; the half-bump Gamma and its paired difference are in the native result; error conditional on one calibration",
+                g.convention,
+                held(c),
+                g.spot_bump
+            ),
+        );
+    }
+    if let Some(m) = &r.market_iv {
+        push(
+            MeasureKind::ParallelMarketIvVega,
+            m.parallel_vega,
+            m.parallel_standard_error,
+            SensitivityUnit::CurrencyPerUnitVolatility,
+            m.method,
+            CalibrationTreatment::Recalibrated,
+            format!(
+                "per one absolute annualized Black IV unit added to every node of the target's reporting basis ({} maturities x {} relative log-moneyness nodes); the Dupire target is rebuilt from the moved surface and the particle calibration recalibrated through its adjoint; model parameters, Spot, curves and dividends held; node risks in the native result; {}",
+                m.maturity_nodes.len(),
+                m.log_moneyness_nodes.len(),
+                if m.parallel_standard_error.is_some() {
+                    "RQMC error across scrambles, conditional on one calibration"
+                } else {
+                    "pseudo-random sampling error not available for this estimator"
+                }
+            ),
+        );
+    }
+    if let Some(p) = &r.model_parameters {
+        let requested = task
+            .measures()
+            .and_then(|set| set.get(MeasureKind::ModelParameters))
+            .expect("native rows answer listed measures");
+        let Measure::ModelParameters(selection) = &requested.measure else {
+            unreachable!("the kind selects the variant")
+        };
+        let values = p.risk.parameter_adjoints();
+        let errors = p.risk.standard_errors();
+        for &parameter in selection.parameters() {
+            let index = p
+                .parameters
+                .iter()
+                .position(|&q| q == parameter)
+                .expect("preflight admitted only the model's parameters");
+            report.risks.push(ReportedRisk {
+                name: format!(
+                    "{}.{}.{}",
+                    MeasureKind::ModelParameters.as_str(),
+                    parameter.label(),
+                    requested.method.kind().as_str()
+                ),
+                underlying_ids: ids.to_vec(),
+                axes: Vec::new(),
+                values: vec![values[index]],
+                standard_errors: errors.map(|e| vec![e[index]]),
+                unit: SensitivityUnit::CurrencyPerUnitParameter,
+                method: p.risk.method().into(),
+                calibration: CalibrationTreatment::Recalibrated,
+                convention: format!(
+                    "per one absolute unit of the model's {} at the fixed relative local-variance target; total derivative: direct valuation plus the particle recalibration's response (both parts in the native result); other parameters, Spot, curves and dividends held; not a stochastic-parameter refit and not market-IV Vega; {}",
+                    parameter.label(),
+                    if errors.is_some() {
+                        "RQMC error across scrambles, conditional on one calibration"
+                    } else {
+                        "pseudo-random sampling error not available for this estimator"
+                    }
+                ),
+                measure: Some(MeasureKind::ModelParameters),
+                method_detail: Some(requested.method),
+                model_parameter: Some(parameter),
+            });
+        }
+    }
+}
+
+/// Native rows of a direct rough-volatility source, copied from the
+/// dedicated results. Nothing is calibrated.
+fn rough_volatility_rows(
+    report: &mut ValuationReport,
+    task: &PricingTask,
+    ids: &[u32],
+    r: &crate::rough_volatility::RoughVolatilityMeasureRisk,
+) {
+    let requested = |kind: MeasureKind| {
+        task.measures()
+            .and_then(|set| set.get(kind))
+            .expect("native rows answer listed measures")
+    };
+    let row = |name: String,
+               kind: MeasureKind,
+               value: f64,
+               error: f64,
+               unit,
+               method: &str,
+               convention: String,
+               model_parameter| ReportedRisk {
+        name,
+        underlying_ids: ids.to_vec(),
+        axes: Vec::new(),
+        values: vec![value],
+        standard_errors: Some(vec![error]),
+        unit,
+        method: method.into(),
+        calibration: CalibrationTreatment::NotApplicable,
+        convention,
+        measure: Some(kind),
+        method_detail: Some(requested(kind).method),
+        model_parameter,
+    };
+    let name = |kind: MeasureKind| {
+        format!(
+            "{}.{}",
+            kind.as_str(),
+            requested(kind).method.kind().as_str()
+        )
+    };
+    const HELD: &str = "rough-model parameters, rate and repo curves and cash and proportional dividend amounts held";
+    if let Some(d) = &r.delta {
+        report.risks.push(row(
+            name(MeasureKind::SpotDelta),
+            MeasureKind::SpotDelta,
+            d.delta,
+            d.delta_standard_error,
+            SensitivityUnit::CurrencyPerSpot,
+            d.method,
+            format!("physical Spot; pathwise through payoff, path and dividend escrow; {HELD}"),
+            None,
+        ));
+    }
+    if let Some(g) = &r.gamma {
+        report.risks.push(row(
+            name(MeasureKind::SpotGamma),
+            MeasureKind::SpotGamma,
+            g.gamma,
+            g.gamma_standard_error,
+            SensitivityUnit::CurrencyPerSpotSquared,
+            g.method,
+            format!(
+                "physical Spot; central second difference with absolute bump {} on common random numbers; the half-bump Gamma and its paired difference are in the native result; {HELD}; error excludes bump bias",
+                g.spot_bump
+            ),
+            None,
+        ));
+    }
+    if let Some(p) = &r.model_parameters {
+        let Measure::ModelParameters(selection) = &requested(MeasureKind::ModelParameters).measure
+        else {
+            unreachable!("the kind selects the variant")
+        };
+        for &parameter in selection.parameters() {
+            let (value, error, method) = p
+                .coordinate(parameter)
+                .expect("preflight admitted only the model's parameters");
+            report.risks.push(row(
+                format!(
+                    "{}.{}.{}",
+                    MeasureKind::ModelParameters.as_str(),
+                    parameter.label(),
+                    requested(MeasureKind::ModelParameters).method.kind().as_str()
+                ),
+                MeasureKind::ModelParameters,
+                value,
+                error,
+                SensitivityUnit::CurrencyPerUnitParameter,
+                method,
+                format!(
+                    "per one absolute unit of the model's {}; fixed model: pathwise through the discrete variance history{}, with every other parameter, Spot, curves, dividends and Gaussian draws held; not a recalibrated or market-IV sensitivity",
+                    parameter.label(),
+                    if parameter == ModelParameterId::Hurst {
+                        " and the H-dependent kernel loadings"
+                    } else {
+                        ""
+                    }
+                ),
+                Some(parameter),
+            ));
+        }
+    }
 }
 
 fn source_metadata(s: &PricingSource) -> (EngineConfig, u16, Vec<u32>, Vec<u64>) {
@@ -318,6 +627,9 @@ fn block(
         method: method.into(),
         calibration,
         convention: convention.into(),
+        measure: None,
+        method_detail: None,
+        model_parameter: None,
     });
 }
 #[allow(clippy::too_many_arguments)]
@@ -673,6 +985,62 @@ fn estimates(
         calibration,
         convention,
     );
+}
+
+/// Rows of bump-and-revalue estimates. They carry no sampling error: the
+/// paired error of a revaluation difference is not available yet.
+pub(super) fn bump_rows(
+    report: &mut ValuationReport,
+    estimates: &[super::bump::BumpEstimate],
+) -> Result<(), WireError> {
+    for e in estimates {
+        let MeasureMethod::BumpAndRevalue { calibration, .. } = e.request.method else {
+            unreachable!("bump rows come from bump-and-revalue requests")
+        };
+        let kind = e.request.measure.kind();
+        let unit = match kind {
+            MeasureKind::SpotGamma => SensitivityUnit::CurrencyPerSpotSquared,
+            MeasureKind::ParallelMarketIvVega => SensitivityUnit::CurrencyPerUnitVolatility,
+            _ => SensitivityUnit::CurrencyPerSpot,
+        };
+        report.risks.push(ReportedRisk {
+            name: format!("{}.bump_and_revalue", kind.as_str()),
+            underlying_ids: vec![e.underlying],
+            axes: Vec::new(),
+            values: vec![e.value],
+            standard_errors: e.standard_error.map(|se| vec![se]),
+            unit,
+            method: "bump_and_revalue".into(),
+            calibration: match calibration {
+                BumpCalibration::NotApplicable => CalibrationTreatment::NotApplicable,
+                BumpCalibration::Fixed => CalibrationTreatment::FixedCalibration,
+                BumpCalibration::Recalibrated => CalibrationTreatment::Recalibrated,
+            },
+            convention: format!(
+                "central difference of complete revaluations on the task's random coordinates; half-width {} in input units; calibration {}{}; {}",
+                e.amount,
+                calibration.as_str(),
+                if calibration == BumpCalibration::Fixed {
+                    " (unbumped leverage reused as a function of the absolute level of its calibrated state; paths start at the bumped Spot)"
+                } else if kind == MeasureKind::ParallelMarketIvVega
+                    && calibration == BumpCalibration::Recalibrated
+                {
+                    " (every IV of the target's reporting basis moved together; the Dupire target rebuilt on its axes, floor and cap, then recalibrated)"
+                } else {
+                    ""
+                },
+                if e.standard_error.is_some() {
+                    "standard error of the paired per-sampling-unit differences; excludes bump bias"
+                } else {
+                    "sampling error not reported: this engine has no per-sampling-unit readout"
+                }
+            ),
+            measure: Some(kind),
+            method_detail: Some(e.request.method),
+            model_parameter: None,
+        });
+    }
+    report.validate()
 }
 
 #[cfg(test)]

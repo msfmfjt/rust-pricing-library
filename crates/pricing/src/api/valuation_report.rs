@@ -1,6 +1,6 @@
 //! Common estimates with explicit units, differentiation and uncertainty scope.
 //! Native diagnostics remain available on `PricingTaskResult::native_result`.
-use crate::{EstimatorKind, Fingerprint, VegaKtResult, WireError};
+use crate::{EstimatorKind, Fingerprint, MeasureKind, MeasureMethod, VegaKtResult, WireError};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UncertaintyScope {
@@ -107,6 +107,36 @@ pub struct ReportedRisk {
     pub calibration: CalibrationTreatment,
     /// Coordinate and fixed-input conventions, alongside the exact saved task.
     pub convention: String,
+    /// The requested measure this row answers. Set by a `Measures` task and
+    /// `None` for the three legacy operations, whose rows are named only.
+    pub measure: Option<MeasureKind>,
+    /// The method the task requested for `measure`, including any bump.
+    /// Present exactly when `measure` is.
+    pub method_detail: Option<MeasureMethod>,
+    /// The parameter a `model_parameters` row differentiates. Present exactly
+    /// when `measure` is `ModelParameters`.
+    pub model_parameter: Option<crate::ModelParameterId>,
+}
+
+/// One flat row of a report: the price or one coordinate of one risk row.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportRecord {
+    /// `price`, a measure name, or the row's display name when it has no
+    /// typed measure.
+    pub measure: String,
+    /// The risk row's display name; `price` for the price record.
+    pub name: String,
+    pub underlying_ids: Vec<u32>,
+    /// Axis name and value for this coordinate; empty for a scalar.
+    pub coordinate: Vec<(String, f64)>,
+    pub value: f64,
+    /// `None` means unavailable, never zero.
+    pub standard_error: Option<f64>,
+    /// `currency` for the price.
+    pub unit: String,
+    pub method: String,
+    pub calibration: CalibrationTreatment,
+    pub uncertainty_scope: UncertaintyScope,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct ValuationReport {
@@ -190,6 +220,85 @@ impl ValuationReport {
     pub fn vega_kt(&self) -> Option<&VegaKtResult> {
         self.vega_kt.as_ref()
     }
+    /// The first row answering `measure`, which is the one in raw units; a
+    /// market-scaled row of the same measure follows it in `risks()`.
+    /// Bucketed VegaKT keeps its typed result under `vega_kt()`.
+    #[must_use]
+    pub fn risk(&self, measure: MeasureKind) -> Option<&ReportedRisk> {
+        self.risks.iter().find(|r| r.measure == Some(measure))
+    }
+    /// The `model_parameters` row of one parameter.
+    #[must_use]
+    pub fn model_parameter_risk(
+        &self,
+        parameter: crate::ModelParameterId,
+    ) -> Option<&ReportedRisk> {
+        self.risks
+            .iter()
+            .find(|r| r.model_parameter == Some(parameter))
+    }
+    /// The price followed by every coordinate of every risk row, flattened in
+    /// row-major axis order. Bucketed VegaKT is not flattened here.
+    #[must_use]
+    pub fn to_records(&self) -> Vec<ReportRecord> {
+        let estimator = match self.estimator {
+            EstimatorKind::Analytical => "analytical",
+            EstimatorKind::PseudoMonteCarlo => "pseudo_monte_carlo",
+            EstimatorKind::RandomizedQuasiMonteCarlo => "randomized_quasi_monte_carlo",
+        };
+        let mut records = vec![ReportRecord {
+            measure: MeasureKind::Price.as_str().into(),
+            name: MeasureKind::Price.as_str().into(),
+            underlying_ids: Vec::new(),
+            coordinate: Vec::new(),
+            value: self.value,
+            standard_error: Some(self.standard_error),
+            unit: "currency".into(),
+            method: estimator.into(),
+            calibration: if self.calibration_seeds.is_empty() {
+                CalibrationTreatment::NotApplicable
+            } else {
+                CalibrationTreatment::Recalibrated
+            },
+            uncertainty_scope: self.uncertainty_scope,
+        }];
+        for risk in &self.risks {
+            for (index, value) in risk.values.iter().enumerate() {
+                // Row-major: the last axis varies fastest.
+                let mut stride = risk.values.len();
+                let coordinate = risk
+                    .axes
+                    .iter()
+                    .map(|axis| {
+                        stride /= axis.values.len();
+                        (
+                            axis.name.clone(),
+                            axis.values[(index / stride) % axis.values.len()],
+                        )
+                    })
+                    .collect();
+                records.push(ReportRecord {
+                    measure: risk
+                        .measure
+                        .map_or_else(|| risk.name.clone(), |m| m.as_str().into()),
+                    name: risk.name.clone(),
+                    underlying_ids: risk.underlying_ids.clone(),
+                    coordinate,
+                    value: *value,
+                    standard_error: risk.standard_errors.as_ref().map(|e| e[index]),
+                    unit: risk.unit.as_str().into(),
+                    method: risk.method.clone(),
+                    calibration: risk.calibration,
+                    uncertainty_scope: self.uncertainty_scope,
+                });
+            }
+        }
+        records
+    }
+    /// Whether any row carries a typed measure, which report v3 introduced.
+    pub(crate) fn has_measures(&self) -> bool {
+        self.risks.iter().any(|r| r.measure.is_some())
+    }
     pub(crate) fn validate(&self) -> Result<(), WireError> {
         let invalid = |pointer: &str, message: &str| WireError::DomainAt {
             pointer: pointer.into(),
@@ -242,6 +351,9 @@ impl ValuationReport {
             if r.name.is_empty()
                 || r.method.is_empty()
                 || r.convention.is_empty()
+                || r.measure.is_some() != r.method_detail.is_some()
+                || r.model_parameter.is_some() != (r.measure == Some(MeasureKind::ModelParameters))
+                || r.measure == Some(MeasureKind::Price)
                 || !identities.insert((&r.name, &r.underlying_ids))
                 || count != Some(r.values.len())
                 || r.values.is_empty()

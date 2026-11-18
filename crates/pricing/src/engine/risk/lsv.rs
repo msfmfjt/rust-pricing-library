@@ -31,7 +31,8 @@ use models::{CalibratedModel, LeveragePathModel, PathModel};
 pub use rough_families::{
     HestonLsvParameterRisk, MixedBergomiLsvParameterRisk, QuadraticHestonLsvParameterRisk,
     RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvGamma,
-    RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
+    RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvMeasureRisk,
+    RoughFamilyLsvModelParameterRisk, RoughFamilyLsvParameterRisk, RoughFamilyLsvPricingPlan,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -73,6 +74,10 @@ struct LsvPricingCore<C: CalibratedModel> {
     policy: ExecutionPolicy,
     risk_supported: bool,
     fingerprint: Fingerprint,
+    /// The request's Spot, where every path starts. A plan compiled from its
+    /// own request calibrates at this Spot, so it equals the leverage anchor
+    /// bit for bit; a plan that reuses another plan's calibration does not.
+    initial_f: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -88,6 +93,16 @@ pub struct RoughBergomiLsvPricingPlan {
 }
 
 impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
+    /// This plan's calibration reused for `request`; see
+    /// `LsvPricingCore::with_fixed_calibration`.
+    pub(crate) fn with_fixed_calibration(
+        &self,
+        request: &PricingRequest,
+    ) -> Result<Self, MonteCarloError> {
+        self.core
+            .with_fixed_calibration(request)
+            .map(|core| Self { core })
+    }
     /// `target_request.model` is the Dupire LocalVolatility target. The request
     /// must be Price-only: use `evaluate_local_variance_risk` explicitly for the
     /// new derivative contract. All product, smoothing and dividend semantics
@@ -139,6 +154,16 @@ impl<F: BergomiDynamics> BergomiLsvPricingPlan<F> {
 }
 
 impl RoughBergomiLsvPricingPlan {
+    /// This plan's calibration reused for `request`; see
+    /// `LsvPricingCore::with_fixed_calibration`.
+    pub(crate) fn with_fixed_calibration(
+        &self,
+        request: &PricingRequest,
+    ) -> Result<Self, MonteCarloError> {
+        self.core
+            .with_fixed_calibration(request)
+            .map(|core| Self { core })
+    }
     /// `target_request.model` is the Dupire LocalVolatility target, as for
     /// `BergomiLsvPricingPlan`. Rates, carry and dividends follow the request's
     /// deterministic market; the rough driver starts at the valuation time.
@@ -184,6 +209,29 @@ impl RoughBergomiLsvPricingPlan {
 }
 
 impl<C: CalibratedModel> LsvPricingCore<C> {
+    /// A core for `request` that reuses this core's calibration instead of
+    /// calibrating: the leverage surface is kept as a function of the
+    /// absolute forward level (sticky-strike leverage) and paths start at the
+    /// request's Spot. No calibration runs. The fingerprint has its own domain.
+    fn with_fixed_calibration(&self, request: &PricingRequest) -> Result<Self, MonteCarloError> {
+        let calibration = self.calibration.clone();
+        let anchor = calibration.surface().initial_f();
+        let mut core = Self::compile(
+            request,
+            calibration.config().clone(),
+            self.policy,
+            b"pricing/lsv-fixed-calibration/v1\0",
+            &[anchor],
+            |_, _, _, _| Ok(calibration),
+        )?;
+        let mut hash = blake3::Hasher::new();
+        hash.update(b"pricing/lsv-fixed-calibration-plan/v1\0");
+        hash.update(core.fingerprint.as_bytes());
+        hash.update(self.fingerprint.as_bytes());
+        core.fingerprint = Fingerprint::from_bytes(*hash.finalize().as_bytes());
+        Ok(core)
+    }
+
     fn compile(
         target_request: &PricingRequest,
         particles: LsvParticleConfig,
@@ -263,6 +311,7 @@ impl<C: CalibratedModel> LsvPricingCore<C> {
             policy,
             risk_supported,
             fingerprint,
+            initial_f,
         })
     }
 

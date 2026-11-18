@@ -2,11 +2,12 @@
 use std::sync::Arc;
 
 use crate::hull_white::HullWhiteAadRisk;
-use crate::lsv::LsvLocalVarianceRisk;
+use crate::lsv::{LsvLocalVarianceRisk, RoughFamilyLsvMeasureRisk};
 use crate::multi_asset::{
     MultiAssetError, MultiAssetPrice, MultiAssetPricingPlan, MultiAssetProduct,
     MultiAssetRiskConfig,
 };
+use crate::rough_volatility::RoughVolatilityMeasureRisk;
 use crate::stochastic_dividends::{
     StochasticDividendAadRisk, StochasticDividendHullWhitePricingPlan,
     StochasticDividendLocalVarianceRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
@@ -65,6 +66,11 @@ pub enum PricingTaskOutput {
     StochasticDividend(StochasticDividendPrice),
     HullWhiteRisk(Box<HullWhiteAadRisk>),
     LocalVarianceRisk(Box<LsvLocalVarianceRisk>),
+    /// Native Spot measures of rough-family LSV, from a `Measures` task.
+    RoughFamilyLsvMeasureRisk(Box<RoughFamilyLsvMeasureRisk>),
+    /// Native measures of a direct rough-volatility source, from a
+    /// `Measures` task.
+    RoughVolatilityMeasureRisk(Box<RoughVolatilityMeasureRisk>),
     StochasticDividendRisk(Box<StochasticDividendAadRisk>),
     StochasticDividendLocalVarianceRisk(Box<StochasticDividendLocalVarianceRisk>),
 }
@@ -82,6 +88,8 @@ pub struct CompiledPricingTask {
     task: PricingTask,
     fingerprint: Fingerprint,
     backend: Arc<TaskBackend>,
+    /// Compiled bumped sides of the task's bump-and-revalue requests.
+    scenarios: Option<super::bump::SharedScenarios>,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct PricingTaskResult {
@@ -104,7 +112,10 @@ impl PricingTask {
             ));
         }
         let backend = match self.source() {
-            PricingSource::SingleAsset(s) => TaskBackend::SingleAsset(s.compile()?),
+            PricingSource::SingleAsset(s) => TaskBackend::SingleAsset(match self.measures() {
+                Some(measures) => s.compile_measures(measures)?,
+                None => s.compile()?,
+            }),
             PricingSource::MultiAsset(s) => {
                 let m = s.model();
                 let product = MultiAssetProduct::from_product_graph(s.product().clone());
@@ -156,7 +167,20 @@ impl PricingTask {
             }
             PricingSource::StochasticDividend(s) => compile_dividend(s)?,
         };
-        CompiledPricingTask::from_backend(self.clone(), Arc::new(backend))
+        let mut compiled =
+            CompiledPricingTask::from_backend(self.clone(), Arc::new(backend), None)?;
+        let revaluation = self
+            .measures()
+            .map(MeasureSet::revaluation_requests)
+            .unwrap_or_default();
+        if !revaluation.is_empty() {
+            // Fixed-calibration sides reuse the calibration just realized.
+            compiled.scenarios = Some(Arc::new(super::bump::CompiledScenarios::compile(
+                &compiled,
+                revaluation,
+            )?));
+        }
+        Ok(compiled)
     }
 }
 
@@ -255,13 +279,15 @@ impl CompiledPricingTask {
     fn from_backend(
         task: PricingTask,
         backend: Arc<TaskBackend>,
+        scenarios: Option<super::bump::SharedScenarios>,
     ) -> Result<Self, PricingTaskError> {
         let compiled = Self {
             fingerprint: task.fingerprint()?,
             task,
             backend,
+            scenarios,
         };
-        compiled.validate_operation(compiled.operation())?;
+        compiled.validate_operation(&compiled.operation())?;
         Ok(compiled)
     }
     /// Create an immutable task for another supported operation on the same
@@ -272,7 +298,84 @@ impl CompiledPricingTask {
             .task
             .with_operation(operation)
             .map_err(PricingTaskError::Validation)?;
-        Self::from_backend(task, Arc::clone(&self.backend))
+        // Bumped sides are compiled sources of their own; reselection reuses
+        // them only for the same bump requests and never compiles new ones.
+        let revaluation = task
+            .measures()
+            .map(MeasureSet::revaluation_requests)
+            .unwrap_or_default();
+        let scenarios = match &self.scenarios {
+            _ if revaluation.is_empty() => None,
+            Some(s) if s.requests == revaluation => Some(Arc::clone(s)),
+            _ => return Err(super::specification::reselected()),
+        };
+        Self::from_backend(task, Arc::clone(&self.backend), scenarios)
+    }
+    /// Calibrations and side evaluations spent on bump-and-revalue requests
+    /// so far: the calibrations realized when the sides were compiled and
+    /// two evaluations per scenario for every `evaluate()` call.
+    #[must_use]
+    pub fn bump_cost(&self) -> BumpCost {
+        self.scenarios
+            .as_ref()
+            .map(|s| s.realized_cost())
+            .unwrap_or_default()
+    }
+    /// The plan's price and, where the engine's reductions show them, its
+    /// per-sampling-unit prices on the task's random coordinates. One native
+    /// price evaluation, recorded; no value or reduction order changes.
+    pub(crate) fn price_and_units(&self) -> Result<(f64, Option<Vec<f64>>), PricingTaskError> {
+        let price = [MeasureRequest::native(Measure::Price)];
+        let (output, recorded) = crate::engine::mc::execution::capture_reductions(|| {
+            self.backend.measures().evaluate_measures(&price)
+        });
+        let (value, ..) = super::source_report::headline(&output?);
+        Ok((
+            value,
+            super::bump::units_from_recorded(&recorded, self.task.source().engine()),
+        ))
+    }
+    /// A price task on `side` that reuses this task's realized calibration.
+    pub(crate) fn with_fixed_calibration(
+        &self,
+        side: PricingSource,
+    ) -> Result<Self, PricingTaskError> {
+        let backend = match (self.backend.as_ref(), &side) {
+            (TaskBackend::SingleAsset(plan), PricingSource::SingleAsset(spec)) => {
+                TaskBackend::SingleAsset(plan.with_fixed_calibration(spec)?)
+            }
+            (TaskBackend::Dividend(plan), PricingSource::StochasticDividend(spec)) => {
+                TaskBackend::Dividend(Box::new(plan.with_fixed_calibration(
+                    spec.equity().carrier_request(),
+                    spec.maximum_step(),
+                )?))
+            }
+            _ => {
+                return Err(PricingTaskError::Validation(crate::api::source::invalid(
+                    "operation.measures",
+                    "a fixed calibration is available only for single-asset LSV",
+                )));
+            }
+        };
+        let task = PricingTask::new(side, PricingOperation::Evaluate)
+            .map_err(PricingTaskError::Validation)?;
+        Self::from_backend(task, Arc::new(backend), None)
+    }
+    /// Calibration diagnostics of the realized plan, without evaluating it.
+    pub(crate) fn calibration_blocks(&self) -> Vec<ReportedCalibration> {
+        match (self.backend.as_ref(), self.task.source()) {
+            (TaskBackend::SingleAsset(p), PricingSource::SingleAsset(s)) => {
+                p.calibration_diagnostics(s)
+            }
+            (TaskBackend::MultiAsset(p), PricingSource::MultiAsset(s)) => {
+                super::calibration_report::multi_asset(p, s)
+            }
+            (TaskBackend::Dividend(p), PricingSource::StochasticDividend(s)) => {
+                p.calibration_diagnostics(s.equity().product().underlying().get())
+            }
+            (TaskBackend::DividendHullWhite(_), _) => Vec::new(),
+            _ => unreachable!("compiled source/backend pairing"),
+        }
     }
     /// Replayable source and selected operation, without compiled state.
     #[must_use]
@@ -304,11 +407,11 @@ impl CompiledPricingTask {
     /// Does not compile, calibrate or execute pricing/risk paths.
     #[must_use]
     pub fn capability_for(&self, operation: PricingOperation) -> PricingCapability {
-        let source = self.task.source().capability(operation);
+        let source = self.task.source().capability(operation.clone());
         if source.status == CapabilityStatus::Unsupported {
             return source;
         }
-        match self.validate_operation(operation) {
+        match self.validate_operation(&operation) {
             Ok(()) => PricingCapability::new(
                 operation,
                 CapabilityStatus::Supported,
@@ -323,13 +426,57 @@ impl CompiledPricingTask {
             ),
         }
     }
-    fn validate_operation(&self, operation: PricingOperation) -> Result<(), PricingTaskError> {
+    /// One answer per request against the source and the realized plan. A
+    /// standard plan fixes its Greeks at compilation, so a measure it was not
+    /// compiled with is unsupported here even when the source allows it.
+    #[must_use]
+    pub fn measure_capabilities(&self, requests: &[MeasureRequest]) -> Vec<MeasureCapability> {
+        self.task
+            .source()
+            .measure_capabilities(requests)
+            .into_iter()
+            .map(|source| {
+                if source.status == CapabilityStatus::Unsupported {
+                    source
+                } else if source.request.method.is_revaluation() {
+                    let compiled = self
+                        .scenarios
+                        .as_ref()
+                        .is_some_and(|s| s.requests.contains(&source.request));
+                    if compiled {
+                        MeasureCapability::new(
+                            &source.request,
+                            CapabilityStatus::Supported,
+                            None,
+                            "bumped sides are compiled; numerical evaluation can still fail",
+                        )
+                    } else {
+                        MeasureCapability::new(
+                            &source.request,
+                            CapabilityStatus::Unsupported,
+                            Some(CapabilityReason::NativePreflightRequired),
+                            "the bumped sides of this request were not compiled; compile a task that requests it",
+                        )
+                    }
+                } else {
+                    self.backend.measures().preflight(&source.request)
+                }
+            })
+            .collect()
+    }
+    fn validate_operation(&self, operation: &PricingOperation) -> Result<(), PricingTaskError> {
         use PricingOperation as O;
         match (self.backend.as_ref(), operation) {
-            (_, O::Evaluate) => Ok(()),
             (TaskBackend::SingleAsset(p), operation) => {
-                p.validate_operation(operation).map_err(Into::into)
+                let PricingSource::SingleAsset(source) = self.task.source() else {
+                    unreachable!("compiled source/backend pairing")
+                };
+                p.validate_operation(operation, source)
             }
+            (backend, O::Measures(set)) => {
+                backend.measures().validate_measures(&set.native_requests())
+            }
+            (_, O::Evaluate) => Ok(()),
             (
                 TaskBackend::MultiAsset(p),
                 O::Aad {
@@ -337,7 +484,7 @@ impl CompiledPricingTask {
                 },
             ) => p
                 .validate_aad(MultiAssetRiskConfig {
-                    gamma_relative_bump,
+                    gamma_relative_bump: *gamma_relative_bump,
                 })
                 .map_err(Into::into),
             (TaskBackend::Dividend(p), O::Aad { .. }) => {
@@ -357,9 +504,18 @@ impl CompiledPricingTask {
     }
     pub fn evaluate(&self) -> Result<PricingTaskResult, PricingTaskError> {
         use PricingOperation as O;
-        self.validate_operation(self.operation())?;
-        let output = match (self.backend.as_ref(), self.operation()) {
-            (TaskBackend::SingleAsset(p), operation) => p.evaluate_operation(operation)?,
+        let operation = self.operation();
+        self.validate_operation(&operation)?;
+        let output = match (self.backend.as_ref(), &operation) {
+            (TaskBackend::SingleAsset(p), operation) => {
+                let PricingSource::SingleAsset(source) = self.task.source() else {
+                    unreachable!("compiled source/backend pairing")
+                };
+                p.evaluate_operation(operation, source)?
+            }
+            (backend, O::Measures(set)) => backend
+                .measures()
+                .evaluate_measures(&set.native_requests())?,
             (TaskBackend::MultiAsset(p), O::Evaluate) => {
                 PricingTaskOutput::MultiAsset(Box::new(p.evaluate()?))
             }
@@ -369,7 +525,7 @@ impl CompiledPricingTask {
                     gamma_relative_bump,
                 },
             ) => PricingTaskOutput::MultiAsset(Box::new(p.evaluate_aad(MultiAssetRiskConfig {
-                gamma_relative_bump,
+                gamma_relative_bump: *gamma_relative_bump,
             })?)),
             (TaskBackend::Dividend(p), O::Evaluate) => {
                 PricingTaskOutput::StochasticDividend(p.evaluate()?)
@@ -390,29 +546,34 @@ impl CompiledPricingTask {
             }
             _ => unreachable!("validated operation"),
         };
-        let report = super::source_report::build(
+        let mut report = super::source_report::build(
             &self.task,
             self.fingerprint,
             self.plan_fingerprint(),
             &output,
-            match (self.backend.as_ref(), self.task.source()) {
-                (TaskBackend::SingleAsset(p), PricingSource::SingleAsset(s)) => {
-                    p.calibration_diagnostics(s)
-                }
-                (TaskBackend::MultiAsset(p), PricingSource::MultiAsset(s)) => {
-                    super::calibration_report::multi_asset(p, s)
-                }
-                (TaskBackend::Dividend(p), PricingSource::StochasticDividend(s)) => {
-                    p.calibration_diagnostics(s.equity().product().underlying().get())
-                }
-                (TaskBackend::DividendHullWhite(_), _) => Vec::new(),
-                _ => unreachable!("compiled source/backend pairing"),
-            },
+            self.calibration_blocks(),
         )?;
+        if let Some(scenarios) = &self.scenarios {
+            let estimates = scenarios.evaluate(self.task.source(), report.value(), || {
+                self.price_and_units().map(|(_, units)| units)
+            })?;
+            super::source_report::bump_rows(&mut report, &estimates)?;
+        }
         Ok(PricingTaskResult {
             report,
             native_result: output,
         })
+    }
+}
+
+impl TaskBackend {
+    fn measures(&self) -> &dyn super::measure_backend::MeasureBackend {
+        match self {
+            Self::SingleAsset(p) => p,
+            Self::MultiAsset(p) => p.as_ref(),
+            Self::Dividend(p) => p.as_ref(),
+            Self::DividendHullWhite(p) => p.as_ref(),
+        }
     }
 }
 

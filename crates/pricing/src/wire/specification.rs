@@ -8,7 +8,7 @@ use crate::{
 };
 
 mod rough;
-mod task;
+pub(super) mod task;
 use rough::RoughModelV1;
 pub use task::{
     current_pricing_task_schema, fingerprint_pricing_task, parse_pricing_task_json,

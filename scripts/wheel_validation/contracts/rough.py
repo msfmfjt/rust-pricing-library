@@ -826,3 +826,32 @@ CLASSES = {'RoughBergomiLsvPlan': {'bases': [],
                                                                   'positional': ['self'],
                                                                   'positional_defaults': {},
                                                                   'required_keyword_only': []}}}}}
+
+# Spot measures of a measures task (ADR 0043, phase 3 step B1).
+CLASSES['RoughFamilyLsvMeasureRisk'] = {'bases': [], 'members': {
+    'price': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'delta': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'gamma': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'market_iv': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'model_parameters': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+}}
+CLASSES['RoughFamilyLsvModelParameterRisk'] = {'bases': [], 'members': {
+    'parameters': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'risk': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+}}
+
+# Native measures of a measures task on direct rough volatility (ADR 0043,
+# phase 3 step C).
+CLASSES['RoughVolatilityMeasureRisk'] = {'bases': [], 'members': {
+    'price': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'delta': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'gamma': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'model_parameters': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+}}
+CLASSES['RoughVolatilityModelParameterRisk'] = {'bases': [], 'members': {
+    'parameters': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'heston': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'hurst': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'quadratic_heston': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'mixed_bergomi': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+}}

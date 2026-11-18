@@ -78,6 +78,7 @@ impl SimulationPlan {
         drop(valuation);
         let antithetic = valuation_engine.variance_reduction().antithetic();
         let unit_values = collapse_antithetic_values(valued.discounted_cashflows(), antithetic)?;
+        crate::engine::mc::execution::record_units(&unit_values);
         let statistics = DeterministicStatistics::from_ordered_values_two_pass(&unit_values);
         let independent_units = valuation_engine.independent_sampling_units().get();
         let estimate = estimate_from_statistics(
@@ -285,6 +286,7 @@ impl SimulationPlan {
         drop(valuation);
         let replicate_values =
             rqmc_replicate_values(valued.discounted_cashflows(), valuation_engine)?;
+        crate::engine::mc::execution::record_units(&replicate_values);
         let statistics = DeterministicStatistics::from_ordered_values_two_pass(&replicate_values);
         let independent_units = u64::from(valuation_engine.scramble_count().get());
         let estimate = estimate_from_statistics(
