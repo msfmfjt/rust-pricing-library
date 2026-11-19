@@ -27,61 +27,54 @@ impl CompactC2Smoothing {
 
     #[must_use]
     pub fn indicator(self, input: f64) -> SmoothingDerivatives {
+        self.indicator_with_complement(input).0
+    }
+
+    pub(crate) fn indicator_with_complement(self, input: f64) -> (SmoothingDerivatives, f64) {
         let half_width = self.half_width.get();
         if input <= -half_width {
-            return SmoothingDerivatives::ZERO;
+            return (SmoothingDerivatives::ZERO, 1.0);
         }
         if input >= half_width {
-            return SmoothingDerivatives {
-                value: 1.0,
-                first: 0.0,
-                second: 0.0,
-            };
+            return (
+                SmoothingDerivatives {
+                    value: 1.0,
+                    first: 0.0,
+                    second: 0.0,
+                },
+                0.0,
+            );
         }
-
         let u = transition_coordinate(input, half_width);
-        let u2 = u * u;
-        let u3 = u2 * u;
-        let value = u3 * (10.0 + u * (-15.0 + 6.0 * u));
-        let one_minus_u = 1.0 - u;
-        let first = 15.0 * u2 * one_minus_u * one_minus_u / half_width;
-        let numerator = 120.0 * u3 - 180.0 * u2 + 60.0 * u;
-        let denominator = 4.0 * half_width * half_width;
-        let second = if denominator.is_normal() {
-            numerator / denominator
-        } else {
-            // Do not overflow/underflow the width square before division.
-            // In particular, the exact zero curvature at the midpoint is
-            // still zero when that square rounds to zero.
-            ((0.25 * numerator) / half_width) / half_width
-        };
-        SmoothingDerivatives {
-            value,
-            first,
-            second,
-        }
+        interior_indicator(input, half_width, u)
     }
 
     #[must_use]
     pub fn positive_part(self, input: f64) -> SmoothingDerivatives {
+        self.positive_part_with_complement(input).0
+    }
+
+    // The second result is the complementary first derivative for min/max.
+    fn positive_part_with_complement(self, input: f64) -> (SmoothingDerivatives, f64) {
         let half_width = self.half_width.get();
         if input <= -half_width {
-            return SmoothingDerivatives::ZERO;
+            return (SmoothingDerivatives::ZERO, 1.0);
         }
         if input >= half_width {
-            return SmoothingDerivatives {
-                value: input,
-                first: 1.0,
-                second: 0.0,
-            };
+            return (
+                SmoothingDerivatives {
+                    value: input,
+                    first: 1.0,
+                    second: 0.0,
+                },
+                0.0,
+            );
         }
 
         let u = transition_coordinate(input, half_width);
         let u2 = u * u;
-        let u3 = u2 * u;
         let u4 = u2 * u2;
-        let indicator = u3 * (10.0 + u * (-15.0 + 6.0 * u));
-        let indicator_first = 15.0 * u2 * (1.0 - u) * (1.0 - u) / half_width;
+        let (indicator, complement) = interior_indicator(input, half_width, u);
         let scaled_u4 = 2.0 * half_width * u4;
         let polynomial = 2.5 + u * (-3.0 + u);
         let value = if scaled_u4.is_normal() {
@@ -91,11 +84,14 @@ impl CompactC2Smoothing {
             // range, so a subnormal value is rounded only once.
             (2.0 * u4 * polynomial) * half_width
         };
-        SmoothingDerivatives {
-            value,
-            first: indicator,
-            second: indicator_first,
-        }
+        (
+            SmoothingDerivatives {
+                value,
+                first: indicator.value,
+                second: indicator.first,
+            },
+            complement,
+        )
     }
 
     #[must_use]
@@ -115,11 +111,11 @@ impl CompactC2Smoothing {
                 right_first: 1.0,
             };
         }
-        let positive_part = self.positive_part(difference);
+        let (positive_part, right_first) = self.positive_part_with_complement(difference);
         SmoothingBinaryDerivatives {
             value: right + positive_part.value,
             left_first: positive_part.first,
-            right_first: 1.0 - positive_part.first,
+            right_first,
         }
     }
 
@@ -140,19 +136,60 @@ impl CompactC2Smoothing {
                 right_first: 0.0,
             };
         }
-        let positive_part = self.positive_part(difference);
+        let (positive_part, left_first) = self.positive_part_with_complement(difference);
         SmoothingBinaryDerivatives {
             value: left - positive_part.value,
-            left_first: 1.0 - positive_part.first,
+            left_first,
             right_first: positive_part.first,
         }
     }
+}
+
+fn quintic(u: f64) -> f64 {
+    u * u * u * (10.0 + u * (-15.0 + 6.0 * u))
+}
+
+fn interior_indicator(input: f64, half_width: f64, u: f64) -> (SmoothingDerivatives, f64) {
+    let hit = quintic(u);
+    let safety = 1.0 - hit;
+    // The Horner intermediates can reach 15 for a result near one. Allow
+    // 32 epsilons for their absolute roundoff before trusting 1 - hit.
+    // Reflect inside that band and retain the established arithmetic elsewhere.
+    let (z, value, complement, curvature_sign) = if safety <= 32.0 * f64::EPSILON {
+        let z = transition_coordinate(-input, half_width);
+        let tail = quintic(z);
+        (z, 1.0 - tail, tail, -1.0)
+    } else {
+        (u, hit, safety, 1.0)
+    };
+    let z2 = z * z;
+    let z3 = z2 * z;
+    let one_minus_z = 1.0 - z;
+    let first = 15.0 * z2 * one_minus_z * one_minus_z / half_width;
+    let numerator = curvature_sign * (120.0 * z3 - 180.0 * z2 + 60.0 * z);
+    let denominator = 4.0 * half_width * half_width;
+    let second = if denominator.is_normal() {
+        numerator / denominator
+    } else {
+        ((0.25 * numerator) / half_width) / half_width
+    };
+    (
+        SmoothingDerivatives {
+            value,
+            first,
+            second,
+        },
+        complement,
+    )
 }
 
 fn transition_coordinate(input: f64, half_width: f64) -> f64 {
     let full_width = 2.0 * half_width;
     if full_width.is_finite() {
         (input + half_width) / full_width
+    } else if input < 0.0 {
+        // Opposite signs make the sum safe and preserve a small edge distance.
+        0.5 * ((input + half_width) / half_width)
     } else {
         // Interior inputs satisfy |input| < half_width. This ratio remains
         // bounded even when adding/doubling the width would overflow.

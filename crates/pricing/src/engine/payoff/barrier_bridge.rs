@@ -151,6 +151,7 @@ pub struct SmoothedBarrierBridgeEndpointAdjoints {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SmoothedBarrierBridgeEndpoint {
     hit_weight: f64,
+    safety_weight: f64,
     effective_log_distance: f64,
     hit_weight_derivatives: SmoothedBarrierBridgeEndpointAdjoints,
     effective_log_distance_derivatives: SmoothedBarrierBridgeEndpointAdjoints,
@@ -168,7 +169,9 @@ impl SmoothedBarrierBridgeEndpoint {
         };
         let state_difference = input.state - input.transformed_barrier;
         let signed_hit_distance = input.affine_scale * direction_sign * state_difference;
-        let hit = input.smoothing.indicator(signed_hit_distance);
+        let (hit, safety_weight) = input
+            .smoothing
+            .indicator_with_complement(signed_hit_distance);
         let safe = input.smoothing.positive_part(-signed_hit_distance);
         let transformed_spot_barrier = input.affine_scale * input.transformed_barrier;
         let denominator = match input.direction {
@@ -199,6 +202,7 @@ impl SmoothedBarrierBridgeEndpoint {
 
         Ok(Self {
             hit_weight: hit.value,
+            safety_weight,
             effective_log_distance,
             hit_weight_derivatives: SmoothedBarrierBridgeEndpointAdjoints {
                 state: hit_x * x_state,
@@ -220,7 +224,7 @@ impl SmoothedBarrierBridgeEndpoint {
 
     #[must_use]
     pub const fn safety_weight(self) -> f64 {
-        1.0 - self.hit_weight
+        self.safety_weight
     }
 
     #[must_use]
