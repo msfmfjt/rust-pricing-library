@@ -236,6 +236,7 @@ fn measure_methods_are_an_explicit_reviewed_table() {
                 }
                 (F::MultiAsset, K::CrossGamma) => &[M::NativeSpotBump, M::NativeSpotBumpCalibrated],
                 (F::MultiAsset, K::DiscountCurve) => &[M::Native, M::NativeCalibrated],
+                (F::MultiAsset, K::Correlations) => &[M::BumpAndRevalue],
                 (_, K::Correlations | K::DividendCash | K::CrossGamma | K::DiscountCurve) => &[],
                 (F::StochasticDividend, K::SpotDelta) => &[M::Native, M::BumpAndRevalue],
                 (F::StochasticDividend, K::SpotGamma) => &[M::NativeSpotBump, M::BumpAndRevalue],

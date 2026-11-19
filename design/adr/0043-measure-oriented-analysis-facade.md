@@ -763,9 +763,39 @@ Implemented (E2):
   the four dividend fixtures and the joint basket under both samplers. The
   shared runs and each refusal are checked.
 
-Step E3 remains. The basket AAD has no derivative to the asset-pair
-correlations, so E3 has no native estimator to wrap and would need a new
-method.
+Implemented (E3):
+
+- **No new estimator.** The basket AAD has no derivative to the asset-pair
+  Spot correlations, so E3 does not add a native method. It extends the
+  existing explicit `BumpAndRevalue` (section 1) to a new input instead. The
+  central difference, common random numbers, paired error and calibration
+  treatment are those of the Spot and market-IV bumps. The out-of-scope rule
+  against new estimators therefore holds.
+- **Identity.** `CorrelationId::AssetPair { first, second }` (label
+  `asset_pair.<first>.<second>`, wire `asset_pair` with `first` and
+  `second`) names a pair by underlying id, the smaller first, so one pair
+  has one name. A selection with the larger id first, or one id twice, is
+  rejected.
+- **The moved input.** A side moves both symmetric entries of the pair by
+  the absolute bump at every date of the term structure, and the same
+  entries of any explicit driver matrices, whose Spot block must equal the
+  canonical correlations. It is a parallel shift of that pair's term
+  structure, without projection. A side that is no longer a valid
+  correlation is `model_combination`.
+- **Methods.** `MultiAsset` offers `Correlations` by `BumpAndRevalue` only,
+  `NotApplicable` without a calibration step and `Recalibrated` on LSV.
+  `Fixed` is `fixed_calibration_unavailable`, as for other basket bumps.
+  A relative size is `model_combination`. A Local Correlation basket mixes
+  two calibrated endpoints and has no single pair correlation, so it is
+  `model_combination`.
+- **Rows.** One row per listed pair, with both underlying ids and the typed
+  `correlation` field.
+- **Acceptance.** On the Black-Scholes basket, and recalibrated on the LSV
+  and Hull-White basket with explicit driver matrices, each row equals the
+  central difference of two independent revaluations of the source with
+  the shifted correlation, to rounding (1e-10).
+
+Phase 3 step E is complete.
 
 ### Out of scope
 

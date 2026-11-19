@@ -2142,6 +2142,7 @@ mod stochastic_dividend_tests {
                         CorrelationId::VolatilityFactors => {
                             "volatility_factor_correlation".to_owned()
                         }
+                        CorrelationId::AssetPair { .. } => unreachable!("not a dividend driver"),
                     };
                     let i = expected
                         .parameter_labels
@@ -3602,5 +3603,233 @@ mod basket_tests {
         let text = pricing_task_to_json(&t).unwrap();
         let back = parse_pricing_task_json(text.as_bytes(), JsonLimits::DEFAULT).unwrap();
         assert_eq!(back.fingerprint().unwrap(), t.fingerprint().unwrap());
+    }
+
+    fn pair() -> CorrelationId {
+        CorrelationId::AssetPair {
+            first: 1,
+            second: 2,
+        }
+    }
+
+    fn bumped_correlation(size: crate::BumpSize, calibration: BumpCalibration) -> MeasureRequest {
+        MeasureRequest::new(
+            Measure::Correlations(CorrelationSelection::new(vec![pair()]).unwrap()),
+            MeasureMethod::BumpAndRevalue { size, calibration },
+        )
+    }
+
+    /// A saved basket edited as JSON: `edit` changes its source.
+    fn edited(name: &str, edit: impl Fn(&mut Value)) -> PricingSource {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/task-v1")
+            .join(format!("multi_asset_{name}.golden.json"));
+        let mut v: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        v["operation"] = json!({"type":"evaluate"});
+        edit(&mut v["source"]);
+        parse_pricing_task_json(&serde_json::to_vec(&v).unwrap(), JsonLimits::DEFAULT)
+            .unwrap()
+            .source()
+            .clone()
+    }
+
+    /// Moves the (1, 2) Spot correlation by `h` in both entries, at every
+    /// date and in every explicit driver matrix.
+    fn shifted(source: &mut Value, h: f64) {
+        let object = source.as_object_mut().unwrap();
+        let mut matrices = Vec::new();
+        for (key, value) in object.iter_mut() {
+            match key.as_str() {
+                "correlation" => matrices.extend(
+                    value["entries"]
+                        .as_array_mut()
+                        .unwrap()
+                        .iter_mut()
+                        .map(|e| &mut e["matrix"]),
+                ),
+                "driver_correlations" => {
+                    matrices.extend(value.as_array_mut().unwrap().iter_mut());
+                }
+                _ => {}
+            }
+        }
+        for m in matrices {
+            for (i, j) in [(0, 1), (1, 0)] {
+                let v = m[i][j].as_f64().unwrap();
+                m[i][j] = json!(v + h);
+            }
+        }
+    }
+
+    fn price(s: &PricingSource) -> f64 {
+        PricingTask::new(s.clone(), PricingOperation::Evaluate)
+            .unwrap()
+            .compile()
+            .unwrap()
+            .evaluate()
+            .unwrap()
+            .report
+            .value()
+    }
+
+    /// The correlation row is the central difference of complete
+    /// revaluations at the shifted correlation, on the task's draws: on the
+    /// Black-Scholes basket, and recalibrated on the LSV and Hull-White basket
+    /// with explicit driver matrices (the joint fixture without its Local
+    /// Correlation).
+    #[test]
+    fn correlation_rows_are_paired_revaluations() {
+        let h = 0.01;
+        let no_lc = |v: &mut Value| {
+            v.as_object_mut().unwrap().remove("local_correlation");
+        };
+        for (name, edit, calibration) in [
+            (
+                "bs",
+                (&|_: &mut Value| {}) as &dyn Fn(&mut Value),
+                BumpCalibration::NotApplicable,
+            ),
+            ("joint", &no_lc, BumpCalibration::Recalibrated),
+        ] {
+            let s = edited(name, edit);
+            let request = bumped_correlation(crate::BumpSize::absolute(h).unwrap(), calibration);
+            let result = task(&s, vec![request.clone()])
+                .compile()
+                .unwrap()
+                .evaluate()
+                .unwrap();
+            let up = price(&edited(name, |v| {
+                edit(v);
+                shifted(v, h);
+            }));
+            let down = price(&edited(name, |v| {
+                edit(v);
+                shifted(v, -h);
+            }));
+            let expected = (up - down) / (2.0 * h);
+            let rows = result
+                .report
+                .risks()
+                .iter()
+                .filter(|r| r.measure == Some(MeasureKind::Correlations))
+                .collect::<Vec<_>>();
+            assert_eq!(rows.len(), 1, "{name}");
+            let row = rows[0];
+            assert_eq!(row.name, "correlations.asset_pair.1.2.bump_and_revalue");
+            assert_eq!(row.underlying_ids, vec![1, 2]);
+            assert_eq!(row.correlation, Some(pair()));
+            assert_eq!(row.unit, SensitivityUnit::CurrencyPerUnitParameter);
+            assert_eq!(row.method_detail, Some(request.method));
+            assert!(
+                (row.values[0] - expected).abs() <= 1e-10 * (1.0 + expected.abs()),
+                "{name}: {} vs {expected}",
+                row.values[0]
+            );
+            let se = row.standard_errors.as_ref().unwrap()[0];
+            assert!(se.is_finite() && se >= 0.0, "{name}");
+            assert_eq!(
+                row.calibration,
+                if calibrated(name) {
+                    CalibrationTreatment::Recalibrated
+                } else {
+                    CalibrationTreatment::NotApplicable
+                }
+            );
+            assert_eq!(
+                result.report.correlation_risk(pair()).map(|r| &r.values),
+                Some(&row.values)
+            );
+        }
+    }
+
+    #[test]
+    fn correlation_refusals_name_their_reason() {
+        let absolute = crate::BumpSize::absolute(0.01).unwrap();
+        let bs = source("bs", false, true);
+        let joint = source("joint", false, true);
+        let not_applicable = BumpCalibration::NotApplicable;
+        // A Local Correlation basket has no single pair correlation.
+        assert_eq!(
+            reason(&joint, bumped_correlation(absolute, recalibrated())),
+            Some(CapabilityReason::ModelCombination)
+        );
+        assert_eq!(
+            reason(&joint, bumped_correlation(absolute, BumpCalibration::Fixed)),
+            Some(CapabilityReason::FixedCalibrationUnavailable)
+        );
+        assert_eq!(
+            reason(&joint, bumped_correlation(absolute, not_applicable)),
+            Some(CapabilityReason::BumpCalibrationMismatch)
+        );
+        assert_eq!(
+            reason(
+                &bs,
+                bumped_correlation(crate::BumpSize::relative(0.01).unwrap(), not_applicable)
+            ),
+            Some(CapabilityReason::ModelCombination)
+        );
+        // The bumped side leaves [-1, 1].
+        assert_eq!(
+            reason(
+                &bs,
+                bumped_correlation(crate::BumpSize::absolute(0.9).unwrap(), not_applicable)
+            ),
+            Some(CapabilityReason::ModelCombination)
+        );
+        let other = |id| {
+            MeasureRequest::new(
+                Measure::Correlations(CorrelationSelection::new(vec![id]).unwrap()),
+                MeasureMethod::BumpAndRevalue {
+                    size: absolute,
+                    calibration: not_applicable,
+                },
+            )
+        };
+        for id in [
+            CorrelationId::AssetPair {
+                first: 1,
+                second: 3,
+            },
+            CorrelationId::EquityRate,
+        ] {
+            assert_eq!(
+                reason(&bs, other(id)),
+                Some(CapabilityReason::ModelCombination),
+                "{id:?}"
+            );
+        }
+        // No native estimator exists for a basket correlation.
+        assert_eq!(
+            reason(
+                &bs,
+                MeasureRequest::native(Measure::Correlations(
+                    CorrelationSelection::new(vec![pair()]).unwrap()
+                ))
+            ),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        for (first, second) in [(2, 1), (1, 1)] {
+            assert!(
+                CorrelationSelection::new(vec![CorrelationId::AssetPair { first, second }])
+                    .is_err()
+            );
+        }
+        assert_eq!(CorrelationId::from_label("asset_pair.1.2"), Some(pair()));
+        let t = task(&bs, vec![bumped_correlation(absolute, not_applicable)]);
+        let text = pricing_task_to_json(&t).unwrap();
+        let compact = text.split_whitespace().collect::<String>();
+        assert!(
+            compact.contains(r#"{"name":"asset_pair","first":1,"second":2}"#),
+            "{text}"
+        );
+        let back = parse_pricing_task_json(text.as_bytes(), JsonLimits::DEFAULT).unwrap();
+        assert_eq!(back.fingerprint().unwrap(), t.fingerprint().unwrap());
+        let report = t.compile().unwrap().evaluate().unwrap().report;
+        let again = parse_valuation_report_json(
+            valuation_report_to_json(&report).unwrap().as_bytes(),
+            JsonLimits::DEFAULT,
+        )
+        .unwrap();
+        assert_eq!(again, report);
     }
 }

@@ -96,6 +96,7 @@ pub(in crate::wire) enum CorrelationV3 {
     SpotVolatility { factor: u16 },
     DividendVolatility { factor: u16 },
     VolatilityFactors {},
+    AssetPair { first: u32, second: u32 },
 }
 impl From<crate::CorrelationId> for CorrelationV3 {
     fn from(v: crate::CorrelationId) -> Self {
@@ -107,6 +108,7 @@ impl From<crate::CorrelationId> for CorrelationV3 {
             C::SpotVolatility { factor } => Self::SpotVolatility { factor },
             C::DividendVolatility { factor } => Self::DividendVolatility { factor },
             C::VolatilityFactors => Self::VolatilityFactors {},
+            C::AssetPair { first, second } => Self::AssetPair { first, second },
         }
     }
 }
@@ -120,6 +122,7 @@ impl From<CorrelationV3> for crate::CorrelationId {
             W::SpotVolatility { factor } => Self::SpotVolatility { factor },
             W::DividendVolatility { factor } => Self::DividendVolatility { factor },
             W::VolatilityFactors {} => Self::VolatilityFactors,
+            W::AssetPair { first, second } => Self::AssetPair { first, second },
         }
     }
 }

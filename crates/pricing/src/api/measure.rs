@@ -222,6 +222,9 @@ pub enum CorrelationId {
     DividendVolatility { factor: u16 },
     /// The two factors of a two-factor volatility.
     VolatilityFactors,
+    /// The Spot correlation of two basket underlyings, named by their ids
+    /// with the smaller first. Moved at every date of the term structure.
+    AssetPair { first: u32, second: u32 },
 }
 
 impl CorrelationId {
@@ -235,6 +238,7 @@ impl CorrelationId {
             Self::SpotVolatility { .. } => "spot_volatility",
             Self::DividendVolatility { .. } => "dividend_volatility",
             Self::VolatilityFactors => "volatility_factors",
+            Self::AssetPair { .. } => "asset_pair",
         }
     }
     /// A stable label: the wire name, with the factor index for a factor
@@ -245,12 +249,20 @@ impl CorrelationId {
             Self::SpotVolatility { factor } | Self::DividendVolatility { factor } => {
                 format!("{}.{factor}", self.as_str())
             }
+            Self::AssetPair { first, second } => format!("{}.{first}.{second}", self.as_str()),
             _ => self.as_str().to_owned(),
         }
     }
     /// The correlation a `label` names; `None` for an unknown label.
     #[must_use]
     pub fn from_label(label: &str) -> Option<Self> {
+        if let Some(("asset_pair", ids)) = label.split_once('.') {
+            let (first, second) = ids.split_once('.')?;
+            return Some(Self::AssetPair {
+                first: first.parse().ok()?,
+                second: second.parse().ok()?,
+            });
+        }
         if let Some((name, index)) = label.split_once('.') {
             let factor = index.parse().ok()?;
             return match name {
@@ -283,6 +295,14 @@ impl CorrelationSelection {
             return Err(invalid("state at least one correlation".into()));
         }
         for (i, c) in correlations.iter().enumerate() {
+            if let CorrelationId::AssetPair { first, second } = *c
+                && first >= second
+            {
+                return Err(invalid(format!(
+                    "{} must name two distinct underlyings, the smaller id first",
+                    c.label()
+                )));
+            }
             if correlations[..i].contains(c) {
                 return Err(invalid(format!("{} is listed more than once", c.label())));
             }

@@ -182,6 +182,8 @@ fn native_correlation_name(id: CorrelationId) -> String {
             format!("dividend_volatility_correlation[{factor}]")
         }
         CorrelationId::VolatilityFactors => "volatility_factor_correlation".into(),
+        // Not a driver of a dividend source; never among its correlations.
+        CorrelationId::AssetPair { .. } => id.label(),
     }
 }
 

@@ -297,11 +297,21 @@ impl PyMeasureRequest {
     }
     /// Derivatives with respect to Brownian correlations, named by label
     /// (`"equity_dividend"`, `"equity_rate"`, `"spot_volatility.0"`,
-    /// `"dividend_volatility.1"`, `"volatility_factors"`), one report row
-    /// each in this order. The fixed-model native estimator varies one
-    /// symmetric pair of the driver correlation matrix.
+    /// `"dividend_volatility.1"`, `"volatility_factors"`, and on a basket
+    /// `"asset_pair.<first>.<second>"` with the smaller underlying id first),
+    /// one report row each in this order. Without a bump it asks for the
+    /// fixed-model native estimator, which varies one symmetric pair of the
+    /// driver correlation matrix. With `absolute_bump` it asks for central
+    /// bump-and-revalue of that pair with the stated calibration treatment
+    /// (basket Spot correlations have no native estimator).
     #[staticmethod]
-    fn correlations(py: Python<'_>, correlations: Vec<String>) -> PyResult<Self> {
+    #[pyo3(signature=(correlations, *, absolute_bump=None, calibration=None))]
+    fn correlations(
+        py: Python<'_>,
+        correlations: Vec<String>,
+        absolute_bump: Option<f64>,
+        calibration: Option<&str>,
+    ) -> PyResult<Self> {
         let field = "/operation/measures/measure/correlations";
         let ids = correlations
             .iter()
@@ -318,8 +328,30 @@ impl PyMeasureRequest {
             .collect::<PyResult<Vec<_>>>()?;
         let selection = CorrelationSelection::new(ids)
             .map_err(|e| builders::domain_error(py, "invalid_correlation", field, e))?;
+        let method = match (absolute_bump, calibration) {
+            (None, None) => MeasureMethod::Native,
+            (Some(h), Some(c)) => MeasureMethod::BumpAndRevalue {
+                size: BumpSize::absolute(h).map_err(|error| {
+                    builders::domain_error(
+                        py,
+                        "invalid_bump_size",
+                        "/operation/measures/method/size",
+                        error,
+                    )
+                })?,
+                calibration: parse_calibration(py, c, "/operation/measures/method/calibration")?,
+            },
+            _ => {
+                return Err(builders::domain_error(
+                    py,
+                    "ambiguous_bump_size",
+                    "/operation/measures/method",
+                    "state absolute_bump and calibration together for bump_and_revalue, or neither for the native estimator",
+                ));
+            }
+        };
         Ok(Self {
-            inner: MeasureRequest::native(Measure::Correlations(selection)),
+            inner: MeasureRequest::new(Measure::Correlations(selection), method),
         })
     }
     #[getter]

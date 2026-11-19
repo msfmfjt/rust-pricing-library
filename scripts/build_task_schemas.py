@@ -75,7 +75,8 @@ def build():
         *(obj(dict(name={'const': n})) for n in
           ['equity_dividend', 'equity_rate', 'dividend_rate', 'volatility_factors']),
         *(obj(dict(name={'const': n}, factor=factor)) for n in
-          ['spot_volatility', 'dividend_volatility'])]}
+          ['spot_volatility', 'dividend_volatility']),
+        obj(dict(name={'const': 'asset_pair'}, first=u32, second=u32))]}
     calibration = {'enum': ['not_applicable', 'fixed', 'recalibrated']}
     measure_method = {'oneOf': [
         tag('native'), tag('native_spot_bump', dict(bump=ref('spot_bump'))),

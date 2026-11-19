@@ -202,6 +202,7 @@ class PricingTaskTests(unittest.TestCase):
             'spot_delta': ['native', 'native_calibrated', 'bump_and_revalue'],
             'spot_gamma': ['bump_and_revalue'],
             'cross_gamma': ['native_spot_bump', 'native_spot_bump_calibrated'],
+            'correlations': ['bump_and_revalue'],
             'discount_curve': ['native', 'native_calibrated']})
         priced = basket.with_operation('measures', measures=[M.price()]).compile().evaluate()
         self.assertEqual(priced.report.value,
@@ -678,6 +679,35 @@ class PricingTaskTests(unittest.TestCase):
         rows = [r for r in result.report.risks if r.measure == 'discount_curve']
         self.assertEqual(rows[0].values, [e.value for e in curve.discount_log_df_adjoints])
         self.assertEqual(rows[1].values, [e.value for e in curve.discount_node_dv01])
+        self.assertEqual(
+            rp.ValuationReport.from_json(result.report.to_json()).to_json(),
+            result.report.to_json())
+
+    def test_basket_asset_pair_correlation_is_bump_and_revalue(self) -> None:
+        M = rp.MeasureRequest
+        request = M.correlations(['asset_pair.1.2'], absolute_bump=0.01,
+                                 calibration='not_applicable')
+        self.assertEqual((request.measure, request.method, request.correlation_labels),
+                         ('correlations', 'bump_and_revalue', ['asset_pair.1.2']))
+        for bad in (dict(absolute_bump=0.01), dict(calibration='not_applicable')):
+            with self.assertRaises(ValueError):
+                M.correlations(['asset_pair.1.2'], **bad)
+        with self.assertRaises(ValueError):
+            M.correlations(['asset_pair.2.1'])
+        basket = rp.PricingTask.from_json(fixture('multi_asset_bs'))
+        self.assertEqual(
+            basket.measure_capabilities([M.correlations(['asset_pair.1.2'])])[0].reason,
+            'no_native_estimator')
+        result = basket.with_operation('measures', measures=[request]).compile().evaluate()
+        row = result.report.correlation_risk('asset_pair.1.2')
+        self.assertEqual(row.name, 'correlations.asset_pair.1.2.bump_and_revalue')
+        self.assertEqual((row.underlying_ids, row.correlation), ([1, 2], 'asset_pair.1.2'))
+        self.assertEqual(row.unit, 'currency_per_unit_parameter')
+        joint = rp.PricingTask.from_json(fixture('multi_asset_joint'))
+        self.assertEqual(
+            joint.measure_capabilities([M.correlations(
+                ['asset_pair.1.2'], absolute_bump=0.01, calibration='recalibrated')])[0].reason,
+            'model_combination')
         self.assertEqual(
             rp.ValuationReport.from_json(result.report.to_json()).to_json(),
             result.report.to_json())

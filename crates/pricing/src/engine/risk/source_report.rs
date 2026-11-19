@@ -1380,11 +1380,22 @@ pub(super) fn bump_rows(
         let unit = match kind {
             MeasureKind::SpotGamma => SensitivityUnit::CurrencyPerSpotSquared,
             MeasureKind::ParallelMarketIvVega => SensitivityUnit::CurrencyPerUnitVolatility,
+            MeasureKind::Correlations => SensitivityUnit::CurrencyPerUnitParameter,
             _ => SensitivityUnit::CurrencyPerSpot,
         };
+        let (name, underlying_ids) = match e.correlation {
+            Some(c @ CorrelationId::AssetPair { first, second }) => (
+                format!("{}.{}.bump_and_revalue", kind.as_str(), c.label()),
+                vec![first, second],
+            ),
+            _ => (
+                format!("{}.bump_and_revalue", kind.as_str()),
+                vec![e.underlying],
+            ),
+        };
         report.risks.push(ReportedRisk {
-            name: format!("{}.bump_and_revalue", kind.as_str()),
-            underlying_ids: vec![e.underlying],
+            name,
+            underlying_ids,
             axes: Vec::new(),
             values: vec![e.value],
             standard_errors: e.standard_error.map(|se| vec![se]),
@@ -1405,6 +1416,8 @@ pub(super) fn bump_rows(
                     && calibration == BumpCalibration::Recalibrated
                 {
                     " (every IV of the target's reporting basis moved together; the Dupire target rebuilt on its axes, floor and cap, then recalibrated)"
+                } else if kind == MeasureKind::Correlations {
+                    " (per one absolute unit of this pair's Spot correlation, moved in both symmetric entries at every date of the term structure and of any explicit driver matrices, every other entry held; no projection to a valid matrix)"
                 } else {
                     ""
                 },
@@ -1417,7 +1430,7 @@ pub(super) fn bump_rows(
             measure: Some(kind),
             method_detail: Some(e.request.method),
             model_parameter: None,
-            correlation: None,
+            correlation: e.correlation,
         });
     }
     report.validate()

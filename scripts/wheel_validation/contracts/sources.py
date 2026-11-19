@@ -737,3 +737,6 @@ CLASSES['MeasureRequest']["members"]['discount_curve'] = {"kind": 'staticmethod'
 CLASSES['MeasureRequest']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}]: ...'}
 CLASSES['MeasureCapability']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}]: ...'}
 CLASSES['ReportedRisk']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}] | None: ...'}
+
+# Basket asset-pair correlations by bump-and-revalue (ADR 0043, phase 3 step E3).
+CLASSES['MeasureRequest']["members"]['correlations'] = {"kind": 'staticmethod', "declaration": '@staticmethod\ndef correlations(correlations: Sequence[str], *, absolute_bump: float | None = None, calibration: Literal["not_applicable", "fixed", "recalibrated"] | None = None) -> MeasureRequest: ...'}

@@ -243,6 +243,8 @@ impl SourceFamily {
             (Self::MultiAsset, MeasureKind::SpotDelta) => {
                 &[M::Native, M::NativeCalibrated, M::BumpAndRevalue]
             }
+            // A basket's Spot correlations have no native derivative.
+            (Self::MultiAsset, MeasureKind::Correlations) => &[M::BumpAndRevalue],
             // The shared Hull-White initial curve, in the same AAD run.
             (Self::MultiAsset, MeasureKind::DiscountCurve) => &[M::Native, M::NativeCalibrated],
             (Self::MultiAsset, MeasureKind::CrossGamma) => {

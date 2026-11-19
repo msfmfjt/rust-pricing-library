@@ -2621,6 +2621,30 @@
               "maximum": 65535
             }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "first",
+            "second"
+          ],
+          "properties": {
+            "name": {
+              "const": "asset_pair"
+            },
+            "first": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "second": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          }
         }
       ]
     }

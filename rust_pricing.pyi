@@ -267,12 +267,15 @@ class MeasureRequest:
         """
         ...
     @staticmethod
-    def correlations(correlations: Sequence[str]) -> MeasureRequest:
-        """Native Brownian-correlation risk, one row per label in order.
+    def correlations(correlations: Sequence[str], *, absolute_bump: float | None = None, calibration: Literal["not_applicable", "fixed", "recalibrated"] | None = None) -> MeasureRequest:
+        """Brownian-correlation risk, one row per label in order.
 
         Labels: equity_dividend, equity_rate, dividend_rate, volatility_factors,
-        spot_volatility.<i> and dividend_volatility.<i>. Per one absolute
-        correlation unit, one symmetric pair varied with the others held.
+        spot_volatility.<i> and dividend_volatility.<i>, and on a basket
+        asset_pair.<first>.<second> (smaller underlying id first). Per one absolute
+        correlation unit, one symmetric pair varied with the others held. Without
+        a bump: the native estimator. With absolute_bump and calibration:
+        bump_and_revalue, the only method for basket asset pairs.
         """
         ...
     @staticmethod

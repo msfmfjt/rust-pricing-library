@@ -185,7 +185,7 @@ let task = PricingTask::new(source, PricingOperation::Measures(measures))?;
 | `parallel_market_iv_vega` | Parallel shift of the market implied-volatility surface; for a constant-volatility model, its single volatility. |
 | `vega_kt` | Bucketed quote-node Vega on the grid given with the request. |
 | `model_parameters` | Derivatives to the native model parameters listed with the request, one row per parameter. Not a Vega. |
-| `correlations` | Derivatives to the Brownian correlations listed with the request, one row per correlation. |
+| `correlations` | Derivatives to the Brownian correlations listed with the request, one row per correlation. On a basket, its Spot correlations by asset pair, by bump-and-revalue only. |
 | `dividend_cash` | Derivatives to the mean of each cash dividend, one row on an ex-dividend-time axis. |
 | `cross_gamma` | The full Spot Gamma matrix of a basket, one row per ordered pair of underlyings. |
 | `discount_curve` | Derivatives to the log discount factor of each discount-curve pillar, with their DV01 projection: two rows on a discount-time axis. |
@@ -488,6 +488,37 @@ M.discount_curve(calibration="recalibrated")    # residual-equity LSV, calibrate
   (`native_result.discount_curve` on dividends, `hull_white_curve_risk` on
   baskets) but have no measure.
 
+A basket's Spot correlations have no native derivative (the basket AAD
+does not differentiate them), so `correlations` on a basket is
+`bump_and_revalue` only. A pair is named by its underlying ids, the smaller
+first:
+
+```python
+M.correlations(["asset_pair.1.2"], absolute_bump=0.01,
+               calibration="not_applicable")     # basket without a calibration step
+M.correlations(["asset_pair.1.2"], absolute_bump=0.01,
+               calibration="recalibrated")       # LSV basket
+report.correlation_risk("asset_pair.1.2")
+```
+
+- One row per listed pair, `correlations.asset_pair.<i>.<j>.bump_and_revalue`,
+  carrying both underlying ids: the central difference of two complete
+  revaluations on the task's random coordinates, with the paired
+  per-sampling-unit error, per one absolute correlation unit.
+- A side moves both symmetric entries of that pair by the bump at every
+  date of the correlation term structure, and in the Spot block of any
+  explicit driver matrices, which must match it. Every other entry, Spot,
+  the models, curves, dates and grid are held. Nothing projects the moved
+  matrix; a side that leaves the valid matrices is `model_combination`.
+- The size is absolute (a correlation can be zero, so there is no level to
+  scale); a relative size is `model_combination`. An LSV basket states
+  `recalibrated`, which recalibrates both sides with the same seeds; `fixed`
+  is `fixed_calibration_unavailable`.
+- A Local Correlation basket mixes two correlation endpoints calibrated to
+  the basket target, so it has no single pair correlation to move:
+  `model_combination`. A pair the basket does not have is
+  `model_combination`, and a request without a bump is `no_native_estimator`.
+
 Which measures a source family produces, and by which method:
 
 <!-- measure-matrix:begin (generated; see crates/pricing/tests/operation_matrix.rs) -->
@@ -499,7 +530,7 @@ Which measures a source family produces, and by which method:
 | `rough_family_lsv` | `native` | `native_calibrated`, `bump_and_revalue` | `native_spot_bump_calibrated`, `bump_and_revalue` | `native_calibrated`, `bump_and_revalue` | not exposed | `native_calibrated` | not exposed | not exposed | not exposed | not exposed |
 | `single_asset_hull_white` | `native` | `bump_and_revalue` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed | not exposed | not exposed |
 | `direct_rough_volatility` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | not exposed | not exposed | `native` | not exposed | not exposed | not exposed | not exposed |
-| `multi_asset` | `native` | `native`, `native_calibrated`, `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed | not exposed | `native_spot_bump`, `native_spot_bump_calibrated` | `native`, `native_calibrated` |
+| `multi_asset` | `native` | `native`, `native_calibrated`, `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | `bump_and_revalue` | not exposed | `native_spot_bump`, `native_spot_bump_calibrated` | `native`, `native_calibrated` |
 | `stochastic_dividend` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | not exposed | not exposed | `native` | `native` | `native` | not exposed | `native` |
 | `stochastic_dividend_lsv` | `native` | `native_calibrated`, `bump_and_revalue` | `native_spot_bump_calibrated`, `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed | `native_calibrated` | not exposed | `native_calibrated` |
 <!-- measure-matrix:end -->

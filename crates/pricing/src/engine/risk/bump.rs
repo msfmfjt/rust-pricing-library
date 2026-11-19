@@ -22,6 +22,14 @@ pub(crate) enum BumpTarget {
     /// Every market IV of an LSV target's reproducing reporting basis, moved
     /// together; the target is rebuilt from the moved surface.
     MarketIv,
+    /// One symmetric pair of a basket's Spot correlations, at the assets at
+    /// these positions, moved by the same amount at every date. Explicit
+    /// driver matrices move with it, since their Spot block must match.
+    Correlation {
+        first: usize,
+        second: usize,
+        id: CorrelationId,
+    },
 }
 
 /// One up/down pair. Requests that move the same input by the same amount
@@ -215,6 +223,114 @@ impl PricingSource {
         })
     }
 
+    /// The basket with one Spot correlation pair moved by `shift` at every
+    /// date of the term structure and of any explicit driver matrices.
+    fn with_correlation_shift(
+        &self,
+        first: usize,
+        second: usize,
+        shift: f64,
+    ) -> Result<Self, SpecificationValidationError> {
+        let Self::MultiAsset(s) = self else {
+            return Err(invalid("only a basket has asset-pair correlations"));
+        };
+        let moved = |matrix: &mut [Vec<f64>]| {
+            matrix[first][second] += shift;
+            matrix[second][first] += shift;
+        };
+        let mut model = s.model().clone();
+        let correlation = &model.correlation;
+        let entries = correlation
+            .entries()
+            .iter()
+            .map(|(date, factor)| {
+                let n = factor.dimension();
+                let mut matrix = factor
+                    .raw()
+                    .chunks(n)
+                    .map(<[f64]>::to_vec)
+                    .collect::<Vec<_>>();
+                moved(&mut matrix);
+                (*date, matrix)
+            })
+            .collect();
+        model.correlation = crate::market::CorrelationTermStructure::new(
+            correlation.underlyings().to_vec(),
+            entries,
+            correlation.tolerances(),
+        )
+        .map_err(invalid)?;
+        if let Some(drivers) = &mut model.driver_correlations {
+            drivers.iter_mut().for_each(|m| moved(m));
+        }
+        MultiAssetSpecification::new(
+            s.valuation_date(),
+            s.product().clone(),
+            s.markets().to_vec(),
+            model,
+            s.engine(),
+            s.execution(),
+            s.maximum_step(),
+        )
+        .map(Self::MultiAsset)
+    }
+
+    /// The scenarios of a basket correlation request: one per listed pair.
+    fn correlation_scenarios(
+        &self,
+        selection: &CorrelationSelection,
+        size: BumpSize,
+        calibration: BumpCalibration,
+    ) -> Result<Vec<Scenario>, SpecificationValidationError> {
+        let Self::MultiAsset(s) = self else {
+            return Err(invalid(
+                "correlations are estimated by bump_and_revalue only on baskets",
+            ));
+        };
+        if s.model().local_correlation.is_some() {
+            return Err(invalid(
+                "a Local Correlation basket mixes two correlation endpoints calibrated to the basket target; it has no single asset-pair correlation to move",
+            ));
+        }
+        let BumpSize::Absolute(amount) = size else {
+            return Err(invalid(
+                "a correlation can be zero and has no level to scale; state an absolute size",
+            ));
+        };
+        let ids = s
+            .model()
+            .correlation
+            .underlyings()
+            .iter()
+            .map(|u| u.get())
+            .collect::<Vec<_>>();
+        selection
+            .correlations()
+            .iter()
+            .map(|&id| {
+                let position = |u: u32| ids.iter().position(|&v| v == u);
+                let pair = match id {
+                    CorrelationId::AssetPair { first, second } => {
+                        position(first).zip(position(second))
+                    }
+                    _ => None,
+                };
+                let (first, second) = pair.ok_or_else(|| {
+                    invalid(format!(
+                        "this basket has no correlation {}; it has the asset pairs of underlyings {ids:?}",
+                        id.label()
+                    ))
+                })?;
+                Ok(Scenario {
+                    target: BumpTarget::Correlation { first, second, id },
+                    underlying: ids[first],
+                    amount: amount.get(),
+                    calibration,
+                })
+            })
+            .collect()
+    }
+
     fn with_constant_volatility(
         &self,
         volatility: f64,
@@ -257,6 +373,9 @@ impl PricingSource {
                     + sign * scenario.amount,
             ),
             BumpTarget::MarketIv => self.with_parallel_iv_shift(sign * scenario.amount),
+            BumpTarget::Correlation { first, second, .. } => {
+                self.with_correlation_shift(first, second, sign * scenario.amount)
+            }
         };
         Ok([side(1.0)?, side(-1.0)?])
     }
@@ -269,6 +388,9 @@ impl PricingSource {
         let MeasureMethod::BumpAndRevalue { size, calibration } = request.method else {
             return Ok(Vec::new());
         };
+        if let Measure::Correlations(selection) = &request.measure {
+            return self.correlation_scenarios(selection, size, calibration);
+        }
         match request.measure.kind() {
             MeasureKind::SpotDelta | MeasureKind::SpotGamma => Ok(self
                 .spots()
@@ -423,6 +545,8 @@ pub(crate) struct CompiledScenarios {
 pub(crate) struct BumpEstimate {
     pub request: MeasureRequest,
     pub underlying: u32,
+    /// The correlation a correlation scenario moved.
+    pub correlation: Option<CorrelationId>,
     pub value: f64,
     /// Standard error of the mean of the paired per-unit differences.
     pub standard_error: Option<f64>,
@@ -572,6 +696,10 @@ impl CompiledScenarios {
                 estimates.push(BumpEstimate {
                     request: request.clone(),
                     underlying: scenario.underlying,
+                    correlation: match scenario.target {
+                        BumpTarget::Correlation { id, .. } => Some(id),
+                        _ => None,
+                    },
                     value,
                     standard_error,
                     amount: h,
