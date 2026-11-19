@@ -217,8 +217,16 @@ impl SourceFamily {
             // Raw Brownian-correlation partials of the joint reverse.
             (
                 Self::StochasticDividend,
-                MeasureKind::Correlations | MeasureKind::ModelParameters,
+                MeasureKind::Correlations
+                | MeasureKind::ModelParameters
+                | MeasureKind::DividendCash
+                | MeasureKind::DiscountCurve,
             ) => &[M::Native],
+            // Cash means and curves re-anchor the residual-equity LSV like Spot.
+            (
+                Self::StochasticDividendLsv,
+                MeasureKind::DividendCash | MeasureKind::DiscountCurve,
+            ) => &[M::NativeCalibrated],
             (Self::StochasticDividend, MeasureKind::SpotDelta) => &[M::Native, M::BumpAndRevalue],
             (Self::StochasticDividend, MeasureKind::SpotGamma) => {
                 &[M::NativeSpotBump, M::BumpAndRevalue]
@@ -228,6 +236,17 @@ impl SourceFamily {
             }
             (Self::StochasticDividendLsv, MeasureKind::SpotGamma) => {
                 &[M::NativeSpotBumpCalibrated, M::BumpAndRevalue]
+            }
+            // Baskets: the AAD Delta per asset and the bump of AAD Deltas,
+            // stated without a treatment on a basket without a calibration
+            // step and as recalibrated on an LSV or Local Correlation one.
+            (Self::MultiAsset, MeasureKind::SpotDelta) => {
+                &[M::Native, M::NativeCalibrated, M::BumpAndRevalue]
+            }
+            // The shared Hull-White initial curve, in the same AAD run.
+            (Self::MultiAsset, MeasureKind::DiscountCurve) => &[M::Native, M::NativeCalibrated],
+            (Self::MultiAsset, MeasureKind::CrossGamma) => {
+                &[M::NativeSpotBump, M::NativeSpotBumpCalibrated]
             }
             // Every source reprices under a moved Spot.
             (_, MeasureKind::SpotDelta | MeasureKind::SpotGamma) => &[M::BumpAndRevalue],

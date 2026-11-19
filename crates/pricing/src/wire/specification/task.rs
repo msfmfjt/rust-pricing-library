@@ -81,6 +81,9 @@ enum MeasureV3 {
     VegaKt { grid: VegaKtV1 },
     ModelParameters { parameters: Vec<ModelParameterV3> },
     Correlations { correlations: Vec<CorrelationV3> },
+    DividendCash {},
+    CrossGamma {},
+    DiscountCurve {},
 }
 /// A Brownian correlation, named by the roles of its drivers; a factor
 /// correlation carries the factor index.
@@ -294,6 +297,9 @@ impl From<&crate::MeasureRequest> for MeasureRequestV3 {
                 M::Correlations(selection) => MeasureV3::Correlations {
                     correlations: selection.correlations().iter().map(|&c| c.into()).collect(),
                 },
+                M::DividendCash => MeasureV3::DividendCash {},
+                M::CrossGamma => MeasureV3::CrossGamma {},
+                M::DiscountCurve => MeasureV3::DiscountCurve {},
             },
             method: (&v.method).into(),
         }
@@ -323,6 +329,9 @@ impl MeasureRequestV3 {
                 )
                 .map_err(|e| domain_at(at("measure/correlations"), e))?,
             ),
+            MeasureV3::DividendCash {} => M::DividendCash,
+            MeasureV3::CrossGamma {} => M::CrossGamma,
+            MeasureV3::DiscountCurve {} => M::DiscountCurve,
         };
         let method = match self.method {
             MeasureMethodV3::Native {} => crate::MeasureMethod::Native,

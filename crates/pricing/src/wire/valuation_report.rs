@@ -139,7 +139,10 @@ wire_enum!(
         ParallelMarketIvVega,
         VegaKt,
         ModelParameters,
-        Correlations
+        Correlations,
+        DividendCash,
+        CrossGamma,
+        DiscountCurve
     ]
 );
 #[derive(Serialize, Deserialize)]

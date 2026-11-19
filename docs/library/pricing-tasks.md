@@ -186,6 +186,9 @@ let task = PricingTask::new(source, PricingOperation::Measures(measures))?;
 | `vega_kt` | Bucketed quote-node Vega on the grid given with the request. |
 | `model_parameters` | Derivatives to the native model parameters listed with the request, one row per parameter. Not a Vega. |
 | `correlations` | Derivatives to the Brownian correlations listed with the request, one row per correlation. |
+| `dividend_cash` | Derivatives to the mean of each cash dividend, one row on an ex-dividend-time axis. |
+| `cross_gamma` | The full Spot Gamma matrix of a basket, one row per ordered pair of underlyings. |
+| `discount_curve` | Derivatives to the log discount factor of each discount-curve pillar, with their DV01 projection: two rows on a discount-time axis. |
 
 | Method | Meaning |
 | --- | --- |
@@ -403,20 +406,102 @@ report.model_parameter_risk("dividend_volatility")
   the Bergomi and rough Bergomi LSV parameter risks) are finite differences
   with stated bumps and have no measure adapter yet.
 
+Cash-dividend risk is one `dividend_cash` row per source, with one value per
+cash dividend of the market's schedule on an `ex_time` axis:
+
+```python
+M.dividend_cash()                             # without a calibration step
+M.dividend_cash(calibration="recalibrated")   # residual-equity LSV
+report.risk("dividend_cash")
+```
+
+- Without a calibration step (Black-Scholes, Bergomi and rough Bergomi
+  residual equity, deterministic or Hull-White rates) the method is `native`
+  and the values are the `cash_mean` coordinates of `evaluate_aad`, bit for
+  bit. They are pathwise through the Buehler escrow split, the funded reserve
+  and the payment discount. When Delta, or only the four basic model
+  parameters, are listed too, all of them share that one run.
+- On a residual-equity LSV the method is `native_calibrated` with
+  `recalibrated`, from `evaluate_lsv_market_risk`. A cash mean only
+  re-anchors the funded residual equity, and the calibration is invariant to
+  that scale, so the squared leverage is unchanged, as for its Spot Delta.
+  `fixed` is `no_native_estimator`.
+- Each value is per one currency unit of that dividend's risk-neutral mean,
+  with Spot, the dividend and volatility models, correlations, curves, dates
+  and grid held. The native run is in `native_result.dividend_cash`.
+- A market without cash dividends is `model_combination`; a discontinuous
+  payoff without smoothing is `discontinuous_payoff`.
+
+A basket has native Spot measures from its full AAD (`evaluate_aad`, the
+same run as the `aad` operation):
+
+```python
+M.spot_delta()                                       # one row per asset
+M.cross_gamma(relative_bump=0.01)                    # one row per ordered pair
+M.spot_delta(calibration="recalibrated")             # LSV or Local Correlation basket
+M.cross_gamma(relative_bump=0.01, calibration="recalibrated")
+```
+
+- `spot_delta` has one row per underlying, carrying that underlying's id.
+  `cross_gamma` has one row per ordered pair `[i, j]`: the unsymmetrized
+  central difference of the native Delta of `i` under a relative Spot bump
+  of `j`, on common random numbers. Rows, errors and the native result
+  (`MultiAssetPrice`) are those of `evaluate_aad`, bit for bit.
+- A basket without a calibration step states no treatment (`native`,
+  `native_spot_bump`). An LSV or Local Correlation basket states
+  `recalibrated`: its marginals are calibrated in forward-normalized
+  coordinates and the reverse runs through the joint calibration, so the
+  native derivative is the sticky-moneyness, recalibrated one. A missing
+  treatment on a calibrated basket, or one stated on an uncalibrated basket,
+  is `bump_calibration_mismatch`. `fixed` is `fixed_calibration_unavailable`.
+- The Gamma bump is relative and lies in (0,1). An absolute bump is
+  `model_combination`. A missing reverse trace is `reverse_trace_required`,
+  and a discontinuous payoff is `discontinuous_payoff`.
+- `spot_gamma` on a basket remains `bump_and_revalue` (one row per asset);
+  `cross_gamma` is its native, matrix-valued counterpart.
+
+Discount-curve risk is two rows on a `discount_time` axis, one value per
+pillar of the discount curve (including its fixed `t = 0` pillar):
+`discount_curve.log_df.<method>` per unit log discount factor, and
+`discount_curve.dv01.<method>`, the signed price change for +1bp in each
+continuously compounded zero-rate pillar (`-1e-4 t` times the first row).
+
+```python
+M.discount_curve()                              # without a calibration step
+M.discount_curve(calibration="recalibrated")    # residual-equity LSV, calibrated basket
+[r for r in report.risks if r.measure == "discount_curve"]
+```
+
+- Stochastic dividends without a calibration step (deterministic or
+  Hull-White rates): `native`, the `discount_log_df` coordinates of
+  `evaluate_aad`, bit for bit. Delta, `dividend_cash` and the four basic
+  model parameters share that run.
+- A residual-equity LSV: `native_calibrated` with `recalibrated`, from
+  `evaluate_lsv_market_risk`, which re-anchors the funded residual equity as
+  for its Spot Delta. `dividend_cash` shares that run. `fixed` is
+  `no_native_estimator`.
+- A basket with shared Hull-White rates: the `hull_white_curve_risk` of
+  `evaluate_aad`, bit for bit, in the Delta's run, under the basket's
+  treatment rules for `spot_delta`. A deterministic-rate basket has no
+  native curve derivative and refuses it with `no_native_estimator`.
+- The repo-spread curve is held. Its pillars are in the native result
+  (`native_result.discount_curve` on dividends, `hull_white_curve_risk` on
+  baskets) but have no measure.
+
 Which measures a source family produces, and by which method:
 
 <!-- measure-matrix:begin (generated; see crates/pricing/tests/operation_matrix.rs) -->
-| Source family | `price` | `spot_delta` | `spot_gamma` | `parallel_market_iv_vega` | `vega_kt` | `model_parameters` | `correlations` |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `standard_single_asset` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | `native`, `bump_and_revalue` | `native` | not exposed | not exposed |
-| `stochastic_volatility` | `native` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed |
-| `local_stochastic_volatility` | `native` | `bump_and_revalue` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed |
-| `rough_family_lsv` | `native` | `native_calibrated`, `bump_and_revalue` | `native_spot_bump_calibrated`, `bump_and_revalue` | `native_calibrated`, `bump_and_revalue` | not exposed | `native_calibrated` | not exposed |
-| `single_asset_hull_white` | `native` | `bump_and_revalue` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed |
-| `direct_rough_volatility` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | not exposed | not exposed | `native` | not exposed |
-| `multi_asset` | `native` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed |
-| `stochastic_dividend` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | not exposed | not exposed | `native` | `native` |
-| `stochastic_dividend_lsv` | `native` | `native_calibrated`, `bump_and_revalue` | `native_spot_bump_calibrated`, `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed |
+| Source family | `price` | `spot_delta` | `spot_gamma` | `parallel_market_iv_vega` | `vega_kt` | `model_parameters` | `correlations` | `dividend_cash` | `cross_gamma` | `discount_curve` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `standard_single_asset` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | `native`, `bump_and_revalue` | `native` | not exposed | not exposed | not exposed | not exposed | not exposed |
+| `stochastic_volatility` | `native` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed | not exposed | not exposed | not exposed |
+| `local_stochastic_volatility` | `native` | `bump_and_revalue` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed | not exposed | not exposed |
+| `rough_family_lsv` | `native` | `native_calibrated`, `bump_and_revalue` | `native_spot_bump_calibrated`, `bump_and_revalue` | `native_calibrated`, `bump_and_revalue` | not exposed | `native_calibrated` | not exposed | not exposed | not exposed | not exposed |
+| `single_asset_hull_white` | `native` | `bump_and_revalue` | `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed | not exposed | not exposed |
+| `direct_rough_volatility` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | not exposed | not exposed | `native` | not exposed | not exposed | not exposed | not exposed |
+| `multi_asset` | `native` | `native`, `native_calibrated`, `bump_and_revalue` | `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed | not exposed | `native_spot_bump`, `native_spot_bump_calibrated` | `native`, `native_calibrated` |
+| `stochastic_dividend` | `native` | `native`, `bump_and_revalue` | `native_spot_bump`, `bump_and_revalue` | not exposed | not exposed | `native` | `native` | `native` | not exposed | `native` |
+| `stochastic_dividend_lsv` | `native` | `native_calibrated`, `bump_and_revalue` | `native_spot_bump_calibrated`, `bump_and_revalue` | not exposed | not exposed | not exposed | not exposed | `native_calibrated` | not exposed | `native_calibrated` |
 <!-- measure-matrix:end -->
 
 `task.available_measures()` returns the row for one source, and

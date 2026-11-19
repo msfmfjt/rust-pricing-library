@@ -23,7 +23,7 @@ pub use crate::engine::risk::stochastic_dividends::{
     StochasticDividendLsvBergomiRisk, StochasticDividendLsvCorrelationRisk,
     StochasticDividendLsvDividendModelRisk, StochasticDividendLsvMarketRisk,
     StochasticDividendLsvRoughBergomiCorrelationRisk, StochasticDividendLsvRoughBergomiRisk,
-    StochasticDividendLsvSpotRisk, StochasticDividendMeasureRisk,
+    StochasticDividendLsvSpotRisk, StochasticDividendMarketRisk, StochasticDividendMeasureRisk,
     StochasticDividendModelParameterRisk, StochasticDividendPrice, StochasticDividendPricingPlan,
 };
 pub use crate::models::{

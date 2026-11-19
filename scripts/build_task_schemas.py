@@ -57,7 +57,8 @@ def build():
     # Measures (ADR 0043). Task v3 extends the checked-in v2 schema; a
     # measures operation is the only content that requires version 3.
     measure_names = ['price', 'spot_delta', 'spot_gamma', 'parallel_market_iv_vega', 'vega_kt',
-                     'model_parameters', 'correlations']
+                     'model_parameters', 'correlations', 'dividend_cash', 'cross_gamma',
+                     'discount_curve']
     scalar_parameters = ['initial_variance', 'initial_state', 'mean_reversion',
                          'long_run_variance', 'vol_of_vol', 'correlation', 'hurst',
                          'quadratic', 'shift', 'variance_floor', 'initial_volatility',

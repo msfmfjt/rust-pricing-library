@@ -295,6 +295,15 @@ impl CompiledPricingTask {
         }
     }
 
+    /// The compiled basket plan, for comparisons in tests.
+    #[cfg(test)]
+    pub(crate) fn basket_plan(&self) -> Option<&MultiAssetPricingPlan> {
+        match self.backend.as_ref() {
+            TaskBackend::MultiAsset(p) => Some(p),
+            _ => None,
+        }
+    }
+
     fn from_backend(
         task: PricingTask,
         backend: Arc<TaskBackend>,

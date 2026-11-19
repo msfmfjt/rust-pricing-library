@@ -849,6 +849,8 @@ CLASSES['StochasticDividendMeasureRisk'] = {'bases': [], 'members': {
     'gamma': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
     'correlations': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
     'model_parameters': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'dividend_cash': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'discount_curve': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
 }}
 CLASSES['StochasticDividendModelParameterRisk'] = {'bases': [], 'members': {
     'parameters': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},

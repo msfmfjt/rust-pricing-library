@@ -680,7 +680,92 @@ Implemented (D3):
   structures under both samplers, with parameters requested in reverse
   order. Another checks the run selection and the shared Delta run.
 
-Steps D4 and E remain.
+Implemented (D4):
+
+- **One vector measure.** `Measure::DividendCash` (wire `dividend_cash`)
+  has no selection. Its report row `dividend_cash.<method>` holds one value
+  per cash dividend of the market's schedule on an `ex_time` axis, in the
+  same way that `vega_kt` holds its grid. A market without cash dividends
+  is `model_combination`.
+- **Methods.** Without a calibration step it is `Native` with
+  `not_applicable`: the `CashMean` coordinates of `evaluate_aad`. They are
+  identified by coordinate kind, and the run is shared with a listed Delta
+  or a basic-only parameter list. Residual-equity LSV offers
+  `NativeCalibrated` with `Recalibrated` only, through
+  `evaluate_lsv_market_risk`. A cash mean re-anchors the funded residual
+  equity, and the calibration is homogeneous in it, so this is the
+  recalibrated derivative for the same reason as the D1 Delta. `Fixed` is
+  `no_native_estimator`.
+- **Bitwise to the dedicated APIs.** A test checks the axis, every value,
+  error and price bit for bit on BS, Hull-White, one-factor Bergomi and
+  residual-LSV dividends under both samplers. Others check the shared Delta
+  run and the refusals.
+- No bump-and-revalue method is added. The ADR's cash-dividend scale stays
+  a scenario input (section 7), not a measure.
+
+Phase 3 step D is complete.
+
+Step E is split in three: E1 the basket Spot measures, E2 discount-curve
+risk, E3 asset-pair correlations.
+
+Implemented (E1):
+
+- **Measures.** `SpotDelta` on a basket has one row per underlying, each
+  with that underlying's id. The new `Measure::CrossGamma` (wire
+  `cross_gamma`) has one row per ordered pair `[i, j]` of underlyings, each
+  holding `Gamma[i][j]` of `evaluate_aad`, the unsymmetrized central
+  difference of native Deltas. The report already identifies a row by name
+  and underlyings, so no new row field is needed.
+- **Methods.** A basket without a calibration step offers `Native` and
+  `NativeSpotBump`. An LSV or Local Correlation basket offers
+  `NativeCalibrated` and `NativeSpotBumpCalibrated` with `Recalibrated`.
+  Its marginals are calibrated in forward-normalized coordinates and the AAD
+  reverses through the joint calibration, so the native derivative is the
+  sticky-moneyness answer. The existing `aad` rows already state that
+  treatment. `Fixed` is `fixed_calibration_unavailable`, as for basket
+  bumps. A mismatched treatment is `bump_calibration_mismatch`. The Gamma
+  bump must be relative and in (0,1). The family's row offers both
+  treatments, and preflight picks the one that fits the source.
+- **Bitwise to the dedicated API.** The adapter calls `evaluate_aad` once,
+  with the Gamma bump exactly when `cross_gamma` is listed, and keeps
+  `MultiAssetPrice` unchanged as the native result. A price-only list keeps
+  `evaluate`. A test checks every row, error and the whole native result on
+  the Black-Scholes basket and on the joint LSV, Hull-White and Local
+  Correlation basket under both samplers.
+- **Acceptance.** Under RQMC on the Black-Scholes basket, the native Delta
+  of each asset agrees with `bump_and_revalue` (relative 1e-6, same draws)
+  to 9e-12 against sampling errors near 9e-3.
+
+Implemented (E2):
+
+- **Measure.** The new `Measure::DiscountCurve` (wire `discount_curve`)
+  has two rows on a `discount_time` axis over the discount-curve pillars:
+  `discount_curve.log_df.<method>` (currency per log discount factor) and
+  `discount_curve.dv01.<method>` (currency per basis point, `-1e-4 t` times
+  the log-DF row). This is the "per log-discount pillar, and its DV01
+  projection" of section 1. The repo-spread curve stays in the native result.
+- **Stochastic dividends.** Without a calibration step the rows are the
+  `discount_log_df` coordinates of `evaluate_aad`, under deterministic and
+  Hull-White rates. On a residual-equity LSV they come from
+  `evaluate_lsv_market_risk` (`NativeCalibrated`, `Recalibrated`; `Fixed`
+  is `no_native_estimator`). `dividend_cash` and `discount_curve` share one
+  run, which the native result names twice. The D4 type
+  `StochasticDividendCashRisk` became `StochasticDividendMarketRisk`, since
+  it now carries both.
+- **Baskets.** Only a shared Hull-White basket has the derivative
+  (`hull_white_curve_risk` of `evaluate_aad`). The rows are those values bit
+  for bit, in the Delta's run, under the treatment rules of E1. A
+  deterministic-rate basket is `no_native_estimator`.
+- **Scope.** Standard single-asset sources and `SingleAssetHullWhite` have
+  no measure adapter, so their curve risk stays with the `aad` operation and
+  `HullWhiteAadRisk`.
+- **Tests.** Every row and error equals the dedicated API's bit for bit, on
+  the four dividend fixtures and the joint basket under both samplers. The
+  shared runs and each refusal are checked.
+
+Step E3 remains. The basket AAD has no derivative to the asset-pair
+correlations, so E3 has no native estimator to wrap and would need a new
+method.
 
 ### Out of scope
 

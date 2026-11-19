@@ -1,5 +1,5 @@
 //! The stochastic-dividend risks behind the measures facade (ADR 0043,
-//! phase 3 steps D1 to D3). Every field is a dedicated API's result unchanged.
+//! phase 3 step D). Every field is a dedicated API's result unchanged.
 use super::hull_white::StochasticDividendHullWhitePricingPlan;
 use super::*;
 use crate::risk::GammaConfig;
@@ -273,6 +273,85 @@ impl StochasticDividendDelta {
     }
 }
 
+/// The native market-input risk (cash-dividend means and discount curve) of
+/// one stochastic-dividend source.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum StochasticDividendMarketRisk {
+    /// `evaluate_aad` of a source without a calibration step; the cash means
+    /// are its `CashMean` coordinates.
+    Aad(Box<StochasticDividendAadRisk>),
+    /// `evaluate_lsv_market_risk` of a residual-equity LSV source.
+    Lsv(Box<StochasticDividendLsvMarketRisk>),
+}
+
+impl StochasticDividendMarketRisk {
+    #[must_use]
+    pub fn price(&self) -> &StochasticDividendPrice {
+        match self {
+            Self::Aad(r) => &r.price,
+            Self::Lsv(r) => &r.price,
+        }
+    }
+    /// Ex-dividend times, in the market's schedule order.
+    #[must_use]
+    pub fn cash_times(&self) -> &[f64] {
+        match self {
+            Self::Aad(r) => &r.cash_times,
+            Self::Lsv(r) => &r.cash_times,
+        }
+    }
+    /// Derivative and sampling error per cash mean, in schedule order.
+    #[must_use]
+    pub fn adjoints(&self) -> (Vec<f64>, Vec<f64>) {
+        match self {
+            Self::Aad(r) => r
+                .parameter_kinds
+                .iter()
+                .zip(r.derivatives.iter().zip(&r.standard_errors))
+                .filter(|(k, _)| **k == crate::RiskParameterKind::CashMean)
+                .map(|(_, (&v, &e))| (v, e))
+                .unzip(),
+            Self::Lsv(r) => (
+                r.cash_mean_adjoints.to_vec(),
+                r.cash_mean_standard_errors.to_vec(),
+            ),
+        }
+    }
+    /// Discount-curve pillar times, in the curve's order (including t=0).
+    #[must_use]
+    pub fn discount_times(&self) -> &[f64] {
+        match self {
+            Self::Aad(r) => &r.discount_times,
+            Self::Lsv(r) => &r.discount_times,
+        }
+    }
+    /// Derivative and sampling error per discount log-DF pillar.
+    #[must_use]
+    pub fn discount_adjoints(&self) -> (Vec<f64>, Vec<f64>) {
+        match self {
+            Self::Aad(r) => r
+                .parameter_labels
+                .iter()
+                .zip(r.derivatives.iter().zip(&r.standard_errors))
+                .filter(|(l, _)| l.starts_with("discount_log_df["))
+                .map(|(_, (&v, &e))| (v, e))
+                .unzip(),
+            Self::Lsv(r) => (
+                r.discount_log_df_adjoints.to_vec(),
+                r.discount_log_df_standard_errors.to_vec(),
+            ),
+        }
+    }
+    #[must_use]
+    pub fn method(&self) -> &'static str {
+        match self {
+            Self::Aad(r) => r.method,
+            Self::Lsv(r) => r.method,
+        }
+    }
+}
+
 /// The native measures of one stochastic-dividend source, from a
 /// `Measures` task. Each risk is its dedicated API's result unchanged.
 #[derive(Clone, Debug, PartialEq)]
@@ -286,6 +365,12 @@ pub struct StochasticDividendMeasureRisk {
     /// `evaluate_correlation_aad`, with its correlations identified.
     pub correlations: Option<StochasticDividendCorrelationRisk>,
     pub model_parameters: Option<StochasticDividendModelParameterRisk>,
+    /// `evaluate_aad` (`evaluate_lsv_market_risk` on LSV); a source without a
+    /// calibration step shares the Delta's or the parameters' basic run.
+    pub dividend_cash: Option<StochasticDividendMarketRisk>,
+    /// The same run as `dividend_cash`, whose discount log-DF coordinates
+    /// it reports.
+    pub discount_curve: Option<StochasticDividendMarketRisk>,
 }
 
 /// The listed native selection of a `Measures` task on a dividend source.
@@ -295,25 +380,49 @@ pub(crate) struct DividendMeasureSelection<'a> {
     pub gamma: Option<GammaConfig>,
     pub correlations: bool,
     pub parameters: Option<&'a [ModelParameterId]>,
+    pub dividend_cash: bool,
+    pub discount_curve: bool,
 }
 
 impl DividendMeasureSelection<'_> {
     pub(crate) const fn is_empty(&self) -> bool {
-        !self.delta && self.gamma.is_none() && !self.correlations && self.parameters.is_none()
+        !self.delta
+            && self.gamma.is_none()
+            && !self.correlations
+            && self.parameters.is_none()
+            && !self.dividend_cash
+            && !self.discount_curve
     }
 }
 
-/// The price of the first run: Delta, correlations, parameters, else none.
+/// The price of the first run: Delta, correlations, parameters, cash, else
+/// none.
 fn first_price(
     delta: Option<&StochasticDividendDelta>,
     correlations: Option<&StochasticDividendCorrelationRisk>,
     parameters: Option<&StochasticDividendModelParameterRisk>,
+    cash: Option<&StochasticDividendMarketRisk>,
 ) -> Option<StochasticDividendPrice> {
     delta
         .map(StochasticDividendDelta::price)
         .or_else(|| correlations.map(|c| &c.risk.price))
         .or_else(|| parameters.map(|p| &p.risk.price))
+        .or_else(|| cash.map(StochasticDividendMarketRisk::price))
         .cloned()
+}
+
+/// The basic `evaluate_aad` run another listed measure already made.
+fn basic_run(
+    delta: Option<&StochasticDividendDelta>,
+    parameters: Option<&StochasticDividendModelParameterRisk>,
+    basic_parameters: usize,
+) -> Option<StochasticDividendAadRisk> {
+    match delta {
+        Some(StochasticDividendDelta::Aad(r)) => Some((**r).clone()),
+        _ => parameters
+            .filter(|p| p.parameters.len() == basic_parameters)
+            .map(|p| p.risk.clone()),
+    }
 }
 
 /// Runs the parameter risk the listed parameters need: the extended reverse
@@ -379,6 +488,13 @@ impl StochasticDividendPricingPlan {
             .collect()
     }
 
+    /// The number of cash dividends in the market's schedule.
+    pub(crate) fn cash_dividend_count(&self) -> usize {
+        self.market
+            .discrete_dividends()
+            .map_or(0, |d| d.events().len())
+    }
+
     /// The model's extended parameter reverse, else the basic one.
     fn evaluate_extended_aad(&self) -> Result<StochasticDividendAadRisk, MonteCarloError> {
         if self.path.is_rough() {
@@ -400,6 +516,8 @@ impl StochasticDividendPricingPlan {
             gamma,
             correlations,
             parameters,
+            dividend_cash,
+            discount_curve,
         } = selection;
         let calibrated = self.is_calibrated();
         let delta = delta
@@ -440,10 +558,29 @@ impl StochasticDividendPricingPlan {
                 )
             })
             .transpose()?;
+        let market = (dividend_cash || discount_curve)
+            .then(|| {
+                if calibrated {
+                    return self
+                        .evaluate_lsv_market_risk()
+                        .map(|r| StochasticDividendMarketRisk::Lsv(Box::new(r)));
+                }
+                match basic_run(
+                    delta.as_ref(),
+                    model_parameters.as_ref(),
+                    basic_parameters().len(),
+                ) {
+                    Some(r) => Ok(r),
+                    None => self.evaluate_aad(),
+                }
+                .map(|r| StochasticDividendMarketRisk::Aad(Box::new(r)))
+            })
+            .transpose()?;
         let price = match first_price(
             delta.as_ref(),
             correlations.as_ref(),
             model_parameters.as_ref(),
+            market.as_ref(),
         ) {
             Some(price) => price,
             None => self.evaluate()?,
@@ -454,6 +591,8 @@ impl StochasticDividendPricingPlan {
             gamma,
             correlations,
             model_parameters,
+            dividend_cash: market.clone().filter(|_| dividend_cash),
+            discount_curve: market.filter(|_| discount_curve),
         })
     }
 }
@@ -488,6 +627,8 @@ impl StochasticDividendHullWhitePricingPlan {
             gamma,
             correlations,
             parameters,
+            dividend_cash,
+            discount_curve,
         } = selection;
         let delta = delta
             .then(|| {
@@ -514,10 +655,24 @@ impl StochasticDividendHullWhitePricingPlan {
                 )
             })
             .transpose()?;
+        let market = (dividend_cash || discount_curve)
+            .then(|| {
+                match basic_run(
+                    delta.as_ref(),
+                    model_parameters.as_ref(),
+                    basic_parameters().len(),
+                ) {
+                    Some(r) => Ok(r),
+                    None => self.evaluate_aad(),
+                }
+                .map(|r| StochasticDividendMarketRisk::Aad(Box::new(r)))
+            })
+            .transpose()?;
         let price = match first_price(
             delta.as_ref(),
             correlations.as_ref(),
             model_parameters.as_ref(),
+            market.as_ref(),
         ) {
             Some(price) => price,
             None => self.evaluate()?,
@@ -528,6 +683,8 @@ impl StochasticDividendHullWhitePricingPlan {
             gamma,
             correlations,
             model_parameters,
+            dividend_cash: market.clone().filter(|_| dividend_cash),
+            discount_curve: market.filter(|_| discount_curve),
         })
     }
 }

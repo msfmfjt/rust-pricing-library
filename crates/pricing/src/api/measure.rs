@@ -28,6 +28,15 @@ pub enum Measure {
     /// report row per correlation in the stated order. Each varies one
     /// symmetric pair of the driver correlation matrix, holding the others.
     Correlations(CorrelationSelection),
+    /// Derivatives to the mean of each cash dividend, in the market's
+    /// schedule order: one row with an ex-time axis.
+    DividendCash,
+    /// The full Spot Gamma matrix of a basket, one row per ordered pair of
+    /// underlyings (`d Delta_i / d Spot_j`, unsymmetrized).
+    CrossGamma,
+    /// Derivatives to the log discount factor of each discount-curve pillar,
+    /// with their DV01 projection: two rows on a discount-time axis.
+    DiscountCurve,
 }
 
 /// A native model parameter, identified by its role in the source's model.
@@ -298,10 +307,13 @@ pub enum MeasureKind {
     VegaKt,
     ModelParameters,
     Correlations,
+    DividendCash,
+    CrossGamma,
+    DiscountCurve,
 }
 
 impl MeasureKind {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 10] = [
         Self::Price,
         Self::SpotDelta,
         Self::SpotGamma,
@@ -309,6 +321,9 @@ impl MeasureKind {
         Self::VegaKt,
         Self::ModelParameters,
         Self::Correlations,
+        Self::DividendCash,
+        Self::CrossGamma,
+        Self::DiscountCurve,
     ];
 
     #[must_use]
@@ -321,6 +336,9 @@ impl MeasureKind {
             Self::VegaKt => "vega_kt",
             Self::ModelParameters => "model_parameters",
             Self::Correlations => "correlations",
+            Self::DividendCash => "dividend_cash",
+            Self::CrossGamma => "cross_gamma",
+            Self::DiscountCurve => "discount_curve",
         }
     }
 }
@@ -336,6 +354,9 @@ impl Measure {
             Self::VegaKt(_) => MeasureKind::VegaKt,
             Self::ModelParameters(_) => MeasureKind::ModelParameters,
             Self::Correlations(_) => MeasureKind::Correlations,
+            Self::DividendCash => MeasureKind::DividendCash,
+            Self::CrossGamma => MeasureKind::CrossGamma,
+            Self::DiscountCurve => MeasureKind::DiscountCurve,
         }
     }
 }

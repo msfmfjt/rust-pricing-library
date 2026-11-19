@@ -39,6 +39,13 @@ impl StochasticDividendHullWhitePricingPlan {
         self.risk_supported
     }
 
+    /// The number of cash dividends in the market's schedule.
+    pub(crate) fn cash_dividend_count(&self) -> usize {
+        self.market
+            .discrete_dividends()
+            .map_or(0, |d| d.events().len())
+    }
+
     /// The number of rate-volatility knots of the Hull-White model.
     pub(crate) fn rate_volatility_knots(&self) -> usize {
         self.rates.volatilities().len()

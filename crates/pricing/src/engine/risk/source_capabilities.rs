@@ -129,6 +129,63 @@ impl PricingSource {
             if let MeasureMethod::BumpAndRevalue { calibration, .. } = request.method {
                 return self.revaluation_capability(request, calibration);
             }
+            if let Self::MultiAsset(s) = self {
+                // Basket AAD: the calibration fixes the method; an LSV
+                // marginal or Local Correlation needs its reverse trace.
+                let calibrated = self.calibration_count() > 0;
+                if let Some((reason, detail)) =
+                    super::measure_backend::basket_refusal(calibrated, request)
+                {
+                    return denied(reason, detail);
+                }
+                if kind == MeasureKind::DiscountCurve && s.model().hull_white.is_none() {
+                    return denied(
+                        R::NoNativeEstimator,
+                        super::measure_backend::BASKET_DETERMINISTIC_RATES.into(),
+                    );
+                }
+                let trace = s.model().lsv.iter().flatten().all(|c| match c {
+                    MultiAssetBergomiLsvConfig::OneFactor(c) => c.particles.retain_reverse_trace(),
+                    MultiAssetBergomiLsvConfig::TwoFactor(c) => c.particles.retain_reverse_trace(),
+                    MultiAssetBergomiLsvConfig::Rough(c) => c.particles.retain_reverse_trace(),
+                }) && s
+                    .model()
+                    .local_correlation
+                    .as_ref()
+                    .is_none_or(|(c, _)| c.particles.retain_reverse_trace());
+                if !self.native_pathwise() {
+                    return denied(
+                        R::DiscontinuousPayoff,
+                        "AAD of discontinuous payoffs requires explicit smoothing".into(),
+                    );
+                }
+                if !trace {
+                    return denied(
+                        R::ReverseTraceRequired,
+                        "basket AAD differentiates through the LSV and Local Correlation calibrations and requires retain_reverse_trace=true".into(),
+                    );
+                }
+                return MeasureCapability::new(
+                    request,
+                    S::Conditional,
+                    Some(R::CompilationRequired),
+                    "native product, grid, covariance and resource validation is required",
+                );
+            }
+            if kind == MeasureKind::DividendCash
+                && let Self::StochasticDividend(s) = self
+                && s.equity()
+                    .market()
+                    .equity()
+                    .forward()
+                    .discrete_dividends()
+                    .is_none_or(|d| d.events().is_empty())
+            {
+                return denied(
+                    R::ModelCombination,
+                    super::measure_backend::NO_CASH_DIVIDENDS.into(),
+                );
+            }
             if !self.native_pathwise() {
                 return denied(
                     R::DiscontinuousPayoff,
@@ -139,7 +196,13 @@ impl PricingSource {
                 // A calibrated native estimator: the table only offers it on
                 // calibrated single-asset sources.
                 if family == SourceFamily::StochasticDividendLsv
-                    && matches!(kind, MeasureKind::SpotDelta | MeasureKind::SpotGamma)
+                    && matches!(
+                        kind,
+                        MeasureKind::SpotDelta
+                            | MeasureKind::SpotGamma
+                            | MeasureKind::DividendCash
+                            | MeasureKind::DiscountCurve
+                    )
                 {
                     match calibration {
                         BumpCalibration::Recalibrated => {}

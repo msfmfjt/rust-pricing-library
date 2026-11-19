@@ -1476,6 +1476,20 @@ impl PyStochasticDividendMeasureRisk {
             .clone()
             .map(|inner| PyStochasticDividendCorrelationRisk { inner })
     }
+    /// `StochasticDividendAadRisk` (the cash means are its `cash_mean`
+    /// coordinates) or, on a residual-equity LSV,
+    /// `StochasticDividendLsvMarketRisk`; `None` unless `dividend_cash` was
+    /// listed.
+    #[getter]
+    fn dividend_cash(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        market_risk(py, self.inner.dividend_cash.as_ref())
+    }
+    /// The run `dividend_cash` reports (its `discount_log_df` coordinates);
+    /// `None` unless `discount_curve` was listed.
+    #[getter]
+    fn discount_curve(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        market_risk(py, self.inner.discount_curve.as_ref())
+    }
     /// `evaluate_aad`, or the model's extended reverse, with its parameters
     /// identified; `None` unless `model_parameters` was listed.
     #[getter]
@@ -1529,4 +1543,34 @@ impl PyStochasticDividendCorrelationRisk {
             inner: self.inner.risk.clone(),
         }
     }
+}
+
+/// The Python object of a stochastic-dividend market-input run.
+fn market_risk(
+    py: Python<'_>,
+    risk: Option<&pricing::stochastic_dividends::StochasticDividendMarketRisk>,
+) -> PyResult<Option<Py<PyAny>>> {
+    use pricing::stochastic_dividends::StochasticDividendMarketRisk as C;
+    Ok(match risk {
+        None => None,
+        Some(C::Aad(inner)) => Some(
+            Py::new(
+                py,
+                PyStochasticDividendAadRisk {
+                    inner: (**inner).clone(),
+                },
+            )?
+            .into_any(),
+        ),
+        Some(C::Lsv(inner)) => Some(
+            Py::new(
+                py,
+                PyStochasticDividendLsvMarketRisk {
+                    inner: (**inner).clone(),
+                },
+            )?
+            .into_any(),
+        ),
+        Some(_) => None,
+    })
 }

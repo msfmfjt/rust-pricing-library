@@ -299,6 +299,24 @@ impl PricingSpecification {
                         "correlations has no estimator on a standard single-asset plan",
                     ));
                 }
+                (Measure::DividendCash, _) => {
+                    return Err(invalid(
+                        "operation.measures",
+                        "dividend_cash has no estimator on a standard single-asset plan",
+                    ));
+                }
+                (Measure::CrossGamma, _) => {
+                    return Err(invalid(
+                        "operation.measures",
+                        "cross_gamma has no estimator on a standard single-asset plan",
+                    ));
+                }
+                (Measure::DiscountCurve, _) => {
+                    return Err(invalid(
+                        "operation.measures",
+                        "discount_curve has no estimator on a standard single-asset plan",
+                    ));
+                }
             }
         }
         let mut risk = RiskRequest::new(

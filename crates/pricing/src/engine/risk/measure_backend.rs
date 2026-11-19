@@ -402,15 +402,147 @@ impl MeasureBackend for CompiledPricingSpecification {
     }
 }
 
+pub(crate) const BASKET_FIXED: &str = "basket LSV marginals are calibrated in forward-normalized coordinates, where the native AAD is the recalibrated (sticky-moneyness) derivative; there is no frozen-leverage estimator, so state recalibrated";
+pub(crate) const BASKET_CALIBRATED: &str =
+    "this basket is calibrated (LSV or Local Correlation); state recalibrated";
+pub(crate) const BASKET_DETERMINISTIC_RATES: &str = "the basket AAD differentiates the discount curve only under shared Hull-White rates; a deterministic-rate basket has no native discount-curve risk";
+pub(crate) const BASKET_UNCALIBRATED: &str =
+    "this basket has no calibration step; omit the calibration treatment";
+
+/// Basket AAD Delta and cross Gamma: the method a basket's calibration
+/// admits and the relative bump the native Gamma takes. `None` when the
+/// request passes, or is not one of these measures.
+pub(crate) fn basket_refusal(
+    calibrated: bool,
+    request: &MeasureRequest,
+) -> Option<(CapabilityReason, String)> {
+    let (calibration, bump) = match (&request.measure, request.method) {
+        (Measure::SpotDelta | Measure::DiscountCurve, MeasureMethod::Native) => (None, None),
+        (
+            Measure::SpotDelta | Measure::DiscountCurve,
+            MeasureMethod::NativeCalibrated { calibration },
+        ) => (Some(calibration), None),
+        (Measure::CrossGamma, MeasureMethod::NativeSpotBump { bump }) => (None, Some(bump)),
+        (Measure::CrossGamma, MeasureMethod::NativeSpotBumpCalibrated { bump, calibration }) => {
+            (Some(calibration), Some(bump))
+        }
+        _ => return None,
+    };
+    match (calibrated, calibration) {
+        (false, None) | (true, Some(BumpCalibration::Recalibrated)) => {}
+        (true, Some(BumpCalibration::Fixed)) => {
+            return Some((
+                CapabilityReason::FixedCalibrationUnavailable,
+                BASKET_FIXED.into(),
+            ));
+        }
+        (true, _) => {
+            return Some((
+                CapabilityReason::BumpCalibrationMismatch,
+                BASKET_CALIBRATED.into(),
+            ));
+        }
+        (false, Some(_)) => {
+            return Some((
+                CapabilityReason::BumpCalibrationMismatch,
+                BASKET_UNCALIBRATED.into(),
+            ));
+        }
+    }
+    match bump {
+        None => None,
+        Some(SpotBump::Relative(h)) if h.get() < 1.0 => None,
+        Some(SpotBump::Relative(_)) => Some((
+            CapabilityReason::InvalidGammaBump,
+            "basket Gamma relative bump must lie in (0,1)".into(),
+        )),
+        Some(SpotBump::Absolute(_)) => Some((
+            CapabilityReason::ModelCombination,
+            "basket cross Gamma bumps every Spot by the same relative amount; state a relative bump".into(),
+        )),
+    }
+}
+
+/// The AAD configuration a validated list asks for; `None` when it asks for
+/// no native risk.
+fn basket_selection(
+    requests: &[MeasureRequest],
+) -> Option<crate::multi_asset::MultiAssetRiskConfig> {
+    let mut config = None;
+    for request in requests {
+        match (&request.measure, request.method) {
+            (
+                Measure::SpotDelta | Measure::DiscountCurve,
+                MeasureMethod::Native | MeasureMethod::NativeCalibrated { .. },
+            ) => {
+                config.get_or_insert_with(crate::multi_asset::MultiAssetRiskConfig::default);
+            }
+            (
+                Measure::CrossGamma,
+                MeasureMethod::NativeSpotBump {
+                    bump: SpotBump::Relative(h),
+                }
+                | MeasureMethod::NativeSpotBumpCalibrated {
+                    bump: SpotBump::Relative(h),
+                    ..
+                },
+            ) => {
+                config
+                    .get_or_insert_with(crate::multi_asset::MultiAssetRiskConfig::default)
+                    .gamma_relative_bump = Some(h.get());
+            }
+            _ => {}
+        }
+    }
+    config
+}
+
+/// Baskets: the native AAD Delta of every asset and the central bump of
+/// AAD Deltas, as `evaluate_aad` computes them.
 impl MeasureBackend for MultiAssetPricingPlan {
     fn preflight(&self, request: &MeasureRequest) -> MeasureCapability {
-        price_only(request)
+        let refused = |reason, detail: String| {
+            MeasureCapability::new(request, CapabilityStatus::Unsupported, Some(reason), detail)
+        };
+        let config = match basket_selection(std::slice::from_ref(request)) {
+            Some(config) => config,
+            None => return price_only(request),
+        };
+        if let Some((reason, detail)) = basket_refusal(self.is_calibrated(), request) {
+            return refused(reason, detail);
+        }
+        if request.measure == Measure::DiscountCurve && !self.has_hull_white() {
+            return refused(
+                CapabilityReason::NoNativeEstimator,
+                BASKET_DETERMINISTIC_RATES.into(),
+            );
+        }
+        match self.validate_aad(config) {
+            Ok(()) => supported(request),
+            Err(crate::multi_asset::MultiAssetError::Invalid(detail)) => refused(
+                if detail.contains("retain_reverse_trace") {
+                    CapabilityReason::ReverseTraceRequired
+                } else if detail.contains("discontinuous") {
+                    CapabilityReason::DiscontinuousPayoff
+                } else if detail.contains("Gamma") {
+                    CapabilityReason::InvalidGammaBump
+                } else {
+                    CapabilityReason::ModelCombination
+                },
+                detail.into(),
+            ),
+            Err(e) => refused(CapabilityReason::ModelCombination, e.to_string()),
+        }
     }
     fn evaluate_measures(
         &self,
-        _requests: &[MeasureRequest],
+        requests: &[MeasureRequest],
     ) -> Result<PricingTaskOutput, PricingTaskError> {
-        Ok(PricingTaskOutput::MultiAsset(Box::new(self.evaluate()?)))
+        let price = match basket_selection(requests) {
+            Some(config) => self.evaluate_aad(config)?,
+            None => self.evaluate()?,
+        };
+        Ok(PricingTaskOutput::MultiAsset(Box::new(price)))
     }
 }
 
@@ -423,6 +555,7 @@ struct DividendSource {
     pathwise: bool,
     correlations: Vec<CorrelationId>,
     parameters: Vec<ModelParameterId>,
+    cash_dividends: usize,
 }
 
 /// Stochastic dividends: AAD Delta, the bump of AAD Deltas, correlation and
@@ -437,13 +570,18 @@ fn stochastic_dividend_preflight(
         pathwise,
         ref correlations,
         ref parameters,
+        cash_dividends,
     } = *source;
     let refused = |reason, detail: String| {
         MeasureCapability::new(request, CapabilityStatus::Unsupported, Some(reason), detail)
     };
     match (calibrated, &request.measure, request.method) {
         (_, Measure::Price, MeasureMethod::Native) => return supported(request),
-        (false, Measure::SpotDelta, MeasureMethod::Native)
+        (
+            false,
+            Measure::SpotDelta | Measure::DividendCash | Measure::DiscountCurve,
+            MeasureMethod::Native,
+        )
         | (false, Measure::SpotGamma, MeasureMethod::NativeSpotBump { .. }) => {}
         (false, Measure::Correlations(selection), MeasureMethod::Native) => {
             if let Some(detail) = missing_correlation(selection, correlations) {
@@ -455,7 +593,11 @@ fn stochastic_dividend_preflight(
                 return refused(CapabilityReason::ModelCombination, detail);
             }
         }
-        (true, Measure::SpotDelta, MeasureMethod::NativeCalibrated { calibration })
+        (
+            true,
+            Measure::SpotDelta | Measure::DividendCash | Measure::DiscountCurve,
+            MeasureMethod::NativeCalibrated { calibration },
+        )
         | (true, Measure::SpotGamma, MeasureMethod::NativeSpotBumpCalibrated { calibration, .. }) => {
             match calibration {
                 BumpCalibration::Recalibrated => {}
@@ -475,6 +617,9 @@ fn stochastic_dividend_preflight(
         }
         _ => return price_only(request),
     }
+    if request.measure == Measure::DividendCash && cash_dividends == 0 {
+        return refused(CapabilityReason::ModelCombination, NO_CASH_DIVIDENDS.into());
+    }
     if !pathwise {
         return refused(
             CapabilityReason::DiscontinuousPayoff,
@@ -483,6 +628,9 @@ fn stochastic_dividend_preflight(
     }
     supported(request)
 }
+
+pub(crate) const NO_CASH_DIVIDENDS: &str =
+    "the market schedules no cash dividends, so there is no cash-dividend risk";
 
 /// The detail of the first requested correlation the source lacks.
 pub(crate) fn missing_correlation(
@@ -520,6 +668,14 @@ fn dividend_selection(requests: &[MeasureRequest]) -> DividendMeasureSelection<'
                 MeasureMethod::Native | MeasureMethod::NativeCalibrated { .. },
             ) => selection.delta = true,
             (
+                Measure::DividendCash,
+                MeasureMethod::Native | MeasureMethod::NativeCalibrated { .. },
+            ) => selection.dividend_cash = true,
+            (
+                Measure::DiscountCurve,
+                MeasureMethod::Native | MeasureMethod::NativeCalibrated { .. },
+            ) => selection.discount_curve = true,
+            (
                 Measure::SpotGamma,
                 MeasureMethod::NativeSpotBump { bump }
                 | MeasureMethod::NativeSpotBumpCalibrated { bump, .. },
@@ -537,6 +693,7 @@ impl MeasureBackend for StochasticDividendPricingPlan {
             pathwise: self.supports_spot_risk(),
             correlations: self.correlation_ids(),
             parameters: self.parameter_ids(),
+            cash_dividends: self.cash_dividend_count(),
         };
         stochastic_dividend_preflight(&source, request)
     }
@@ -561,6 +718,7 @@ impl MeasureBackend for StochasticDividendHullWhitePricingPlan {
             pathwise: self.supports_spot_risk(),
             correlations: self.correlation_ids(),
             parameters: self.parameter_ids(),
+            cash_dividends: self.cash_dividend_count(),
         };
         stochastic_dividend_preflight(&source, request)
     }
@@ -2094,6 +2252,439 @@ mod stochastic_dividend_tests {
         assert!(again.correlation_risk(C::VolatilityFactors).is_some());
     }
 
+    fn curve(name: &str) -> MeasureRequest {
+        if calibrated(name) {
+            MeasureRequest::new(
+                Measure::DiscountCurve,
+                MeasureMethod::NativeCalibrated {
+                    calibration: BumpCalibration::Recalibrated,
+                },
+            )
+        } else {
+            MeasureRequest::native(Measure::DiscountCurve)
+        }
+    }
+
+    /// The log-DF row is the dedicated API's discount log-DF adjoints and
+    /// errors bit for bit, and the DV01 row their `-1e-4 t` projection, on a
+    /// discount-time axis: `evaluate_aad` on BS, Hull-White and Bergomi,
+    /// `evaluate_lsv_market_risk` (recalibrated) on residual LSV.
+    #[test]
+    fn curve_rows_equal_the_dedicated_apis() {
+        type Expected = (
+            Vec<f64>,
+            Vec<f64>,
+            Vec<f64>,
+            &'static str,
+            CalibrationTreatment,
+        );
+        let aad = |r: crate::stochastic_dividends::StochasticDividendAadRisk| -> Expected {
+            let pick = |x: &[f64]| {
+                r.parameter_labels
+                    .iter()
+                    .zip(x)
+                    .filter(|(l, _)| l.starts_with("discount_log_df["))
+                    .map(|(_, v)| *v)
+                    .collect::<Vec<_>>()
+            };
+            (
+                r.discount_times.to_vec(),
+                pick(&r.derivatives),
+                pick(&r.standard_errors),
+                r.method,
+                CalibrationTreatment::NotApplicable,
+            )
+        };
+        let bits = |x: &[f64]| x.iter().map(|v| v.to_bits()).collect::<Vec<_>>();
+        for rqmc in [false, true] {
+            let sources = vec![
+                ("bs", source("bs", rqmc, false)),
+                ("hw", source("hw", rqmc, false)),
+                ("lsv", source("lsv", rqmc, false)),
+                ("bergomi", correlated_sources(rqmc).swap_remove(2).1),
+            ];
+            for (name, s) in sources {
+                let compiled = task(&s, vec![curve(name)]).compile().unwrap();
+                let result = compiled.evaluate().unwrap();
+                let (times, values, errors, method, treatment) = match compiled.dividend_plans() {
+                    (Some(p), None) if calibrated(name) => {
+                        let r = p.evaluate_lsv_market_risk().unwrap();
+                        assert_eq!(
+                            result.report.value().to_bits(),
+                            r.price.value.to_bits(),
+                            "{name}"
+                        );
+                        (
+                            r.discount_times.to_vec(),
+                            r.discount_log_df_adjoints.to_vec(),
+                            r.discount_log_df_standard_errors.to_vec(),
+                            r.method,
+                            CalibrationTreatment::Recalibrated,
+                        )
+                    }
+                    (Some(p), None) => aad(p.evaluate_aad().unwrap()),
+                    (None, Some(p)) => aad(p.evaluate_aad().unwrap()),
+                    _ => unreachable!(),
+                };
+                assert!(!values.is_empty(), "{name}");
+                assert_eq!(values.len(), times.len(), "{name}");
+                let rows = result
+                    .report
+                    .risks()
+                    .iter()
+                    .filter(|r| r.measure == Some(MeasureKind::DiscountCurve))
+                    .collect::<Vec<_>>();
+                assert_eq!(rows.len(), 2, "{name}");
+                let method_name = if calibrated(name) {
+                    "native_calibrated"
+                } else {
+                    "native"
+                };
+                assert_eq!(rows[0].name, format!("discount_curve.log_df.{method_name}"));
+                assert_eq!(rows[1].name, format!("discount_curve.dv01.{method_name}"));
+                for row in &rows {
+                    assert_eq!(row.axes.len(), 1);
+                    assert_eq!(row.axes[0].name, "discount_time");
+                    assert_eq!(row.axes[0].values, times, "{name}");
+                    assert_eq!(row.method, method);
+                    assert_eq!(row.calibration, treatment, "{name}");
+                }
+                assert_eq!(bits(&rows[0].values), bits(&values), "{name}");
+                assert_eq!(
+                    bits(rows[0].standard_errors.as_ref().unwrap()),
+                    bits(&errors),
+                    "{name}"
+                );
+                let dv01 = times
+                    .iter()
+                    .zip(&values)
+                    .map(|(t, v)| -1e-4 * t * v)
+                    .collect::<Vec<_>>();
+                assert_eq!(bits(&rows[1].values), bits(&dv01), "{name}");
+                assert_eq!(rows[1].unit, SensitivityUnit::CurrencyPerBasisPoint);
+            }
+        }
+    }
+
+    /// Delta, cash and curve share one `evaluate_aad` run; on residual LSV
+    /// cash and curve share one `evaluate_lsv_market_risk` run.
+    #[test]
+    fn curve_shares_the_cash_and_delta_runs() {
+        use crate::stochastic_dividends::{StochasticDividendDelta, StochasticDividendMarketRisk};
+        let hw = source("hw", false, false);
+        let listed = vec![
+            MeasureRequest::native(Measure::SpotDelta),
+            curve("hw"),
+            cash("hw"),
+        ];
+        let result = task(&hw, listed).compile().unwrap().evaluate().unwrap();
+        let PricingTaskOutput::StochasticDividendMeasureRisk(native) = &result.native_result else {
+            panic!("native risk expected")
+        };
+        let Some(StochasticDividendDelta::Aad(delta)) = &native.delta else {
+            panic!("AAD Delta expected")
+        };
+        let Some(StochasticDividendMarketRisk::Aad(c)) = &native.discount_curve else {
+            panic!("AAD curve expected")
+        };
+        assert_eq!(delta, c);
+        assert_eq!(native.dividend_cash, native.discount_curve);
+
+        let lsv = source("lsv", false, false);
+        let result = task(&lsv, vec![curve("lsv"), cash("lsv")])
+            .compile()
+            .unwrap()
+            .evaluate()
+            .unwrap();
+        let PricingTaskOutput::StochasticDividendMeasureRisk(native) = &result.native_result else {
+            panic!("native risk expected")
+        };
+        assert!(matches!(
+            native.discount_curve,
+            Some(StochasticDividendMarketRisk::Lsv(_))
+        ));
+        assert_eq!(native.dividend_cash, native.discount_curve);
+        assert!(native.delta.is_none());
+    }
+
+    #[test]
+    fn curve_refusals_name_their_reason() {
+        let lsv = source("lsv", false, false);
+        let stated = |calibration| {
+            MeasureRequest::new(
+                Measure::DiscountCurve,
+                MeasureMethod::NativeCalibrated { calibration },
+            )
+        };
+        assert_eq!(
+            reason(&lsv, stated(BumpCalibration::Fixed)),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        assert_eq!(
+            reason(&lsv, stated(BumpCalibration::NotApplicable)),
+            Some(CapabilityReason::BumpCalibrationMismatch)
+        );
+        assert_eq!(
+            reason(&lsv, MeasureRequest::native(Measure::DiscountCurve)),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        let bs = source("bs", false, false);
+        assert_eq!(
+            reason(&bs, stated(BumpCalibration::Recalibrated)),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        for name in ["bs", "hw"] {
+            assert_eq!(
+                reason(&source(name, false, true), curve(name)),
+                Some(CapabilityReason::DiscontinuousPayoff),
+                "{name}"
+            );
+        }
+        // A market without cash dividends still has a discount curve.
+        for name in ["bs", "hw", "lsv"] {
+            let s = without_cash(name);
+            let c = s.measure_capabilities(&[curve(name)]);
+            assert_ne!(c[0].status, CapabilityStatus::Unsupported, "{name}");
+            let result = task(&s, vec![curve(name)])
+                .compile()
+                .unwrap()
+                .evaluate()
+                .unwrap();
+            assert!(
+                result
+                    .report
+                    .risks()
+                    .iter()
+                    .any(|r| r.measure == Some(MeasureKind::DiscountCurve)),
+                "{name}"
+            );
+        }
+
+        let t = task(&bs, vec![curve("bs")]);
+        let text = pricing_task_to_json(&t).unwrap();
+        let compact = text.split_whitespace().collect::<String>();
+        assert!(compact.contains(r#"{"type":"discount_curve"}"#), "{text}");
+        let back = parse_pricing_task_json(text.as_bytes(), JsonLimits::DEFAULT).unwrap();
+        assert_eq!(back.fingerprint().unwrap(), t.fingerprint().unwrap());
+        let report = t.compile().unwrap().evaluate().unwrap().report;
+        let again = parse_valuation_report_json(
+            valuation_report_to_json(&report).unwrap().as_bytes(),
+            JsonLimits::DEFAULT,
+        )
+        .unwrap();
+        assert_eq!(again, report);
+    }
+
+    fn cash(name: &str) -> MeasureRequest {
+        if calibrated(name) {
+            MeasureRequest::new(
+                Measure::DividendCash,
+                MeasureMethod::NativeCalibrated {
+                    calibration: BumpCalibration::Recalibrated,
+                },
+            )
+        } else {
+            MeasureRequest::native(Measure::DividendCash)
+        }
+    }
+
+    /// The saved source with its cash dividends removed.
+    fn without_cash(name: &str) -> PricingSource {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/task-v1")
+            .join(format!("stochastic_dividend_{name}.golden.json"));
+        let mut v: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        v["source"]["equity"]["market"]
+            .as_object_mut()
+            .unwrap()
+            .remove("discrete_dividends");
+        v["operation"] = json!({"type":"evaluate"});
+        parse_pricing_task_json(&serde_json::to_vec(&v).unwrap(), JsonLimits::DEFAULT)
+            .unwrap()
+            .source()
+            .clone()
+    }
+
+    /// The cash row is the dedicated API's cash-mean adjoints and errors bit
+    /// for bit on an ex-time axis: `evaluate_aad` on BS, Hull-White and
+    /// Bergomi, `evaluate_lsv_market_risk` (recalibrated) on residual LSV,
+    /// under both samplers.
+    #[test]
+    fn cash_rows_equal_the_dedicated_apis() {
+        use crate::RiskParameterKind as K;
+        type Expected = (
+            crate::stochastic_dividends::StochasticDividendPrice,
+            Vec<f64>,
+            Vec<f64>,
+            Vec<f64>,
+            &'static str,
+            CalibrationTreatment,
+        );
+        let aad = |r: crate::stochastic_dividends::StochasticDividendAadRisk| -> Expected {
+            let pick = |x: &[f64]| {
+                r.parameter_kinds
+                    .iter()
+                    .zip(x)
+                    .filter(|(k, _)| **k == K::CashMean)
+                    .map(|(_, v)| *v)
+                    .collect::<Vec<_>>()
+            };
+            (
+                r.price.clone(),
+                r.cash_times.to_vec(),
+                pick(&r.derivatives),
+                pick(&r.standard_errors),
+                r.method,
+                CalibrationTreatment::NotApplicable,
+            )
+        };
+        for rqmc in [false, true] {
+            let sources = vec![
+                ("bs", source("bs", rqmc, false)),
+                ("hw", source("hw", rqmc, false)),
+                ("lsv", source("lsv", rqmc, false)),
+                ("bergomi", correlated_sources(rqmc).swap_remove(2).1),
+            ];
+            for (name, s) in sources {
+                let compiled = task(&s, vec![cash(name)]).compile().unwrap();
+                let result = compiled.evaluate().unwrap();
+                let (price, times, values, errors, method, treatment) =
+                    match compiled.dividend_plans() {
+                        (Some(p), None) if calibrated(name) => {
+                            let r = p.evaluate_lsv_market_risk().unwrap();
+                            (
+                                r.price.clone(),
+                                r.cash_times.to_vec(),
+                                r.cash_mean_adjoints.to_vec(),
+                                r.cash_mean_standard_errors.to_vec(),
+                                r.method,
+                                CalibrationTreatment::Recalibrated,
+                            )
+                        }
+                        (Some(p), None) => aad(p.evaluate_aad().unwrap()),
+                        (None, Some(p)) => aad(p.evaluate_aad().unwrap()),
+                        _ => unreachable!(),
+                    };
+                assert_eq!(values.len(), 2, "{name}");
+                let report = &result.report;
+                assert_eq!(report.value().to_bits(), price.value.to_bits(), "{name}");
+                let row = report
+                    .risks()
+                    .iter()
+                    .find(|r| r.measure == Some(MeasureKind::DividendCash))
+                    .unwrap();
+                let method_name = if calibrated(name) {
+                    "native_calibrated"
+                } else {
+                    "native"
+                };
+                assert_eq!(row.name, format!("dividend_cash.{method_name}"));
+                assert_eq!(row.axes.len(), 1);
+                assert_eq!(row.axes[0].name, "ex_time");
+                assert_eq!(row.axes[0].values, times, "{name}");
+                let bits = |x: &[f64]| x.iter().map(|v| v.to_bits()).collect::<Vec<_>>();
+                assert_eq!(bits(&row.values), bits(&values), "{name}");
+                assert_eq!(
+                    bits(row.standard_errors.as_ref().unwrap()),
+                    bits(&errors),
+                    "{name}"
+                );
+                assert_eq!(row.method, method);
+                assert_eq!(row.calibration, treatment, "{name}");
+            }
+        }
+    }
+
+    /// Delta and cash share one `evaluate_aad` run.
+    #[test]
+    fn cash_shares_the_delta_run() {
+        let s = source("hw", false, false);
+        let result = task(
+            &s,
+            vec![MeasureRequest::native(Measure::SpotDelta), cash("hw")],
+        )
+        .compile()
+        .unwrap()
+        .evaluate()
+        .unwrap();
+        let PricingTaskOutput::StochasticDividendMeasureRisk(native) = &result.native_result else {
+            panic!("native risk expected")
+        };
+        let Some(crate::stochastic_dividends::StochasticDividendDelta::Aad(delta)) = &native.delta
+        else {
+            panic!("AAD Delta expected")
+        };
+        let Some(crate::stochastic_dividends::StochasticDividendMarketRisk::Aad(cash)) =
+            &native.dividend_cash
+        else {
+            panic!("AAD cash expected")
+        };
+        assert_eq!(delta, cash);
+        let row = result
+            .report
+            .risks()
+            .iter()
+            .find(|r| r.measure == Some(MeasureKind::DividendCash))
+            .unwrap();
+        assert_eq!(cash.cash_mean_adjoints(), &row.values[..]);
+    }
+
+    #[test]
+    fn cash_refusals_name_their_reason() {
+        let lsv = source("lsv", false, false);
+        let stated = |calibration| {
+            MeasureRequest::new(
+                Measure::DividendCash,
+                MeasureMethod::NativeCalibrated { calibration },
+            )
+        };
+        assert_eq!(
+            reason(&lsv, stated(BumpCalibration::Fixed)),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        assert_eq!(
+            reason(&lsv, stated(BumpCalibration::NotApplicable)),
+            Some(CapabilityReason::BumpCalibrationMismatch)
+        );
+        assert_eq!(
+            reason(&lsv, MeasureRequest::native(Measure::DividendCash)),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        let bs = source("bs", false, false);
+        assert_eq!(
+            reason(&bs, stated(BumpCalibration::Recalibrated)),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        for name in ["bs", "hw"] {
+            assert_eq!(
+                reason(&source(name, false, true), cash(name)),
+                Some(CapabilityReason::DiscontinuousPayoff),
+                "{name}"
+            );
+        }
+        for name in ["bs", "hw", "lsv"] {
+            assert_eq!(
+                reason(&without_cash(name), cash(name)),
+                Some(CapabilityReason::ModelCombination),
+                "{name}"
+            );
+        }
+
+        let t = task(&bs, vec![cash("bs")]);
+        let text = pricing_task_to_json(&t).unwrap();
+        let compact = text.split_whitespace().collect::<String>();
+        assert!(compact.contains(r#"{"type":"dividend_cash"}"#), "{text}");
+        let back = parse_pricing_task_json(text.as_bytes(), JsonLimits::DEFAULT).unwrap();
+        assert_eq!(back.fingerprint().unwrap(), t.fingerprint().unwrap());
+        let report = t.compile().unwrap().evaluate().unwrap().report;
+        let again = parse_valuation_report_json(
+            valuation_report_to_json(&report).unwrap().as_bytes(),
+            JsonLimits::DEFAULT,
+        )
+        .unwrap();
+        assert_eq!(again, report);
+    }
+
     fn parameters(ids: Vec<ModelParameterId>) -> MeasureRequest {
         MeasureRequest::native(Measure::ModelParameters(
             ModelParameterSelection::new(ids).unwrap(),
@@ -2595,5 +3186,421 @@ mod stochastic_dividend_tests {
                 b.values[0]
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod basket_tests {
+    use serde_json::{Value, json};
+
+    use crate::multi_asset::MultiAssetRiskConfig;
+    use crate::risk::SpotBump;
+    use crate::*;
+
+    /// The saved basket, optionally under RQMC and without reverse traces.
+    fn source(name: &str, rqmc: bool, trace: bool) -> PricingSource {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/task-v1")
+            .join(format!("multi_asset_{name}.golden.json"));
+        let mut v: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        if rqmc {
+            v["source"]["engine"] = json!({"type":"randomized_quasi_monte_carlo",
+                "points_per_scramble":16,"scramble_count":4,"master_scramble_seed":82,
+                "variance_reduction":{"antithetic":true,"brownian_bridge":false}});
+        }
+        if !trace {
+            let text = serde_json::to_string(&v).unwrap().replace(
+                r#""retain_reverse_trace":true"#,
+                r#""retain_reverse_trace":false"#,
+            );
+            v = serde_json::from_str(&text).unwrap();
+        }
+        v["operation"] = json!({"type":"evaluate"});
+        parse_pricing_task_json(&serde_json::to_vec(&v).unwrap(), JsonLimits::DEFAULT)
+            .unwrap()
+            .source()
+            .clone()
+    }
+
+    fn calibrated(name: &str) -> bool {
+        name == "joint"
+    }
+
+    fn recalibrated() -> BumpCalibration {
+        BumpCalibration::Recalibrated
+    }
+
+    fn delta(name: &str) -> MeasureRequest {
+        if calibrated(name) {
+            MeasureRequest::new(
+                Measure::SpotDelta,
+                MeasureMethod::NativeCalibrated {
+                    calibration: recalibrated(),
+                },
+            )
+        } else {
+            MeasureRequest::native(Measure::SpotDelta)
+        }
+    }
+
+    fn bump() -> SpotBump {
+        SpotBump::relative(0.01).unwrap()
+    }
+
+    fn cross_gamma(name: &str, bump: SpotBump) -> MeasureRequest {
+        let method = if calibrated(name) {
+            MeasureMethod::NativeSpotBumpCalibrated {
+                bump,
+                calibration: recalibrated(),
+            }
+        } else {
+            MeasureMethod::NativeSpotBump { bump }
+        };
+        MeasureRequest::new(Measure::CrossGamma, method)
+    }
+
+    fn task(s: &PricingSource, requests: Vec<MeasureRequest>) -> PricingTask {
+        PricingTask::new(
+            s.clone(),
+            PricingOperation::Measures(MeasureSet::new(requests).unwrap()),
+        )
+        .unwrap()
+    }
+
+    /// Delta and cross-Gamma rows are `evaluate_aad`'s estimates and errors
+    /// bit for bit, and the native result is that result unchanged, on a
+    /// Black-Scholes basket and on the joint LSV, Hull-White and Local
+    /// Correlation basket under both samplers.
+    #[test]
+    fn basket_rows_equal_evaluate_aad() {
+        for name in ["bs", "joint"] {
+            for rqmc in [false, true] {
+                let s = source(name, rqmc, true);
+                let compiled = task(&s, vec![cross_gamma(name, bump()), delta(name)])
+                    .compile()
+                    .unwrap();
+                let result = compiled.evaluate().unwrap();
+                let expected = compiled
+                    .basket_plan()
+                    .unwrap()
+                    .evaluate_aad(MultiAssetRiskConfig {
+                        gamma_relative_bump: Some(0.01),
+                    })
+                    .unwrap();
+                let PricingTaskOutput::MultiAsset(native) = &result.native_result else {
+                    panic!("basket result expected")
+                };
+                assert_eq!(**native, expected, "{name}");
+                let report = &result.report;
+                assert_eq!(
+                    report.value().to_bits(),
+                    expected.price.value().get().to_bits()
+                );
+                let treatment = if calibrated(name) {
+                    CalibrationTreatment::Recalibrated
+                } else {
+                    CalibrationTreatment::NotApplicable
+                };
+                let rows = |kind| {
+                    report
+                        .risks()
+                        .iter()
+                        .filter(move |r| r.measure == Some(kind))
+                        .collect::<Vec<_>>()
+                };
+                let deltas = rows(MeasureKind::SpotDelta);
+                assert_eq!(deltas.len(), expected.risks.len());
+                for (row, risk) in deltas.iter().zip(&expected.risks) {
+                    assert_eq!(row.underlying_ids, vec![risk.underlying.get()]);
+                    assert_eq!(row.values[0].to_bits(), risk.delta.value().get().to_bits());
+                    assert_eq!(
+                        row.standard_errors.as_ref().unwrap()[0].to_bits(),
+                        risk.delta.standard_error().get().to_bits()
+                    );
+                    assert_eq!(row.calibration, treatment, "{name}");
+                }
+                let gammas = rows(MeasureKind::CrossGamma);
+                let n = expected.underlyings.len();
+                assert_eq!(gammas.len(), n * n);
+                for (k, row) in gammas.iter().enumerate() {
+                    let (i, j) = (k / n, k % n);
+                    assert_eq!(
+                        row.underlying_ids,
+                        vec![expected.underlyings[i].get(), expected.underlyings[j].get()]
+                    );
+                    assert_eq!(
+                        row.values[0].to_bits(),
+                        expected.gamma[i][j].value().get().to_bits()
+                    );
+                    assert_eq!(row.calibration, treatment);
+                }
+                let method = if calibrated(name) { "_calibrated" } else { "" };
+                assert_eq!(deltas[0].name, format!("spot_delta.native{method}"));
+                assert_eq!(
+                    gammas[0].name,
+                    format!("cross_gamma.native_spot_bump{method}")
+                );
+            }
+        }
+    }
+
+    /// Delta alone is first-order AAD; a price-only list keeps `evaluate`.
+    #[test]
+    fn the_list_selects_the_run() {
+        let s = source("bs", false, true);
+        let compiled = task(&s, vec![delta("bs")]).compile().unwrap();
+        let result = compiled.evaluate().unwrap();
+        let plan = compiled.basket_plan().unwrap();
+        let PricingTaskOutput::MultiAsset(native) = &result.native_result else {
+            panic!("basket result expected")
+        };
+        assert_eq!(
+            **native,
+            plan.evaluate_aad(MultiAssetRiskConfig::default()).unwrap()
+        );
+        assert!(native.gamma.is_empty());
+        let compiled = task(&s, vec![MeasureRequest::native(Measure::Price)])
+            .compile()
+            .unwrap();
+        let PricingTaskOutput::MultiAsset(native) = compiled.evaluate().unwrap().native_result
+        else {
+            panic!("basket result expected")
+        };
+        assert_eq!(*native, compiled.basket_plan().unwrap().evaluate().unwrap());
+    }
+
+    fn reason(s: &PricingSource, request: MeasureRequest) -> Option<CapabilityReason> {
+        let c = s.measure_capabilities(std::slice::from_ref(&request));
+        assert_eq!(c[0].status, CapabilityStatus::Unsupported, "{request:?}");
+        let refused = PricingTask::new(
+            s.clone(),
+            PricingOperation::Measures(MeasureSet::new(vec![request]).unwrap()),
+        )
+        .map_or(true, |t| t.compile().and_then(|c| c.evaluate()).is_err());
+        assert!(refused);
+        c[0].reason
+    }
+
+    #[test]
+    fn basket_refusals_name_their_reason() {
+        let bs = source("bs", false, true);
+        let joint = source("joint", false, true);
+        let stated = |calibration| {
+            MeasureRequest::new(
+                Measure::SpotDelta,
+                MeasureMethod::NativeCalibrated { calibration },
+            )
+        };
+        assert_eq!(
+            reason(&bs, stated(BumpCalibration::Recalibrated)),
+            Some(CapabilityReason::BumpCalibrationMismatch)
+        );
+        assert_eq!(
+            reason(&joint, MeasureRequest::native(Measure::SpotDelta)),
+            Some(CapabilityReason::BumpCalibrationMismatch)
+        );
+        assert_eq!(
+            reason(&joint, stated(BumpCalibration::NotApplicable)),
+            Some(CapabilityReason::BumpCalibrationMismatch)
+        );
+        assert_eq!(
+            reason(&joint, stated(BumpCalibration::Fixed)),
+            Some(CapabilityReason::FixedCalibrationUnavailable)
+        );
+        assert_eq!(
+            reason(&bs, cross_gamma("bs", SpotBump::absolute(1.0).unwrap())),
+            Some(CapabilityReason::ModelCombination)
+        );
+        assert_eq!(
+            reason(&bs, cross_gamma("bs", SpotBump::relative(1.5).unwrap())),
+            Some(CapabilityReason::InvalidGammaBump)
+        );
+        assert_eq!(
+            reason(&source("joint", false, false), delta("joint")),
+            Some(CapabilityReason::ReverseTraceRequired)
+        );
+        // A plain SpotGamma has no native basket estimator.
+        assert_eq!(
+            reason(
+                &bs,
+                MeasureRequest::new(
+                    Measure::SpotGamma,
+                    MeasureMethod::NativeSpotBump { bump: bump() }
+                )
+            ),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+    }
+
+    /// The native Delta of each asset agrees with `bump_and_revalue` on the
+    /// same draws.
+    #[test]
+    fn native_delta_agrees_with_bump_and_revalue() {
+        let s = source("bs", true, true);
+        let native = task(&s, vec![delta("bs")])
+            .compile()
+            .unwrap()
+            .evaluate()
+            .unwrap()
+            .report;
+        let bumped = task(
+            &s,
+            vec![MeasureRequest::new(
+                Measure::SpotDelta,
+                MeasureMethod::BumpAndRevalue {
+                    size: crate::BumpSize::relative(1e-6).unwrap(),
+                    calibration: BumpCalibration::NotApplicable,
+                },
+            )],
+        )
+        .compile()
+        .unwrap()
+        .evaluate()
+        .unwrap()
+        .report;
+        let rows = |r: &ValuationReport| {
+            r.risks()
+                .iter()
+                .filter(|r| r.measure == Some(MeasureKind::SpotDelta))
+                .map(|r| {
+                    (
+                        r.underlying_ids.clone(),
+                        r.values[0],
+                        r.standard_errors.clone(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        let (a, b) = (rows(&native), rows(&bumped));
+        assert_eq!(a.len(), 2);
+        for ((ids, x, se), (ids_b, y, _)) in a.iter().zip(&b) {
+            assert_eq!(ids, ids_b);
+            let se = se.as_ref().unwrap()[0];
+            assert!(
+                (x - y).abs() < 1e-3 * se.max(1e-12) + 1e-8,
+                "{ids:?} {x} {y} {se}"
+            );
+        }
+    }
+
+    #[test]
+    fn cross_gamma_round_trips() {
+        let s = source("bs", false, true);
+        let t = task(&s, vec![cross_gamma("bs", bump())]);
+        let text = pricing_task_to_json(&t).unwrap();
+        let compact = text.split_whitespace().collect::<String>();
+        assert!(compact.contains(r#"{"type":"cross_gamma"}"#), "{text}");
+        let back = parse_pricing_task_json(text.as_bytes(), JsonLimits::DEFAULT).unwrap();
+        assert_eq!(back.fingerprint().unwrap(), t.fingerprint().unwrap());
+        let report = t.compile().unwrap().evaluate().unwrap().report;
+        let again = parse_valuation_report_json(
+            valuation_report_to_json(&report).unwrap().as_bytes(),
+            JsonLimits::DEFAULT,
+        )
+        .unwrap();
+        assert_eq!(again, report);
+        assert_eq!(report.risks().len(), 4);
+    }
+
+    fn curve(name: &str) -> MeasureRequest {
+        if calibrated(name) {
+            MeasureRequest::new(
+                Measure::DiscountCurve,
+                MeasureMethod::NativeCalibrated {
+                    calibration: recalibrated(),
+                },
+            )
+        } else {
+            MeasureRequest::native(Measure::DiscountCurve)
+        }
+    }
+
+    /// On the shared Hull-White basket, the two curve rows are
+    /// `evaluate_aad`'s `hull_white_curve_risk` bit for bit, shared with the
+    /// Delta run, under both samplers.
+    #[test]
+    fn curve_rows_equal_evaluate_aad() {
+        let bits = |x: &[f64]| x.iter().map(|v| v.to_bits()).collect::<Vec<_>>();
+        for rqmc in [false, true] {
+            let s = source("joint", rqmc, true);
+            let compiled = task(&s, vec![curve("joint"), delta("joint")])
+                .compile()
+                .unwrap();
+            let result = compiled.evaluate().unwrap();
+            let expected = compiled
+                .basket_plan()
+                .unwrap()
+                .evaluate_aad(MultiAssetRiskConfig::default())
+                .unwrap();
+            let PricingTaskOutput::MultiAsset(native) = &result.native_result else {
+                panic!("basket result expected")
+            };
+            assert_eq!(**native, expected);
+            let v = expected.hull_white_curve_risk.as_ref().unwrap();
+            let rows = result
+                .report
+                .risks()
+                .iter()
+                .filter(|r| r.measure == Some(MeasureKind::DiscountCurve))
+                .collect::<Vec<_>>();
+            assert_eq!(rows.len(), 2);
+            for (row, part, estimates) in [
+                (rows[0], "log_df", &v.discount_log_df_adjoints),
+                (rows[1], "dv01", &v.discount_node_dv01),
+            ] {
+                assert_eq!(row.name, format!("discount_curve.{part}.native_calibrated"));
+                assert!(row.underlying_ids.is_empty());
+                assert_eq!(row.axes[0].name, "discount_time");
+                assert_eq!(row.axes[0].values, v.discount_time_nodes);
+                let values = estimates
+                    .iter()
+                    .map(|e| e.value().get())
+                    .collect::<Vec<_>>();
+                let errors = estimates
+                    .iter()
+                    .map(|e| e.standard_error().get())
+                    .collect::<Vec<_>>();
+                assert_eq!(bits(&row.values), bits(&values), "{part}");
+                assert_eq!(
+                    bits(row.standard_errors.as_ref().unwrap()),
+                    bits(&errors),
+                    "{part}"
+                );
+                assert_eq!(row.calibration, CalibrationTreatment::Recalibrated);
+            }
+        }
+    }
+
+    #[test]
+    fn curve_refusals_name_their_reason() {
+        assert_eq!(
+            reason(&source("bs", false, true), curve("bs")),
+            Some(CapabilityReason::NoNativeEstimator)
+        );
+        let joint = source("joint", false, true);
+        assert_eq!(
+            reason(&joint, MeasureRequest::native(Measure::DiscountCurve)),
+            Some(CapabilityReason::BumpCalibrationMismatch)
+        );
+        assert_eq!(
+            reason(
+                &joint,
+                MeasureRequest::new(
+                    Measure::DiscountCurve,
+                    MeasureMethod::NativeCalibrated {
+                        calibration: BumpCalibration::Fixed,
+                    },
+                )
+            ),
+            Some(CapabilityReason::FixedCalibrationUnavailable)
+        );
+        assert_eq!(
+            reason(&source("joint", false, false), curve("joint")),
+            Some(CapabilityReason::ReverseTraceRequired)
+        );
+        let t = task(&joint, vec![curve("joint")]);
+        let text = pricing_task_to_json(&t).unwrap();
+        let back = parse_pricing_task_json(text.as_bytes(), JsonLimits::DEFAULT).unwrap();
+        assert_eq!(back.fingerprint().unwrap(), t.fingerprint().unwrap());
     }
 }

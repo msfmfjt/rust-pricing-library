@@ -716,3 +716,24 @@ CLASSES['MeasureCapability']["members"]['measure'] = {"kind": 'property', "decla
 CLASSES['ReportedRisk']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}] | None: ...'}
 CLASSES['ReportedRisk']["members"]['correlation'] = {"kind": 'property', "declaration": '@property\ndef correlation(self) -> str | None: ...'}
 CLASSES['ValuationReport']["members"]['correlation_risk'] = {"kind": 'method', "declaration": 'def correlation_risk(self, correlation: str) -> ReportedRisk | None: ...'}
+
+# Cash-dividend risk for stochastic dividends (ADR 0043, phase 3 step D4).
+_MEASURE_NAMES = '"price", "spot_delta", "spot_gamma", "parallel_market_iv_vega", "vega_kt", "model_parameters", "correlations", "dividend_cash"'
+CLASSES['MeasureRequest']["members"]['dividend_cash'] = {"kind": 'staticmethod', "declaration": '@staticmethod\ndef dividend_cash(*, calibration: Literal["not_applicable", "fixed", "recalibrated"] | None = None) -> MeasureRequest: ...'}
+CLASSES['MeasureRequest']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}]: ...'}
+CLASSES['MeasureCapability']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}]: ...'}
+CLASSES['ReportedRisk']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}] | None: ...'}
+
+# Basket Spot measures (ADR 0043, phase 3 step E1).
+_MEASURE_NAMES = '"price", "spot_delta", "spot_gamma", "parallel_market_iv_vega", "vega_kt", "model_parameters", "correlations", "dividend_cash", "cross_gamma"'
+CLASSES['MeasureRequest']["members"]['cross_gamma'] = {"kind": 'staticmethod', "declaration": '@staticmethod\ndef cross_gamma(*, relative_bump: float, calibration: Literal["not_applicable", "fixed", "recalibrated"] | None = None) -> MeasureRequest: ...'}
+CLASSES['MeasureRequest']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}]: ...'}
+CLASSES['MeasureCapability']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}]: ...'}
+CLASSES['ReportedRisk']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}] | None: ...'}
+
+# Discount-curve risk (ADR 0043, phase 3 step E2).
+_MEASURE_NAMES = '"price", "spot_delta", "spot_gamma", "parallel_market_iv_vega", "vega_kt", "model_parameters", "correlations", "dividend_cash", "cross_gamma", "discount_curve"'
+CLASSES['MeasureRequest']["members"]['discount_curve'] = {"kind": 'staticmethod', "declaration": '@staticmethod\ndef discount_curve(*, calibration: Literal["not_applicable", "fixed", "recalibrated"] | None = None) -> MeasureRequest: ...'}
+CLASSES['MeasureRequest']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}]: ...'}
+CLASSES['MeasureCapability']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}]: ...'}
+CLASSES['ReportedRisk']["members"]['measure'] = {"kind": 'property', "declaration": f'@property\ndef measure(self) -> Literal[{_MEASURE_NAMES}] | None: ...'}

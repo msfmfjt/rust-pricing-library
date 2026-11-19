@@ -1975,7 +1975,10 @@
             "parallel_market_iv_vega",
             "vega_kt",
             "model_parameters",
-            "correlations"
+            "correlations",
+            "dividend_cash",
+            "cross_gamma",
+            "discount_curve"
           ]
         },
         "method_detail": {

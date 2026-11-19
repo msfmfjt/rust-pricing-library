@@ -224,8 +224,19 @@ fn measure_methods_are_an_explicit_reviewed_table() {
                 (F::DirectRoughVolatility, K::SpotDelta) => &[M::Native, M::BumpAndRevalue],
                 (F::DirectRoughVolatility, K::SpotGamma) => &[M::NativeSpotBump, M::BumpAndRevalue],
                 (F::DirectRoughVolatility, K::ModelParameters) => &[M::Native],
-                (F::StochasticDividend, K::Correlations | K::ModelParameters) => &[M::Native],
-                (_, K::Correlations) => &[],
+                (
+                    F::StochasticDividend,
+                    K::Correlations | K::ModelParameters | K::DividendCash | K::DiscountCurve,
+                ) => &[M::Native],
+                (F::StochasticDividendLsv, K::DividendCash | K::DiscountCurve) => {
+                    &[M::NativeCalibrated]
+                }
+                (F::MultiAsset, K::SpotDelta) => {
+                    &[M::Native, M::NativeCalibrated, M::BumpAndRevalue]
+                }
+                (F::MultiAsset, K::CrossGamma) => &[M::NativeSpotBump, M::NativeSpotBumpCalibrated],
+                (F::MultiAsset, K::DiscountCurve) => &[M::Native, M::NativeCalibrated],
+                (_, K::Correlations | K::DividendCash | K::CrossGamma | K::DiscountCurve) => &[],
                 (F::StochasticDividend, K::SpotDelta) => &[M::Native, M::BumpAndRevalue],
                 (F::StochasticDividend, K::SpotGamma) => &[M::NativeSpotBump, M::BumpAndRevalue],
                 (F::StochasticDividendLsv, K::SpotDelta) => {
@@ -289,6 +300,9 @@ fn measure_capability_follows_the_table_for_every_fixture() {
             } else if name == "standard_risk" && kind != MeasureKind::Price {
                 // This fixture selects Delta and Vega in its nested request.
                 Some(CapabilityReason::AmbiguousRiskSelection)
+            } else if name == "multi_asset_joint" && kind == MeasureKind::SpotDelta {
+                // A calibrated basket states recalibrated for its native Delta.
+                Some(CapabilityReason::BumpCalibrationMismatch)
             } else if name == "contract_digital" && kind != MeasureKind::Price {
                 // An unsmoothed digital payoff has no pathwise Greeks.
                 Some(CapabilityReason::DiscontinuousPayoff)

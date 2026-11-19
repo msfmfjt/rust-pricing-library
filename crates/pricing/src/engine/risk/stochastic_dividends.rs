@@ -23,8 +23,8 @@ pub(crate) use measure::{
     DividendMeasureSelection, DividendVolatility, dividend_correlations, dividend_parameter_ids,
 };
 pub use measure::{
-    StochasticDividendCorrelationRisk, StochasticDividendDelta, StochasticDividendMeasureRisk,
-    StochasticDividendModelParameterRisk,
+    StochasticDividendCorrelationRisk, StochasticDividendDelta, StochasticDividendMarketRisk,
+    StochasticDividendMeasureRisk, StochasticDividendModelParameterRisk,
 };
 mod lsv_parameters;
 mod lsv_parameters_2f;

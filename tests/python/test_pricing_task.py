@@ -198,15 +198,18 @@ class PricingTaskTests(unittest.TestCase):
             plan.with_operation('evaluate')
         basket = rp.PricingTask.from_json(fixture('multi_asset_bs'))
         self.assertEqual(basket.available_measures(), {
-            'price': ['native'], 'spot_delta': ['bump_and_revalue'],
-            'spot_gamma': ['bump_and_revalue']})
+            'price': ['native'],
+            'spot_delta': ['native', 'native_calibrated', 'bump_and_revalue'],
+            'spot_gamma': ['bump_and_revalue'],
+            'cross_gamma': ['native_spot_bump', 'native_spot_bump_calibrated'],
+            'discount_curve': ['native', 'native_calibrated']})
         priced = basket.with_operation('measures', measures=[M.price()]).compile().evaluate()
         self.assertEqual(priced.report.value,
                          basket.with_operation('evaluate').compile().evaluate().report.value)
         self.assertEqual(
             [c.reason for c in basket.measure_capabilities(
                 [M.spot_delta(), M.parallel_market_iv_vega()])],
-            ['no_native_estimator', 'dedicated_risk_api'])
+            ['compilation_required', 'dedicated_risk_api'])
 
     def test_bump_and_revalue_states_its_bump_calibration_and_cost(self):
         value = json.loads((ROOT / 'fixtures/v3/pricing_request.golden.json').read_text())
@@ -528,6 +531,39 @@ class PricingTaskTests(unittest.TestCase):
             rp.ValuationReport.from_json(result.report.to_json()).to_json(),
             result.report.to_json())
 
+    def test_stochastic_dividend_cash_is_one_row_on_an_ex_time_axis(self) -> None:
+        M = rp.MeasureRequest
+        self.assertEqual((M.dividend_cash().measure, M.dividend_cash().method),
+                         ('dividend_cash', 'native'))
+        bs = rp.PricingTask.from_json(fixture('stochastic_dividend_bs'))
+        self.assertEqual(bs.available_measures()['dividend_cash'], ['native'])
+        result = bs.with_operation(
+            'measures', measures=[M.spot_delta(), M.dividend_cash()]).compile().evaluate()
+        native = result.native_result.dividend_cash
+        self.assertIsInstance(native, rp.StochasticDividendAadRisk)
+        row = result.report.risk('dividend_cash')
+        self.assertEqual(row.name, 'dividend_cash.native')
+        self.assertEqual(row.axes, [('ex_time', native.cash_times)])
+        self.assertEqual(row.values, native.cash_mean_adjoints)
+        self.assertEqual(row.calibration, 'not_applicable')
+
+        lsv = rp.PricingTask.from_json(fixture('stochastic_dividend_lsv'))
+        self.assertEqual(lsv.available_measures()['dividend_cash'], ['native_calibrated'])
+        self.assertEqual(
+            lsv.measure_capabilities([M.dividend_cash(calibration='fixed')])[0].reason,
+            'no_native_estimator')
+        result = lsv.with_operation(
+            'measures', measures=[M.dividend_cash(calibration='recalibrated')]
+        ).compile().evaluate()
+        native = result.native_result.dividend_cash
+        self.assertIsInstance(native, rp.StochasticDividendLsvMarketRisk)
+        row = result.report.risk('dividend_cash')
+        self.assertEqual(row.values, native.cash_mean_adjoints)
+        self.assertEqual(row.calibration, 'recalibrated')
+        self.assertEqual(
+            rp.ValuationReport.from_json(result.report.to_json()).to_json(),
+            result.report.to_json())
+
     def test_stochastic_dividend_model_parameters_are_typed_rows(self) -> None:
         M = rp.MeasureRequest
         request = M.model_parameters(['rate_volatility.0', 'equity_linkage'])
@@ -559,6 +595,89 @@ class PricingTaskTests(unittest.TestCase):
             index = risk.parameter_labels.index(native[row.model_parameter])
             self.assertEqual(row.values, [risk.derivatives[index]])
             self.assertEqual(row.calibration, 'not_applicable')
+        self.assertEqual(
+            rp.ValuationReport.from_json(result.report.to_json()).to_json(),
+            result.report.to_json())
+
+    def test_basket_spot_measures_are_one_row_per_asset_or_pair(self) -> None:
+        M = rp.MeasureRequest
+        request = M.cross_gamma(relative_bump=0.01)
+        self.assertEqual((request.measure, request.method), ('cross_gamma', 'native_spot_bump'))
+        with self.assertRaises(ValueError):
+            M.cross_gamma(relative_bump=-1.0)
+        basket = rp.PricingTask.from_json(fixture('multi_asset_bs'))
+        result = basket.with_operation(
+            'measures', measures=[M.spot_delta(), request]).compile().evaluate()
+        native = result.native_result
+        self.assertIsInstance(native, rp.MultiAssetPrice)
+        deltas = [r for r in result.report.risks if r.measure == 'spot_delta']
+        self.assertEqual([r.underlying_ids for r in deltas],
+                         [[i] for i in native.underlying_ids])
+        self.assertEqual([r.values for r in deltas],
+                         [[risk.delta.value] for risk in native.risks])
+        gammas = [r for r in result.report.risks if r.measure == 'cross_gamma']
+        self.assertEqual(len(gammas), 4)
+        self.assertEqual(gammas[1].values, [native.gamma[0][1].value])
+        self.assertEqual(gammas[1].underlying_ids, native.underlying_ids)
+        self.assertEqual({r.calibration for r in gammas}, {'not_applicable'})
+
+        joint = rp.PricingTask.from_json(fixture('multi_asset_joint'))
+        self.assertEqual(
+            [c.reason for c in joint.measure_capabilities(
+                [M.spot_delta(), M.spot_delta(calibration='fixed')])],
+            ['bump_calibration_mismatch', 'fixed_calibration_unavailable'])
+        result = joint.with_operation(
+            'measures', measures=[M.spot_delta(calibration='recalibrated')]
+        ).compile().evaluate()
+        rows = [r for r in result.report.risks if r.measure == 'spot_delta']
+        self.assertEqual({r.calibration for r in rows}, {'recalibrated'})
+        self.assertEqual(
+            rp.ValuationReport.from_json(result.report.to_json()).to_json(),
+            result.report.to_json())
+
+    def test_discount_curve_is_log_df_and_dv01_rows(self) -> None:
+        M = rp.MeasureRequest
+        self.assertEqual((M.discount_curve().measure, M.discount_curve().method),
+                         ('discount_curve', 'native'))
+        hw = rp.PricingTask.from_json(fixture('stochastic_dividend_hw'))
+        self.assertEqual(hw.available_measures()['discount_curve'], ['native'])
+        result = hw.with_operation(
+            'measures', measures=[M.spot_delta(), M.discount_curve()]).compile().evaluate()
+        native = result.native_result.discount_curve
+        self.assertIsInstance(native, rp.StochasticDividendAadRisk)
+        rows = [r for r in result.report.risks if r.measure == 'discount_curve']
+        self.assertEqual([r.name for r in rows],
+                         ['discount_curve.log_df.native', 'discount_curve.dv01.native'])
+        self.assertEqual(rows[0].axes, [('discount_time', native.discount_times)])
+        self.assertEqual(rows[0].values, [
+            v for label, v in zip(native.parameter_labels, native.derivatives)
+            if label.startswith('discount_log_df[')])
+        self.assertEqual(rows[1].values, native.discount_node_dv01)
+        self.assertEqual(rows[1].unit, 'currency_per_basis_point')
+
+        lsv = rp.PricingTask.from_json(fixture('stochastic_dividend_lsv'))
+        result = lsv.with_operation(
+            'measures', measures=[M.discount_curve(calibration='recalibrated')]
+        ).compile().evaluate()
+        native = result.native_result.discount_curve
+        self.assertIsInstance(native, rp.StochasticDividendLsvMarketRisk)
+        rows = [r for r in result.report.risks if r.measure == 'discount_curve']
+        self.assertEqual(rows[0].values, native.discount_log_df_adjoints)
+        self.assertEqual(rows[1].values, native.discount_node_dv01)
+        self.assertEqual({r.calibration for r in rows}, {'recalibrated'})
+
+        basket = rp.PricingTask.from_json(fixture('multi_asset_bs'))
+        self.assertEqual(
+            basket.measure_capabilities([M.discount_curve()])[0].reason,
+            'no_native_estimator')
+        joint = rp.PricingTask.from_json(fixture('multi_asset_joint'))
+        result = joint.with_operation(
+            'measures', measures=[M.discount_curve(calibration='recalibrated')]
+        ).compile().evaluate()
+        curve = result.native_result.hull_white_curve_risk
+        rows = [r for r in result.report.risks if r.measure == 'discount_curve']
+        self.assertEqual(rows[0].values, [e.value for e in curve.discount_log_df_adjoints])
+        self.assertEqual(rows[1].values, [e.value for e in curve.discount_node_dv01])
         self.assertEqual(
             rp.ValuationReport.from_json(result.report.to_json()).to_json(),
             result.report.to_json())

@@ -51,6 +51,70 @@ impl PyMeasureRequest {
             inner: MeasureRequest::new(Measure::SpotDelta, method),
         })
     }
+    /// Derivatives to each cash dividend's mean, one row on an ex-time axis.
+    /// Without a calibration treatment it asks for the native estimator of a
+    /// source without a calibration step; a residual-equity LSV needs
+    /// `recalibrated`.
+    #[staticmethod]
+    #[pyo3(signature=(*, calibration=None))]
+    fn dividend_cash(py: Python<'_>, calibration: Option<&str>) -> PyResult<Self> {
+        let method = match calibration {
+            None => MeasureMethod::Native,
+            Some(c) => MeasureMethod::NativeCalibrated {
+                calibration: parse_calibration(py, c, "/operation/measures/method/calibration")?,
+            },
+        };
+        Ok(Self {
+            inner: MeasureRequest::new(Measure::DividendCash, method),
+        })
+    }
+    /// Derivatives to each discount-curve pillar's log discount factor and
+    /// their DV01 projection, two rows on a discount-time axis. A calibrated
+    /// source (a residual-equity LSV, or an LSV or Local Correlation basket)
+    /// needs `recalibrated`.
+    #[staticmethod]
+    #[pyo3(signature=(*, calibration=None))]
+    fn discount_curve(py: Python<'_>, calibration: Option<&str>) -> PyResult<Self> {
+        let method = match calibration {
+            None => MeasureMethod::Native,
+            Some(c) => MeasureMethod::NativeCalibrated {
+                calibration: parse_calibration(py, c, "/operation/measures/method/calibration")?,
+            },
+        };
+        Ok(Self {
+            inner: MeasureRequest::new(Measure::DiscountCurve, method),
+        })
+    }
+    /// The full Spot Gamma matrix of a basket: one row per ordered pair of
+    /// underlyings, a central difference of native Deltas with the same
+    /// relative Spot bump. A calibrated basket (LSV or Local Correlation)
+    /// needs `recalibrated`.
+    #[staticmethod]
+    #[pyo3(signature=(*, relative_bump, calibration=None))]
+    fn cross_gamma(
+        py: Python<'_>,
+        relative_bump: f64,
+        calibration: Option<&str>,
+    ) -> PyResult<Self> {
+        let bump = SpotBump::relative(relative_bump).map_err(|error| {
+            builders::domain_error(
+                py,
+                "invalid_gamma_bump",
+                "/operation/measures/method/bump",
+                error,
+            )
+        })?;
+        let method = match calibration {
+            None => MeasureMethod::NativeSpotBump { bump },
+            Some(c) => MeasureMethod::NativeSpotBumpCalibrated {
+                bump,
+                calibration: parse_calibration(py, c, "/operation/measures/method/calibration")?,
+            },
+        };
+        Ok(Self {
+            inner: MeasureRequest::new(Measure::CrossGamma, method),
+        })
+    }
     /// Spot Gamma. With a bump it is the backend's central difference of
     /// native Deltas; without one it asks for a bump-free native estimator.
     /// A calibration treatment selects the calibrated native estimator and

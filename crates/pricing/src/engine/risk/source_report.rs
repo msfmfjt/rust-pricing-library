@@ -162,6 +162,9 @@ pub(super) fn build(
             CalibrationTreatment::Recalibrated,
             "funded residual-equity target variance; finite-particle recalibration with fixed calibration seed, model and grid",
         ),
+        PricingTaskOutput::MultiAsset(p) if task.measures().is_some() => {
+            basket_rows(&mut report, task, p, calibrated);
+        }
         PricingTaskOutput::MultiAsset(p) => multi_asset(&mut report, p, calibrated),
         PricingTaskOutput::RoughFamilyLsvMeasureRisk(r) => {
             rough_family_lsv_rows(&mut report, task, &ids, r)
@@ -539,6 +542,73 @@ fn rough_volatility_rows(
 
 /// Native Spot rows of a stochastic-dividend source, copied from the
 /// dedicated results. `treatment` is `Recalibrated` on a residual-equity LSV.
+/// The two `discount_curve` rows: log-DF adjoints and their DV01
+/// projection, on the curve's pillar times.
+#[allow(clippy::too_many_arguments)]
+fn discount_curve_rows(
+    report: &mut ValuationReport,
+    task: &PricingTask,
+    ids: &[u32],
+    times: &[f64],
+    log_df: (Vec<f64>, Vec<f64>),
+    dv01: (Vec<f64>, Vec<f64>),
+    method: &str,
+    treatment: CalibrationTreatment,
+    held: &str,
+) {
+    let requested = task
+        .measures()
+        .and_then(|set| set.get(MeasureKind::DiscountCurve))
+        .expect("native rows answer listed measures");
+    let rows = [
+        (
+            "log_df",
+            log_df,
+            SensitivityUnit::CurrencyPerLogDiscountFactor,
+            "per unit log discount factor of each discount-curve pillar, the curve interpolated between pillars as the source builds it",
+        ),
+        (
+            "dv01",
+            dv01,
+            SensitivityUnit::CurrencyPerBasisPoint,
+            "signed price change for +1bp in each continuously compounded zero-rate pillar (-1e-4 t times the log-DF row)",
+        ),
+    ];
+    for (part, (values, errors), unit, what) in rows {
+        report.risks.push(ReportedRisk {
+            name: format!(
+                "{}.{part}.{}",
+                MeasureKind::DiscountCurve.as_str(),
+                requested.method.kind().as_str()
+            ),
+            underlying_ids: ids.to_vec(),
+            axes: vec![ReportAxis {
+                name: "discount_time".into(),
+                values: times.to_vec(),
+            }],
+            values,
+            standard_errors: Some(errors),
+            unit,
+            method: method.into(),
+            calibration: treatment,
+            convention: format!("{what}; {held}"),
+            measure: Some(MeasureKind::DiscountCurve),
+            method_detail: Some(requested.method),
+            model_parameter: None,
+            correlation: None,
+        });
+    }
+}
+
+/// `-1e-4 t` times each log-DF adjoint and its error.
+fn dv01_projection(times: &[f64], (values, errors): &(Vec<f64>, Vec<f64>)) -> (Vec<f64>, Vec<f64>) {
+    times
+        .iter()
+        .zip(values.iter().zip(errors))
+        .map(|(t, (v, e))| (-1e-4 * t * v, 1e-4 * t * e))
+        .unzip()
+}
+
 fn stochastic_dividend_rows(
     report: &mut ValuationReport,
     task: &PricingTask,
@@ -631,6 +701,64 @@ fn stochastic_dividend_rows(
                 correlation: Some(correlation),
             });
         }
+    }
+    if let Some(c) = &r.dividend_cash {
+        let requested = task
+            .measures()
+            .and_then(|set| set.get(MeasureKind::DividendCash))
+            .expect("native rows answer listed measures");
+        let (values, errors) = c.adjoints();
+        let reverse = if treatment == CalibrationTreatment::Recalibrated {
+            "the residual-equity LSV surface re-anchored to the moved funded residual equity with its squared-leverage values unchanged (recalibrated by scale invariance)"
+        } else {
+            "pathwise through the Buehler escrow split, the funded reserve and the payment discount"
+        };
+        report.risks.push(ReportedRisk {
+            name: format!(
+                "{}.{}",
+                MeasureKind::DividendCash.as_str(),
+                requested.method.kind().as_str()
+            ),
+            underlying_ids: ids.to_vec(),
+            axes: vec![ReportAxis {
+                name: "ex_time".into(),
+                values: c.cash_times().to_vec(),
+            }],
+            values,
+            standard_errors: Some(errors),
+            unit: SensitivityUnit::CurrencyPerUnitParameter,
+            method: c.method().into(),
+            calibration: treatment,
+            convention: format!(
+                "per one currency unit of each cash dividend's risk-neutral mean, in the market's schedule order on the ex-dividend-time axis; {reverse}; Spot, the dividend and volatility models, correlations, curves, dates and grid held"
+            ),
+            measure: Some(MeasureKind::DividendCash),
+            method_detail: Some(requested.method),
+            model_parameter: None,
+            correlation: None,
+        });
+    }
+    if let Some(c) = &r.discount_curve {
+        let log_df = c.discount_adjoints();
+        let dv01 = dv01_projection(c.discount_times(), &log_df);
+        let reverse = if treatment == CalibrationTreatment::Recalibrated {
+            "the residual-equity LSV surface re-anchored to the moved funded residual equity with its squared-leverage values unchanged (recalibrated by scale invariance)"
+        } else {
+            "pathwise through the escrow, the funded reserve and the payment discount"
+        };
+        discount_curve_rows(
+            report,
+            task,
+            ids,
+            c.discount_times(),
+            log_df,
+            dv01,
+            c.method(),
+            treatment,
+            &format!(
+                "{reverse}; the repo-spread curve, Spot, cash means, models, correlations, dates and grid held; repo-spread pillars are in the native result"
+            ),
+        );
     }
     if let Some(p) = &r.model_parameters {
         let requested = task
@@ -844,6 +972,107 @@ fn labeled(
     }
     Ok(())
 }
+/// Native rows of a basket `Measures` task, copied from `evaluate_aad`: one
+/// Spot Delta per asset and one cross Gamma per ordered pair, each with the
+/// underlyings it concerns.
+fn basket_rows(
+    report: &mut ValuationReport,
+    task: &PricingTask,
+    p: &MultiAssetPrice,
+    treatment: CalibrationTreatment,
+) {
+    let held = if treatment == CalibrationTreatment::Recalibrated {
+        "LSV marginals and Local Correlation recalibrated through the native reverse (forward-normalized, sticky moneyness)"
+    } else {
+        "no calibration step"
+    };
+    let mut push = |kind: MeasureKind,
+                    ids: Vec<u32>,
+                    value: Estimate,
+                    unit,
+                    method: &str,
+                    convention: String| {
+        let requested = task
+            .measures()
+            .and_then(|set| set.get(kind))
+            .expect("native rows answer listed measures");
+        report.risks.push(ReportedRisk {
+            name: format!("{}.{}", kind.as_str(), requested.method.kind().as_str()),
+            underlying_ids: ids,
+            axes: Vec::new(),
+            values: vec![value.value().get()],
+            standard_errors: Some(vec![value.standard_error().get()]),
+            unit,
+            method: method.into(),
+            calibration: treatment,
+            convention,
+            measure: Some(kind),
+            method_detail: Some(requested.method),
+            model_parameter: None,
+            correlation: None,
+        });
+    };
+    let listed = |kind| {
+        task.measures()
+            .and_then(|set| set.get(kind))
+            .is_some_and(|r| !matches!(r.method, MeasureMethod::BumpAndRevalue { .. }))
+    };
+    if listed(MeasureKind::SpotDelta) {
+        for a in &p.risks {
+            push(
+                MeasureKind::SpotDelta,
+                vec![a.underlying.get()],
+                a.delta,
+                SensitivityUnit::CurrencyPerSpot,
+                "aad_reverse",
+                format!(
+                    "physical Spot of this underlying, the others held; pathwise through payoff and paths; {held}; payout references, dates, model parameters, correlations and grid axes fixed"
+                ),
+            );
+        }
+    }
+    if listed(MeasureKind::CrossGamma) {
+        for (i, row) in p.gamma.iter().enumerate() {
+            for (j, &value) in row.iter().enumerate() {
+                push(
+                    MeasureKind::CrossGamma,
+                    vec![p.underlyings[i].get(), p.underlyings[j].get()],
+                    value,
+                    SensitivityUnit::CurrencyPerSpotSquared,
+                    "central_bump_of_aad_delta",
+                    format!(
+                        "unsymmetrized dDelta_i/dSpot_j for underlyings [i, j]: central difference of native Deltas with relative Spot bump {:?} of underlying j on common random numbers; {held}; error excludes bump bias",
+                        p.gamma_relative_bump.unwrap_or_default()
+                    ),
+                );
+            }
+        }
+    }
+    if listed(MeasureKind::DiscountCurve)
+        && let Some(v) = &p.hull_white_curve_risk
+    {
+        let split = |values: &[Estimate]| -> (Vec<f64>, Vec<f64>) {
+            values
+                .iter()
+                .map(|e| (e.value().get(), e.standard_error().get()))
+                .unzip()
+        };
+        discount_curve_rows(
+            report,
+            task,
+            &[],
+            &v.discount_time_nodes,
+            split(&v.discount_log_df_adjoints),
+            split(&v.discount_node_dv01),
+            "aad_reverse",
+            treatment,
+            &format!(
+                "the shared Hull-White initial curve, through the rate paths and every cashflow discount; {held}; repo-spread curves, Spot, model parameters, correlations, dates and grid held; repo-spread pillars are in the native result"
+            ),
+        );
+    }
+}
+
 fn multi_asset(r: &mut ValuationReport, p: &MultiAssetPrice, calibration: CalibrationTreatment) {
     use SensitivityUnit as U;
     let convention = "physical Spot; fixed payout references, dates, model parameters, correlations and grid axes; native marginal/joint recalibration policy";
