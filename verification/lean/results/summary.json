@@ -367,6 +367,37 @@
       "top_level_symbols": 190,
       "classes": 182,
       "class_members": 1608
+    },
+    "python_bindings_release": {
+      "status": "supplementary partial run",
+      "discovered_test_methods": 740,
+      "completed_test_methods": 635,
+      "passed": 635,
+      "failed": 0,
+      "skipped": 0,
+      "completed_modules": 114,
+      "discovered_modules": 133,
+      "modules_without_a_final_verdict": [
+        "test_vega_kt_coupled_basis_provider",
+        "test_vega_kt_custom_basis_provider",
+        "test_vega_kt_extension_provider",
+        "test_vega_kt_extension_put_provider",
+        "test_vega_kt_gamma_recovery",
+        "test_vega_kt_initial_measure",
+        "test_vega_kt_initial_smile",
+        "test_vega_kt_initial_three",
+        "test_vega_kt_joint_portfolio",
+        "test_vega_kt_joint_replay",
+        "test_vega_kt_joint_smile",
+        "test_vega_kt_lookback_fixing_day",
+        "test_vega_kt_middle_smile",
+        "test_vega_kt_multi_step",
+        "test_vega_kt_multi_step_provider",
+        "test_vega_kt_nonflat_gamma",
+        "test_vega_kt_path_chain",
+        "test_vega_kt_path_ledger",
+        "test_vega_kt_rqmc_replay"
+      ]
     }
   },
   "historical_failed_probes": [

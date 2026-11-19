@@ -31,7 +31,7 @@ The earlier two discrepancies remain reproducible on main. For a smoothed up bar
 
 On main, the ordinary library builds produced 25,141 MIR bodies and 252,839 blocks. The unit builds produced 29,263 bodies and 305,076 blocks. The scalar getter analysis covered 193 methods on main and 194 on PR #216. The source catalog selects the dyadic witness corresponding to each revision of the barrier implementation.
 
-The standard Rust regression suites passed 1,191 tests, with 91 opt-in tests ignored by the default harness. All 330 backtesting Python tests passed. Four negative controls changed a field index, a Philox bit, a risk verdict and a discriminator tag. The Lean kernel rejected all four corrupted statements.
+The standard Rust regression suites passed 1,191 tests, with 91 opt-in tests ignored by the default harness. All 330 backtesting Python tests passed. The supplemental CPython binding run recorded 635 passing test methods across 114 completed modules. Of the 740 discovered binding test methods, 105 have no final verdict in this snapshot. The full per-module status for the remaining simulation panels is in the results JSON. Four negative controls changed a field index, a Philox bit, a risk verdict and a discriminator tag. The Lean kernel rejected all four corrupted statements.
 
 ## Mathematical contracts
 
