@@ -1,6 +1,7 @@
 import PricingAudit.TailBounds
 import PricingAudit.Discrete
 import Mathlib.Analysis.Calculus.Deriv.MeanValue
+import Mathlib.Data.Complex.ExponentialBounds
 
 noncomputable section
 namespace PricingAudit.NumericalRepair
@@ -14,6 +15,58 @@ theorem vega_factorization (g x v : ℝ) (hv : v ≠ 0) :
   congr 2
   field_simp [hv]
   ring
+
+/-- Differentiating the Black call in total standard deviation gives the positive
+vega integrand. The CDF hypothesis specifies the standard Gaussian density. -/
+theorem black_vega_derivative (cdf : ℝ → ℝ)
+    (hcdf : ∀ z, HasDerivAt cdf (Real.exp (-z^2/2)/Real.sqrt (2*Real.pi)) z)
+    (g x v : ℝ) (hv : v ≠ 0) :
+    HasDerivAt (fun t : ℝ => g*Real.exp (x/2)*cdf (x/t+t/2) -
+        g*Real.exp (-x/2)*cdf (x/t-t/2))
+      (g*Real.exp (-(x/v)^2/2)*Real.exp (-(v^2/8))/Real.sqrt (2*Real.pi)) v := by
+  let a := Real.sqrt (2*Real.pi)
+  let m := g*Real.exp (-(x/v)^2/2)*Real.exp (-(v^2/8))/a
+  have plus : g*Real.exp (x/2)*(Real.exp (-(x/v+v/2)^2/2)/a) = m := by
+    rw [← mul_div_assoc, vega_factorization g x v hv]
+  have minus : g*Real.exp (-x/2)*(Real.exp (-(x/v-v/2)^2/2)/a) = m := by
+    have h := vega_factorization g (-x) v hv
+    rw [show ((-x)/v+v/2)^2 = (x/v-v/2)^2 by ring,
+        show ((-x)/v)^2 = (x/v)^2 by ring] at h
+    rw [← mul_div_assoc, h]
+  have center := (hasDerivAt_const v x).div (hasDerivAt_id v) hv
+  have half := (hasDerivAt_id v).div_const 2
+  have call := (((hcdf _).comp v (center.add half)).const_mul (g*Real.exp (x/2))).sub
+    (((hcdf _).comp v (center.sub half)).const_mul (g*Real.exp (-x/2)))
+  convert call using 1
+  change m = g*Real.exp (x/2)*((Real.exp (-(x/v+v/2)^2/2)/a)*_) -
+      g*Real.exp (-x/2)*((Real.exp (-(x/v-v/2)^2/2)/a)*_)
+  rw [← mul_assoc, plus, ← mul_assoc, minus]
+  ring
+
+/-- At or beyond 56 standard deviations on this branch the Gaussian scale times
+any finite forward is below half the smallest binary64 subnormal. -/
+theorem tiny_tail_below_half_subnormal (q s f : ℝ) (hq : 56 ≤ q) (hs : s ≤ 1/256)
+    (hf : f ≤ (2:ℝ)^1024) :
+    f * Real.exp ((q*s-q^2)/2) < (2:ℝ)^(-1075:ℤ) := by
+  have z : 0 ≤ q := by linarith
+  have harg : (q*s-q^2)/2 < -((2099:ℝ) * Real.log 2) := by
+    nlinarith [mul_nonneg z (sub_nonneg.mpr hs), mul_nonneg (sub_nonneg.mpr hq)
+      (show 0 ≤ q+56-1/256 by linarith), Real.log_two_lt_d9]
+  have e := Real.exp_lt_exp.mpr harg
+  rw [Real.exp_neg, show (2099:ℝ) = (2099:ℕ) by norm_num,
+      Real.exp_nat_mul, Real.exp_log (by norm_num : (0:ℝ) < 2)] at e
+  calc
+    f * _ ≤ (2:ℝ)^1024 * _ := mul_le_mul_of_nonneg_right hf (Real.exp_pos _).le
+    _ < (2:ℝ)^1024 * ((2:ℝ)^2099)⁻¹ := mul_lt_mul_of_pos_left e (by positivity)
+    _ = _ := by norm_num
+
+/-- Each continued-fraction step carries the divided difference without subtracting
+two near-equal ratios. Only the two positive tail denominators must be nonzero. -/
+theorem mills_divided_step (n a b l r d : ℝ) (hd : l-r = (b-a)*d)
+    (ha : a+l ≠ 0) (hb : b+r ≠ 0) :
+    n/(a+l)-n/(b+r) = (b-a)*(n*(1-d)/((a+l)*(b+r))) := by
+  field_simp [ha, hb]
+  linear_combination -n * hd
 
 private theorem from_zero {f d : ℝ → ℝ} (hf : ∀ y, HasDerivAt f (d y) y)
     (hd : ∀ y, 0 ≤ y → 0 ≤ d y) {x : ℝ} (hx : 0 ≤ x) : f 0 ≤ f x := by

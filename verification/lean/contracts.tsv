@@ -53,3 +53,6 @@ crates/pricing-numerics/src/complex.rs	fn scale_binary	NumericalRepair	restore_q
 crates/pricing-numerics/src/complex.rs	fn scale_binary	NumericalRepair	repaired_max_division	Binary64 normal-range rounding trace for largest finite components	-
 crates/pricing/src/black_price.rs	fn small_time_value	NumericalRepair	atm_witness_rounding_cell	Exact unit ATM price strictly inside the two binary64 midpoints around 0x3c19884533d43651	-
 crates/pricing-numerics/src/complex.rs	fn quotient(self	NumericalRepair	quotient_residual	Residual for the quotient of two high/low expansions	-
+crates/pricing/src/black_price.rs	fn small_time_value	NumericalRepair	black_vega_derivative	Black vega integral follows by differentiating the Gaussian call in total standard deviation	-
+crates/pricing/src/black_price.rs	fn tail_time_value	NumericalRepair	tiny_tail_below_half_subnormal	Gaussian tail scale at the 56-sigma cutoff is less than half the minimum subnormal for every finite forward	-
+crates/pricing/src/black_price.rs	fn tail_time_value	NumericalRepair	mills_divided_step	Cancellation-free recurrence for a divided difference of two Laplace fraction convergents	-

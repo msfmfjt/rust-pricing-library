@@ -102,6 +102,9 @@ run_cmd
     ``PricingAudit.Market.bergomi_degeneracy,
     -- NumericalRepair
     ``PricingAudit.NumericalRepair.vega_factorization,
+    ``PricingAudit.NumericalRepair.black_vega_derivative,
+    ``PricingAudit.NumericalRepair.tiny_tail_below_half_subnormal,
+    ``PricingAudit.NumericalRepair.mills_divided_step,
     ``PricingAudit.NumericalRepair.exp_quadratic_remainder,
     ``PricingAudit.NumericalRepair.black_integrand_relative_error,
     ``PricingAudit.NumericalRepair.atm_density_bounds,

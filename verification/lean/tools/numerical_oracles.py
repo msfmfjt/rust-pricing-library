@@ -104,9 +104,13 @@ def generate_black_fixtures():
         (2.**-51, [.5, 2, 8, 30, 37]),
         (2.**-15, [.9375, 1.9999, 2, 2.0001, 4, 8, 20, 37, 38, 39, 54, 56]),
         (cutoff, [.5, 1.99999, 2.00001, 8, 37, 39, 55]),
+        (math.nextafter(cutoff, math.inf), [8, 37, 39]),
+        (.2, [8, 12, 30, 37.1, 38, 39, 54, 56]),
+        (2., [10, 30, 38, 39]),
     ]:
         for q in moneyness:
-            for f in ([1., 2.**990] if q >= 37 else [1.]):
+            for f in ([1., 2.**700] if q >= 37 and s > cutoff else
+                      [1., 2.**990] if q >= 37 else [1.]):
                 k = float(mp.mpf(f) * mp.exp(mp.mpf(s)*q))
                 record(f, k, s)
                 record(k, f, s)
@@ -143,7 +147,9 @@ def main():
             else:
                 s = value(words[2])
                 f, k = map(value, words[:2])
-                q = abs(math.log1p((f-k)/k))/s
+                relative_strike = (f-k)/k
+                log_fk = math.log1p(relative_strike) if abs(relative_strike) < .5 else math.log(f/k)
+                q = abs(log_fk)/s
                 relative = abs(value(got)/value(want)-1.) if want else 0.
                 if value(want) >= sys.float_info.min:
                     max_black_relative = max(max_black_relative, relative)
