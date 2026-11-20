@@ -1053,5 +1053,907 @@
   "crates_tree": "e725eb750105a72a02afedb614b85aed015310df",
   "previous_evidence": "summary.json#supplementary_regressions.python_bindings_release",
   "local_extension_sha256": "4c0f0bcec174817f851efc3f331f1aa6cc824bf570195a4186bd4e516193bcf0",
-  "remote_run_url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373"
+  "remote_run_url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373",
+  "repaired_run": {
+    "source_revision": "0764ddcb6d957d60b4b6b6f9dab2e3125beb4a7c",
+    "crates_tree": "8333b48083e6b2169cd38a0f51e2de00cef08acd",
+    "summary": {
+      "previously_passed": 635,
+      "additional_passed": 105,
+      "without_a_final_verdict": 0,
+      "total_passed": 740,
+      "complete_modules": 19,
+      "provider_cases": 179,
+      "jobs_completed": 51,
+      "jobs_total": 51
+    },
+    "job_evidence": {
+      "coupled-basis-contracts": {
+        "job": "coupled-basis-contracts",
+        "exit": 0,
+        "seconds": 31.051,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "402a4ac7d1650ef1fa4a69af65f7dddee61ff1b048af2765b1647bccbda12f72",
+        "unittest_method_invocations": 3
+      },
+      "coupled-basis-coupled_row_hats-4-call-arithmetic_asian": {
+        "job": "coupled-basis-coupled_row_hats-4-call-arithmetic_asian",
+        "exit": 0,
+        "source": "GitHub Actions Linux",
+        "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303794",
+        "head_sha": "7c020932ecf0f203adfbfc252ee73518cfc60174"
+      },
+      "coupled-basis-coupled_row_hats-4-call-fixed_lookback": {
+        "job": "coupled-basis-coupled_row_hats-4-call-fixed_lookback",
+        "exit": 0,
+        "source": "GitHub Actions Linux",
+        "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303834",
+        "head_sha": "7c020932ecf0f203adfbfc252ee73518cfc60174"
+      },
+      "coupled-basis-coupled_row_hats-4-panels": {
+        "job": "coupled-basis-coupled_row_hats-4-panels",
+        "exit": 0,
+        "seconds": 476.38,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "7710db6b14594ae77708ab5b4c0a84966a534f2c20537e25d03d1b467d86b3c4",
+        "unittest_method_invocations": 1
+      },
+      "coupled-basis-coupled_row_hats-4-put-arithmetic_asian": {
+        "job": "coupled-basis-coupled_row_hats-4-put-arithmetic_asian",
+        "exit": 0,
+        "source": "GitHub Actions Linux",
+        "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303758",
+        "head_sha": "7c020932ecf0f203adfbfc252ee73518cfc60174"
+      },
+      "coupled-basis-coupled_row_hats-4-put-fixed_lookback": {
+        "job": "coupled-basis-coupled_row_hats-4-put-fixed_lookback",
+        "exit": 0,
+        "source": "GitHub Actions Linux",
+        "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303742",
+        "head_sha": "7c020932ecf0f203adfbfc252ee73518cfc60174"
+      },
+      "coupled-basis-coupled_row_hats-6": {
+        "job": "coupled-basis-coupled_row_hats-6",
+        "exit": 0,
+        "seconds": 5257.334,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "253033ee076541638046288c5a01addcf1f04e51439b56632d8e14bd5b9b8917",
+        "unittest_method_invocations": 2
+      },
+      "custom-basis-contracts": {
+        "job": "custom-basis-contracts",
+        "exit": 0,
+        "seconds": 96.925,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "a483f27b68700ff7b47be065b4437c9de00061b1f842b105a0bf892b607d688f",
+        "unittest_method_invocations": 3
+      },
+      "custom-basis-coupled_row_hats-4-call-arithmetic_asian": {
+        "job": "custom-basis-coupled_row_hats-4-call-arithmetic_asian",
+        "exit": 0,
+        "seconds": 3376.885,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "b0299bd6070d37a2d1fad6bb2898ee01fce4b137e54095d1012b1461012dfaf3",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-coupled_row_hats-4-call-fixed_lookback": {
+        "job": "custom-basis-coupled_row_hats-4-call-fixed_lookback",
+        "exit": 0,
+        "seconds": 2878.033,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "eef17c9f972e86517fc393cc44892dc92a238bfe4a2b430359ff183336608a4f",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-coupled_row_hats-4-panels": {
+        "job": "custom-basis-coupled_row_hats-4-panels",
+        "exit": 0,
+        "seconds": 423.154,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "b2838ead2e856b8c0d4a8f01b56025c9d5d18b9acaa3f28c7b70e3065edf11aa",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-coupled_row_hats-4-put-arithmetic_asian": {
+        "job": "custom-basis-coupled_row_hats-4-put-arithmetic_asian",
+        "exit": 0,
+        "seconds": 3623.393,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "088e7eecce9cb6680d400490f9c0f3093a80f42f8cd222ef3aab84f0a166dcdf",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-coupled_row_hats-4-put-fixed_lookback": {
+        "job": "custom-basis-coupled_row_hats-4-put-fixed_lookback",
+        "exit": 0,
+        "source": "GitHub Actions Linux",
+        "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303707",
+        "head_sha": "7c020932ecf0f203adfbfc252ee73518cfc60174"
+      },
+      "custom-basis-coupled_row_hats-6": {
+        "job": "custom-basis-coupled_row_hats-6",
+        "exit": 0,
+        "seconds": 5457.157,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "0a889d8357e0a5bb0484292468682337976cfb35207589e775e4b05d3f22b40d",
+        "unittest_method_invocations": 2
+      },
+      "custom-basis-row_hats-4-call-arithmetic_asian": {
+        "job": "custom-basis-row_hats-4-call-arithmetic_asian",
+        "exit": 0,
+        "seconds": 3143.958,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "b20d8f3df691712c1a468fc773a61de4db8fdb869f6b2fbd0620c7d53b3d7558",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-row_hats-4-call-fixed_lookback": {
+        "job": "custom-basis-row_hats-4-call-fixed_lookback",
+        "exit": 0,
+        "seconds": 2743.765,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "a015a7922a916cb2c1ba6656dfc02ea4934fcb867e05bee6deb0d93e4ff5b27c",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-row_hats-4-panels": {
+        "job": "custom-basis-row_hats-4-panels",
+        "exit": 0,
+        "seconds": 447.208,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "4e575abf71f8ac8e35746d104e886f4d3a26b1eb4d1e1d41e3f74151d0e18e8b",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-row_hats-4-put-arithmetic_asian": {
+        "job": "custom-basis-row_hats-4-put-arithmetic_asian",
+        "exit": 0,
+        "seconds": 3309.053,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "160e61980901d4f3c07258bdd0b947ec44dd584d5c38287351db0598a8268374",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-row_hats-4-put-fixed_lookback": {
+        "job": "custom-basis-row_hats-4-put-fixed_lookback",
+        "exit": 0,
+        "seconds": 2629.874,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "3539eda626f753b63a738fdaf5efabf5735062a938ff01af1f7730720b71da53",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-row_hats-6": {
+        "job": "custom-basis-row_hats-6",
+        "exit": 0,
+        "seconds": 5359.34,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "7fb8a62de2a72ac232fe8046a05a722f5145b8a8996792712b99a7749ccba3a0",
+        "unittest_method_invocations": 2
+      },
+      "custom-basis-weighted_time_hats-4-call-arithmetic_asian": {
+        "job": "custom-basis-weighted_time_hats-4-call-arithmetic_asian",
+        "exit": 0,
+        "seconds": 3255.337,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "2b262fdbab31e2a74c244050df6bfed13b435159fb29a6fb33ceedc1f968b698",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-weighted_time_hats-4-call-fixed_lookback": {
+        "job": "custom-basis-weighted_time_hats-4-call-fixed_lookback",
+        "exit": 0,
+        "seconds": 2704.708,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "f59d26a835a5e1f7c89d7a1f58efdc300365449e37d6ecd04bc23d08220842c8",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-weighted_time_hats-4-panels": {
+        "job": "custom-basis-weighted_time_hats-4-panels",
+        "exit": 0,
+        "seconds": 540.013,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "79e8bc5065b88b6dbefba180cae35b8b1f45496c8d1a2261ced9e374bed52959",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-weighted_time_hats-4-put-arithmetic_asian": {
+        "job": "custom-basis-weighted_time_hats-4-put-arithmetic_asian",
+        "exit": 0,
+        "seconds": 3424.876,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "3d23edde480c7a4e8c1a3987d9551149b320d5fcb4c3fe2ef64171584ef84910",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-weighted_time_hats-4-put-fixed_lookback": {
+        "job": "custom-basis-weighted_time_hats-4-put-fixed_lookback",
+        "exit": 0,
+        "seconds": 2690.942,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "ba2948cd6666c05eb3b23d5599f986372504d496472181cc9613950218907f97",
+        "unittest_method_invocations": 1
+      },
+      "custom-basis-weighted_time_hats-6": {
+        "job": "custom-basis-weighted_time_hats-6",
+        "exit": 0,
+        "seconds": 5427.81,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "c1e495bdb0fbee1bc18b70605a1663fef6117accfe2dc8c2616bed9bb031895f",
+        "unittest_method_invocations": 2
+      },
+      "extension-all_rows-4": {
+        "job": "extension-all_rows-4",
+        "exit": 0,
+        "source": "GitHub Actions Linux",
+        "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303706",
+        "head_sha": "7c020932ecf0f203adfbfc252ee73518cfc60174"
+      },
+      "extension-all_rows-6": {
+        "job": "extension-all_rows-6",
+        "exit": 0,
+        "seconds": 2572.711,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "cba26a735ffcaab2b2116f14a17b24d65688494602e0f9cac49985aa72bbafc2",
+        "unittest_method_invocations": 2
+      },
+      "extension-contracts": {
+        "job": "extension-contracts",
+        "exit": 0,
+        "seconds": 42.186,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "e5d64ab8d8ae7be6c6bda0f0bdaeba2a435590450ea62f3f0e9da7cc4581fef0",
+        "unittest_method_invocations": 3
+      },
+      "extension-linear_time-4": {
+        "job": "extension-linear_time-4",
+        "exit": 0,
+        "source": "GitHub Actions Linux",
+        "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303818",
+        "head_sha": "7c020932ecf0f203adfbfc252ee73518cfc60174"
+      },
+      "extension-linear_time-6": {
+        "job": "extension-linear_time-6",
+        "exit": 0,
+        "seconds": 2505.366,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "0a6596790ca2245e1eaf47ee85b59295d8d0fa711494b8d1e654d402152aafe3",
+        "unittest_method_invocations": 2
+      },
+      "put-extension-all_rows-4": {
+        "job": "put-extension-all_rows-4",
+        "exit": 0,
+        "source": "GitHub Actions Linux",
+        "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303972",
+        "head_sha": "7c020932ecf0f203adfbfc252ee73518cfc60174"
+      },
+      "put-extension-all_rows-6": {
+        "job": "put-extension-all_rows-6",
+        "exit": 0,
+        "seconds": 2782.495,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "993046addc42c839fdc8abf01f4bc7fa3dd2ace417ab1c4fe14eb8e42198fc96",
+        "unittest_method_invocations": 2
+      },
+      "put-extension-contracts": {
+        "job": "put-extension-contracts",
+        "exit": 0,
+        "seconds": 35.688,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "05242000677f609b014f20f0959142812ea5b0a397d99ee5aedc152433730c7a",
+        "unittest_method_invocations": 2
+      },
+      "put-extension-linear_time-4": {
+        "job": "put-extension-linear_time-4",
+        "exit": 0,
+        "source": "GitHub Actions Linux",
+        "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303817",
+        "head_sha": "7c020932ecf0f203adfbfc252ee73518cfc60174"
+      },
+      "put-extension-linear_time-6": {
+        "job": "put-extension-linear_time-6",
+        "exit": 0,
+        "seconds": 2795.207,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "a38252d4acc9a58feeedd771f5511e826b48dbc1042ba0c13741fd74ff5d429e",
+        "unittest_method_invocations": 2
+      },
+      "test_vega_kt_gamma_recovery": {
+        "job": "test_vega_kt_gamma_recovery",
+        "exit": 0,
+        "seconds": 1.221,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "838ebab4e5322097cc367a114a2897ce4608fde1e355c2c6ab8e8441dda14493",
+        "unittest_method_invocations": 4
+      },
+      "test_vega_kt_initial_measure": {
+        "job": "test_vega_kt_initial_measure",
+        "exit": 0,
+        "seconds": 1.16,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "c52c278b358e2f8903a1b6d6c6b49e0a29713f98fb4fd3fad8f642d8cea6520c",
+        "unittest_method_invocations": 8
+      },
+      "test_vega_kt_initial_smile": {
+        "job": "test_vega_kt_initial_smile",
+        "exit": 0,
+        "seconds": 4.884,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "1951d33ac2611a277e040caf806300e95d89abf45249312897aab64b937b9887",
+        "unittest_method_invocations": 8
+      },
+      "test_vega_kt_initial_three": {
+        "job": "test_vega_kt_initial_three",
+        "exit": 0,
+        "seconds": 1193.254,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "7a5ba83f322889e19543788acf153edc9543ac33f2d6f6339acb1de1dfa90d70",
+        "unittest_method_invocations": 7
+      },
+      "test_vega_kt_joint_portfolio": {
+        "job": "test_vega_kt_joint_portfolio",
+        "exit": 0,
+        "seconds": 225.524,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "25eb1b6ecbebfea999dc58e7a45a6d81688e9afeeb4a0b735adc85c6bcb7190f",
+        "unittest_method_invocations": 5
+      },
+      "test_vega_kt_joint_replay": {
+        "job": "test_vega_kt_joint_replay",
+        "exit": 0,
+        "seconds": 1901.311,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "44ccfee4bec004f3c32e95c038bded6090f81d5884468aba8561ca0250084d4d",
+        "unittest_method_invocations": 1
+      },
+      "test_vega_kt_joint_smile": {
+        "job": "test_vega_kt_joint_smile",
+        "exit": 0,
+        "seconds": 13.35,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "010568067e35e152aeb060d1cd5824b2c3d4562555087a1275e1e2ccde76e4d6",
+        "unittest_method_invocations": 8
+      },
+      "test_vega_kt_lookback_fixing_day": {
+        "job": "test_vega_kt_lookback_fixing_day",
+        "exit": 0,
+        "seconds": 2292.971,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "21a87cbac012f4d0efef8cf8d237e2601dc84120cb25b4b454680534f3f4728a",
+        "unittest_method_invocations": 5
+      },
+      "test_vega_kt_middle_smile": {
+        "job": "test_vega_kt_middle_smile",
+        "exit": 0,
+        "seconds": 723.773,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "11ccb2738003eae34e080156045afd13cfc1c915aaa2ea68899c0edc2f53d8d0",
+        "unittest_method_invocations": 7
+      },
+      "test_vega_kt_multi_step": {
+        "job": "test_vega_kt_multi_step",
+        "exit": 0,
+        "seconds": 17.33,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "db27e9d8784e097b7e40c4521cd43403eb90ea037cd7468d3d7d155343c695c3",
+        "unittest_method_invocations": 6
+      },
+      "test_vega_kt_multi_step_provider": {
+        "job": "test_vega_kt_multi_step_provider",
+        "exit": 0,
+        "seconds": 795.828,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "874da92a1afd0d97013e9f1cf8138c4074a40df69ca6a0ccb61be67a46b60462",
+        "unittest_method_invocations": 8
+      },
+      "test_vega_kt_nonflat_gamma": {
+        "job": "test_vega_kt_nonflat_gamma",
+        "exit": 0,
+        "seconds": 1.542,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "485dd61ba668b132f1afc374dc8c3a5a3f7a49e693e6b71dc41c43d286cc793b",
+        "unittest_method_invocations": 8
+      },
+      "test_vega_kt_path_chain": {
+        "job": "test_vega_kt_path_chain",
+        "exit": 0,
+        "seconds": 149.026,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "887efc6e2dc7b6e693f0c694c6013a238ba81123fc70f5b9debb5c1b73da679e",
+        "unittest_method_invocations": 5
+      },
+      "test_vega_kt_path_ledger": {
+        "job": "test_vega_kt_path_ledger",
+        "exit": 0,
+        "seconds": 3333.929,
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "dc14e0bb691a4ec2580c0a90b3e6a319f6e4bd864831387a89d83a7253429518",
+        "unittest_method_invocations": 3
+      },
+      "test_vega_kt_rqmc_replay": {
+        "job": "test_vega_kt_rqmc_replay",
+        "exit": 0,
+        "seconds": 928.276,
+        "isolated_checkout": "0764ddcb6d957d60b4b6b6f9dab2e3125beb4a7c",
+        "first_attempt": "Prerequisite failed before pricing because a previous run had left its evidence directory; the successful rerun used a fresh checkout.",
+        "source": "local CPython 3.12.14 release extension",
+        "log_sha256": "7bf0439c20660ee0424b75ea47b37b57af5381af0e3bf335819033effd87b9f6",
+        "unittest_method_invocations": 1
+      }
+    },
+    "local_extension_sha256": "9d0d42ac5edbdf5df7c2dc7e82bc1234f3d81704d9512a515b68082bdef6aca2",
+    "other_modules": {
+      "test_american_dual": {
+        "passed": 8,
+        "log_sha256": "deb0a20d69499c6a8442d3df7c8b1397aff5532285cb7011d60b96ed21ef04f9"
+      },
+      "test_backtest_native_contract": {
+        "passed": 6,
+        "log_sha256": "7a09549071b0bbc87273496993d053469c606984e403f03fd431f16fddc37af4"
+      },
+      "test_bass_lv": {
+        "passed": 7,
+        "log_sha256": "3289e3dc321404cdcaae9583e39d383f2247f204371d457c8c8dddfb9f07e0ac"
+      },
+      "test_bass_lv_market_risk": {
+        "passed": 3,
+        "log_sha256": "0e49a2bca0bc49298afe5c1c5c91a926cd479b9419164b3fd93cda8cbfc59da8"
+      },
+      "test_bass_request": {
+        "passed": 5,
+        "log_sha256": "f083a87709ae5410fd94790eebdd69a5afbfc06312fecb55b36cafa24e9ffcbb"
+      },
+      "test_bergomi_dividends": {
+        "passed": 4,
+        "log_sha256": "c649e8e03e56680e64784e746267ef3913a3f0d85cc69808d79449ad3377aa2f"
+      },
+      "test_bergomi_hull_white": {
+        "passed": 4,
+        "log_sha256": "c7e9670745cc1e02b33f12cdd4f7a7821612693bbb51c74705edbcba5bf3613f"
+      },
+      "test_bergomi_two_factor": {
+        "passed": 4,
+        "log_sha256": "eb32a340caaff38bf2a98c037b6db3ad149db31975a0a1bc5a8766e19e86eb23"
+      },
+      "test_calibration_report": {
+        "passed": 5,
+        "log_sha256": "4d5667f083b057a461784ee8cedfcb5d9f6d9be4125a48e25738659d1ed1524b"
+      },
+      "test_contract_advanced": {
+        "passed": 5,
+        "log_sha256": "9b33b7438a79695f1440ca459ba7e7408f4467bfeb70d4e199e867799fdb60ae"
+      },
+      "test_contracts": {
+        "passed": 8,
+        "log_sha256": "1f8aa919a7024fde771feae4297b373b73506d935a01bcca249c158a1fd07127"
+      },
+      "test_cross_currency_autocall": {
+        "passed": 6,
+        "log_sha256": "5102265791e1cf46972119dd190b4a1c9c69ea1cf5ef0b978db49db41451ae22"
+      },
+      "test_cross_currency_autocall_legs": {
+        "passed": 9,
+        "log_sha256": "b2343ab4f7418fa4f7057c7fd92fe93e2328d8ef1ca3fd57219ba236f118dbd8"
+      },
+      "test_cross_currency_basket": {
+        "passed": 9,
+        "log_sha256": "801858803fdef8e3758499e2cfc6a27b45b1e62ed66b96e4c09a20661069c985"
+      },
+      "test_cross_currency_bergomi_cash_rates": {
+        "passed": 7,
+        "log_sha256": "6285e704eb45ba6f25eb15980ea7dccace2eaba492bfed7f7bc7fd323edb92ac"
+      },
+      "test_cross_currency_dividends": {
+        "passed": 4,
+        "log_sha256": "3752bf12983d14437505608228f27de990dd90a9c1a61d7aeccafceecf95a17e"
+      },
+      "test_cross_currency_equity": {
+        "passed": 6,
+        "log_sha256": "9a523a5bd46b8efb28d5417a6cbeacaa6092ceeded9d981ca179294c91264a1b"
+      },
+      "test_cross_currency_exotics": {
+        "passed": 8,
+        "log_sha256": "7647426a5606c97196a041dd0c7c3ae006256ca9d5c88c37ac4985e45ab4c0fb"
+      },
+      "test_cross_currency_hedge_study": {
+        "passed": 3,
+        "log_sha256": "3a315533b81287472852b81ae89b89d0f42abf74b1503c45c2c62712388d3eb1"
+      },
+      "test_cross_currency_joint_barrier": {
+        "passed": 5,
+        "log_sha256": "1b6564b340e3987326621631f36be8835ca2263870c47866d879b830d7446356"
+      },
+      "test_cross_currency_joint_exercise": {
+        "passed": 3,
+        "log_sha256": "0b623fb20a705c1f6737922a9af3d67ee1a3d25646413024299c10dc4a318da9"
+      },
+      "test_cross_currency_mixed_basket": {
+        "passed": 8,
+        "log_sha256": "eeb5b77a326f36f9d0809804a0c92969892678b279df75417f8348f0bb10bdd0"
+      },
+      "test_cross_currency_models": {
+        "passed": 4,
+        "log_sha256": "3e474124256972109995e72bb38dbfdb92ceff08a4171540bf21937725854c09"
+      },
+      "test_cross_currency_quote_hedge": {
+        "passed": 2,
+        "log_sha256": "81128f9124d7cdcafbfbb8ca0211a2f4340a148c45ac6c2064cc4f0cad0db545"
+      },
+      "test_cross_currency_quote_risk": {
+        "passed": 3,
+        "log_sha256": "0a027665a217d76a2ddf73564d2a0fe712ca91c5c3acb0fdb96981cd505b9ee1"
+      },
+      "test_cross_currency_rates": {
+        "passed": 8,
+        "log_sha256": "5dc6e0fff86977a1485c4676479ceda540e4029b567088e9b789b25d1d2ae28a"
+      },
+      "test_cross_currency_risk": {
+        "passed": 7,
+        "log_sha256": "caafea34f74538d5c732c2f9bbdf6f0e2ea7375214234a13315c80a75fd96b9a"
+      },
+      "test_cross_currency_seasoned": {
+        "passed": 8,
+        "log_sha256": "38e96d24425ab6af9ae738fafdaf927ab857e0f868b733bb24e0c361767b2016"
+      },
+      "test_cross_currency_universe": {
+        "passed": 4,
+        "log_sha256": "ee2834b15a5f373b2bc24a99435766ac0fa90051a5f1f3675c972770db932fde"
+      },
+      "test_execution_resources": {
+        "passed": 4,
+        "log_sha256": "cd65071a14f17114a7e9ed200279523c7be74892e26745512c34a7b5cd4b37bb"
+      },
+      "test_graph_division": {
+        "passed": 2,
+        "log_sha256": "2b07ebc1d72111097f843c6d1144df2228c813d5d0c42e58186f3c0440a28341"
+      },
+      "test_graph_smoothing_range": {
+        "passed": 3,
+        "log_sha256": "0907c61d983a92087d13f999c2e1e68a3ac3280cb9625511333afdf8497f1ce9"
+      },
+      "test_heston_calibration": {
+        "passed": 5,
+        "log_sha256": "ceae0629f50f496738f1ae7408accf557ab7cc4f6550d33e3b2924227e91f432"
+      },
+      "test_heston_fourier": {
+        "passed": 4,
+        "log_sha256": "f0be2baeb48ebc53456e31bfc4f6a4d1ac915ab90fdbdcd1a044c7e82c3cf1ad"
+      },
+      "test_heston_fourier_greeks": {
+        "passed": 4,
+        "log_sha256": "19f2a6224fb563637f18bba69aff9c74bb38edaf8e12166a3e881661343733c9"
+      },
+      "test_heston_hurst_risk": {
+        "passed": 4,
+        "log_sha256": "3816cfb6fcc2ac57101f8ce81416181598c7881ee4c3dc70d5e97345f1ed2b2a"
+      },
+      "test_heston_iv_calibration": {
+        "passed": 5,
+        "log_sha256": "01e293adf92bce088738e16302323478c4078eea8ad983b0a91225a0e7a3fcf0"
+      },
+      "test_heston_iv_holdout": {
+        "passed": 4,
+        "log_sha256": "3d5bdaba376824e2074543145007feb15f024c804e56419ab3eb8e7ee3acdab1"
+      },
+      "test_heston_iv_refinement": {
+        "passed": 4,
+        "log_sha256": "13c574e1cadac4cc73dc4f4bcd97b8e71f120ec674899e36c0f0eb5a09ff2f4a"
+      },
+      "test_heston_lsv_parameter_risk": {
+        "passed": 4,
+        "log_sha256": "569e58babe21b27637fcf9fe4843dbc9b95490dc08376fb3f731dd5c2e09f1d7"
+      },
+      "test_heston_mc_hurst_risk": {
+        "passed": 4,
+        "log_sha256": "a813130a005e878ce68a441460d5edc6bcd3d8836b5bfa1cc9345bbd46a24d88"
+      },
+      "test_heston_mc_parameter_risk": {
+        "passed": 4,
+        "log_sha256": "eea0b0bd5ffafffc5eff5f1a7e41a495c405c251a1b622bdfbaa3e6d3732d272"
+      },
+      "test_heston_parameter_risk": {
+        "passed": 4,
+        "log_sha256": "a01d901c9d4efc872798ee6b125bbf7eb9b10f38757a5dff7242b7f970278aa8"
+      },
+      "test_hull_white": {
+        "passed": 10,
+        "log_sha256": "e955814223790b15b1724d673ee62a802dbc48e56799097f6bef9bbd87ffc4f1"
+      },
+      "test_hull_white_market_iv_bounds": {
+        "passed": 4,
+        "log_sha256": "4756b25bda8eb242e17f662bab52a1618abab287e4ed3da97f16d05ed6195a86"
+      },
+      "test_integrated_models": {
+        "passed": 1,
+        "log_sha256": "d10ffbd9f0faa72cd6837063279524e199b59fbc3d035051302a1e8dbc4b36ad"
+      },
+      "test_legacy_wire_context": {
+        "passed": 5,
+        "log_sha256": "86794120640779cb671ba5e0c86a20ba9e34a1c58d875f22e893ed52afef9026"
+      },
+      "test_local_correlation": {
+        "passed": 4,
+        "log_sha256": "14bae1d209261b0bf94fe3ecec6b4acda3ae3ebee9b2865fdc6df74f54d6001a"
+      },
+      "test_local_correlation_lsv_hw": {
+        "passed": 2,
+        "log_sha256": "cae4f9bb86fab1657f17f4afe86df8b77099bd0f8bceb59979ff60ad51adba29"
+      },
+      "test_lsv": {
+        "passed": 2,
+        "log_sha256": "98305c8ff8bd9a2406d11a1487a44112d14c2162dc627b43f577024bbafba034"
+      },
+      "test_mixed_bergomi_hurst_risk": {
+        "passed": 3,
+        "log_sha256": "56c2947f89aeb183e3a956724ec32929d03bc3e22fe5ae4b7d838a651af5b1ed"
+      },
+      "test_mixed_bergomi_parameter_risk": {
+        "passed": 4,
+        "log_sha256": "a023d6174ac983a222c10c97ba444e7e9a2ef896cfaafa799ced17ce24785fa1"
+      },
+      "test_mixed_bergomi_representation_invariants": {
+        "passed": 3,
+        "log_sha256": "df903c56a3f002fa0895e3e67e7dceaa73b8358451aefd475d9c21fabf969ecc"
+      },
+      "test_mixed_bergomi_shape_risk": {
+        "passed": 4,
+        "log_sha256": "ef39841a7a448aca64695bc274833d3156ed298e2c53d517f0610f3dc34e48d6"
+      },
+      "test_multi_asset": {
+        "passed": 4,
+        "log_sha256": "2658ab6efa84e6ae1e6cacab8d156c1a4a92e225c03253b09ebb78df2297e241"
+      },
+      "test_multi_asset_errors": {
+        "passed": 2,
+        "log_sha256": "620f780683229b6add312ee1df9a5e32da79afaf30f8423a4e3f20e82ea0cb9a"
+      },
+      "test_multi_asset_lsv": {
+        "passed": 4,
+        "log_sha256": "c87e689c079bf8bd9d1c135ce5c3835d64a2929cffb8cdd1248aba721fa6a8df"
+      },
+      "test_multi_asset_rough": {
+        "passed": 3,
+        "log_sha256": "28f6c4bac962635b508e76af6dcb829e0f9fde2fcaa65120bdd659e4a0c65498"
+      },
+      "test_pricing_specification": {
+        "passed": 5,
+        "log_sha256": "48feae5eb0603da7ae1add44883bfab9863f592af48c31cd6b6198eadf05125c"
+      },
+      "test_pricing_task": {
+        "passed": 5,
+        "log_sha256": "10da518338fed8c46aa7c57eb3528a6ab0abc1445604b8a94db4b0955e7fc077"
+      },
+      "test_pricing_task_reuse": {
+        "passed": 7,
+        "log_sha256": "cad5071fe0a350cef331f691ed2769dd271418610da866f7f58b66c39813dcf4"
+      },
+      "test_product_graph": {
+        "passed": 7,
+        "log_sha256": "5b20df739904b41f17a58cd71e0a38d71b41ec26a889a819edb09f3d650c9cc8"
+      },
+      "test_provider_evidence": {
+        "passed": 7,
+        "log_sha256": "4fceefda0585f64a3543ce86eee9b748e053d9d712cf6f447186a8b7c4d47bbe"
+      },
+      "test_provider_validation_inventory": {
+        "passed": 2,
+        "log_sha256": "e957024199d82d545e682fed4a9d1e37d61cc894fdb7b63e691f12882c9f19a7"
+      },
+      "test_pure_bergomi": {
+        "passed": 5,
+        "log_sha256": "1a444c23daffa142bcb2f3d035dcd4d981c7fdd825cd877a689866fd52a903b0"
+      },
+      "test_quadratic_heston_parameter_risk": {
+        "passed": 4,
+        "log_sha256": "01ecebe873b73d4d5d2caafa357035ec578f42ef0d0cf0d4bb1c0884d4ad31af"
+      },
+      "test_risk_parameter_metadata": {
+        "passed": 2,
+        "log_sha256": "cdd2700864d44a54f2c72ce2e79cdb1936fb480d0bf2513f01f7156938a38512"
+      },
+      "test_rough_bergomi": {
+        "passed": 4,
+        "log_sha256": "6b8d4002dc25aff6c687957357fef5bdc0f3a12de030635ca805a2344ab366dd"
+      },
+      "test_rough_bergomi_lsv": {
+        "passed": 3,
+        "log_sha256": "a5b3ebd985e73b516cb7e1e01ce783acdc4b14595541c11efbf7616d9432e42d"
+      },
+      "test_rough_dividend_barrier_reference": {
+        "passed": 3,
+        "log_sha256": "c48609aa3d897468d253049d5e1b5fc7b116962cb20f3f3a9bebb2b6c29b3228"
+      },
+      "test_rough_dividend_barrier_styles": {
+        "passed": 3,
+        "log_sha256": "8756e24585496639693dc5f3c0e3965d2ea48827a62035123bc0ae6a1aeef13f"
+      },
+      "test_rough_dividend_conditional_barrier": {
+        "passed": 3,
+        "log_sha256": "9b9293ab5da616aacd1e5e0d99cab5f5de9dc0d03ab2b1f13b351bb15fe5b60f"
+      },
+      "test_rough_dividend_continuous": {
+        "passed": 21,
+        "log_sha256": "3c18d12eb4a202fbbdd50c9b20ec26481861c22f60794b1f4d8ccae6df63eed3"
+      },
+      "test_rough_dividend_correlation_risk": {
+        "passed": 3,
+        "log_sha256": "cafb367a8521c9aeb09b27bb47cfa72bac00727ae05b25c0bd66c52af50441eb"
+      },
+      "test_rough_dividend_hard_barrier": {
+        "passed": 12,
+        "log_sha256": "017ed814df8a8d66b11e71e97afe1cb1ca62c0d1d4dcb405f83cd3adc1ce64ea"
+      },
+      "test_rough_dividend_hard_refinement": {
+        "passed": 6,
+        "log_sha256": "d4bfb577a913f6223107d2f4d1004d4a43d3af19807661de8309da1c4732b979"
+      },
+      "test_rough_dividend_risk": {
+        "passed": 3,
+        "log_sha256": "23d50d7eb7b69aba99e0ee189725fd05bb0280682f547c84c177b088e03f1f93"
+      },
+      "test_rough_dividend_survival_reference": {
+        "passed": 5,
+        "log_sha256": "282f300ce8a06d516607487f82d38b0684ecc5984306a3503e6f677b6a83a953"
+      },
+      "test_rough_dividends": {
+        "passed": 3,
+        "log_sha256": "51d9d5e8e618a02b9d054d21ae88828c769f439026d784760d3d3cbdd229dd7d"
+      },
+      "test_rough_family_aad_lsv": {
+        "passed": 6,
+        "log_sha256": "2d8de71bd279ac357ebcd38280baa991130f393874070c1ad0d731aa657a3e0f"
+      },
+      "test_rough_family_gamma_bump": {
+        "passed": 4,
+        "log_sha256": "b8294910658dc46e15b05c1974eb35e70ed3c5d03a86a08216ea4a2f82919a5e"
+      },
+      "test_rough_family_lsv_spot_delta": {
+        "passed": 5,
+        "log_sha256": "7dec9470b9dbdd5b3af402719be2e5d2107c649ece5b9400dbbf5a985114ebce"
+      },
+      "test_rough_family_market_iv": {
+        "passed": 4,
+        "log_sha256": "514a1767892e400aae374ed017f630b808176e7069bf2c6acb4d3becdddfdf15"
+      },
+      "test_rough_lsv_calibration_reference": {
+        "passed": 4,
+        "log_sha256": "7485dec3f7a9a4d0b81a97bc1d3acef431d1825a34d711d3204267384e1d5948"
+      },
+      "test_rough_volatility_families": {
+        "passed": 7,
+        "log_sha256": "dc13f35e67174722c6a7efbbc762e3d7ddba6a375ed5e825c0c7b660e0081581"
+      },
+      "test_smoke": {
+        "passed": 47,
+        "log_sha256": "3b415d2fbde6ce3cd964af35e2b215ee8c6723150fd4abb98eb8787202dd1f3e"
+      },
+      "test_stochastic_dividend_bergomi_risk": {
+        "passed": 3,
+        "log_sha256": "d9412285750685a4602ee6934a745dbae4a8441588560e9957b41b69d32a246a"
+      },
+      "test_stochastic_dividend_correlation_risk": {
+        "passed": 3,
+        "log_sha256": "269922711a6ee3ae12f0461b4db6bd7c9bec126539ebb5415837fe05be68d24f"
+      },
+      "test_stochastic_dividend_gamma": {
+        "passed": 3,
+        "log_sha256": "4335d783b1b1fe233d920cfdc11fa51ba93f081eda1d59569c5abfe2a64de204"
+      },
+      "test_stochastic_dividend_hull_white": {
+        "passed": 4,
+        "log_sha256": "be7a6c18a64f9fa2199c7cc800250d64c9988fda5b8c966c655b39a5d8f5e361"
+      },
+      "test_stochastic_dividend_hull_white_gamma": {
+        "passed": 3,
+        "log_sha256": "ae8eb49ed6a9633ce8b54aa2f3d285c8ec0ae35fe4a5f60e32cd9c42c49f63e2"
+      },
+      "test_stochastic_dividend_hull_white_risk": {
+        "passed": 7,
+        "log_sha256": "8b5428e4b75f37e887aa7e9c5c8ed98f09980a7c72c88df1e6e412b36b782365"
+      },
+      "test_stochastic_dividend_hull_white_risk_oracle": {
+        "passed": 4,
+        "log_sha256": "c5fe18d8ee5af85b96b077d66c78db3f32e7c8dd6fe50b1a67c93ebccd0c910c"
+      },
+      "test_stochastic_dividend_risk": {
+        "passed": 4,
+        "log_sha256": "61caad5722a5204e2ee93ffc732bcce18650eda07d9d75bdfced86f5757f481c"
+      },
+      "test_stochastic_dividends": {
+        "passed": 21,
+        "log_sha256": "900044e8a332b8e093728ec279d7e0851de012e7b3a1ceb081b96cc17bafca33"
+      },
+      "test_structured_errors": {
+        "passed": 6,
+        "log_sha256": "e9dbc1a31936475165af55356b566005547a03914ab93e4739e4aa9949799201"
+      },
+      "test_typed_pricing_sources": {
+        "passed": 10,
+        "log_sha256": "a857045e7f39fbb00eb3defa1b679296c5821758ad5c637f4455394605069f71"
+      },
+      "test_valuation_report_validation": {
+        "passed": 4,
+        "log_sha256": "b7fd8b52d99435a4320197979f8ff788cd3eb1449be1f56ecf1b54f8f23cedb6"
+      },
+      "test_vega_kt_atom_chain": {
+        "passed": 9,
+        "log_sha256": "3874442bbb687d32ecc850de76ef8436b322a0931150385ba4c774996fd64d97"
+      },
+      "test_vega_kt_backtest": {
+        "passed": 28,
+        "log_sha256": "888ed2ba953a4fdf56f9d7557136b380487e8172cf0f0995167aa03a4dd838de"
+      },
+      "test_vega_kt_chain": {
+        "passed": 3,
+        "log_sha256": "0dd58db6c66f28393d0f3bfe48a6faa4a0fc018d9f87ac7cfe3cea16aab6ee69"
+      },
+      "test_vega_kt_conditional_ad": {
+        "passed": 1,
+        "log_sha256": "3bd84de37e5ea4aeab18b0c9b83adf54193bf99f6fc5ec5f2d57b7147afc7a80"
+      },
+      "test_vega_kt_conservation": {
+        "passed": 4,
+        "log_sha256": "9de286c72ca1d3d0bc5ec2d506de0beb24f98e2f0c274dafcd11201dcdc3bdc8"
+      },
+      "test_vega_kt_direction_conservation": {
+        "passed": 6,
+        "log_sha256": "525efb251a22aee73a6d2b57afd7d36df175c0befcd1b0962b21eb1f4032afa6"
+      },
+      "test_vega_kt_extension": {
+        "passed": 3,
+        "log_sha256": "c7155e390ca15a565a6c91dcbb92040d30b359fc47e34845b981348ccc875be1"
+      },
+      "test_vega_kt_market_shocks": {
+        "passed": 4,
+        "log_sha256": "2370e320fc44329013adca768444454d8fc7dfa95641082c1de3011af21b77df"
+      },
+      "test_vega_kt_path_covariance": {
+        "passed": 3,
+        "log_sha256": "683c8b89f3ceb6155a97b0726c3cbe2649bf33b577af25ccd0976331da8e7cee"
+      },
+      "test_vega_kt_pnl_report": {
+        "passed": 1,
+        "log_sha256": "d49aaa06473d5c1d505ef4db1f35bea8bb9eda338c072c4543de8ee9eb562926"
+      },
+      "test_vega_kt_selection": {
+        "passed": 6,
+        "log_sha256": "d8da1a6c462fa04c07a47269faafbe16a37b3a53481303ff2ab3a0daddd2226d"
+      },
+      "test_vega_kt_smile": {
+        "passed": 6,
+        "log_sha256": "3527591a2c91f3f77aeff06e71281012f69523d136f4f0ba923140c0b73c6e9e"
+      },
+      "test_vega_kt_terminal": {
+        "passed": 8,
+        "log_sha256": "d78ae44627beec53fe64901815ee0405faf101e71baba6753d619e6499f53249"
+      },
+      "test_vega_kt_three_step": {
+        "passed": 6,
+        "log_sha256": "aee4ddda86db2bb0c72d9c02326167b203fa195236aa307d1e022b422a6867ea"
+      },
+      "test_wheel_contract": {
+        "passed": 7,
+        "log_sha256": "795affb0d42ce7bd86dc05aacf1bfbf73c5c8a8651a258cdaba50008fe03c8fb"
+      },
+      "test_wheel_runtime_contract": {
+        "passed": 5,
+        "log_sha256": "10826cee8f819b26b0f1a14f0590f850c3f591619569876e6f9986bd3f71c229"
+      }
+    },
+    "packaging_revision": "7c020932ecf0f203adfbfc252ee73518cfc60174",
+    "remote_run_urls": [
+      "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44650216487",
+      "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812"
+    ],
+    "differences_outside_verification_at_packaging_revision": [
+      "scripts/check_source_archive.py",
+      "scripts/test_wheel_validation.py"
+    ]
+  },
+  "official_ci_checkout_trees": [
+    {
+      "label": "baseline",
+      "pr_head": "9966d8053aa2951ed86248722c1d78cb4a25884b",
+      "actual_ci_checkout": "d7d8dfbab5b11bb196eb20d2c0e50cb84ceb0c7a",
+      "identical_tree": "5144ffc6123841ab6b36e44542b6eec60669f064",
+      "checkout_log": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300037"
+    },
+    {
+      "label": "repaired",
+      "pr_head": "7c020932ecf0f203adfbfc252ee73518cfc60174",
+      "actual_ci_checkout": "91377df225f598e18d3424a6567340ef1b657fd0",
+      "identical_tree": "8a782a5da5be67925c02a3d32162602571ed6cc1",
+      "checkout_log": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303610"
+    }
+  ],
+  "provider_inventory_sha256": "3861538b629b25092b1fad2f0fd8e25e77b8f7cdbc97a08d2ce6b7a2aa77ff2a"
 }
