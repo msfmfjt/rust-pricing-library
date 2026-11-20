@@ -57,7 +57,7 @@ impl Calendar {
             BusinessDayAdjustment::Following => self.following(date),
             BusinessDayAdjustment::ModifiedFollowing => {
                 let adjusted = self.following(date)?;
-                if adjusted.month() == date.month() {
+                if (adjusted.year(), adjusted.month()) == (date.year(), date.month()) {
                     Ok(adjusted)
                 } else {
                     self.preceding(date)
@@ -94,6 +94,136 @@ mod tests {
 
     fn date(value: &str) -> Date {
         value.parse().expect("valid test date")
+    }
+
+    #[test]
+    fn weekend_calendars_preserve_business_days_and_unadjusted_dates() {
+        for calendar in [
+            Calendar::weekend_only(),
+            Calendar::default(),
+            Calendar::new([]),
+        ] {
+            assert!(calendar.holidays().is_empty());
+            for (text, business_day) in [
+                ("2026-09-05", false),
+                ("2026-09-06", false),
+                ("2026-09-07", true),
+            ] {
+                let value = date(text);
+                assert_eq!(calendar.is_business_day(value), business_day);
+                assert!(!calendar.is_holiday(value));
+                assert_eq!(
+                    calendar.adjust(value, BusinessDayAdjustment::Unadjusted),
+                    Ok(value)
+                );
+            }
+            for convention in [
+                BusinessDayAdjustment::Following,
+                BusinessDayAdjustment::ModifiedFollowing,
+                BusinessDayAdjustment::Preceding,
+            ] {
+                assert_eq!(
+                    calendar.adjust(date("2026-09-07"), convention),
+                    Ok(date("2026-09-07"))
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn holiday_membership_is_independent_of_weekends() {
+        let calendar = Calendar::new([date("2026-09-07"), date("2026-09-05"), date("2026-09-07")]);
+        for (text, holiday, business_day) in [
+            ("2026-09-04", false, true),
+            ("2026-09-05", true, false),
+            ("2026-09-06", false, false),
+            ("2026-09-07", true, false),
+            ("2026-09-08", false, true),
+        ] {
+            assert_eq!(calendar.is_holiday(date(text)), holiday);
+            assert_eq!(calendar.is_business_day(date(text)), business_day);
+        }
+    }
+
+    #[test]
+    fn adjustments_skip_holiday_runs_and_are_idempotent() {
+        let calendar = Calendar::new(
+            [
+                "2026-12-24",
+                "2026-12-25",
+                "2026-12-28",
+                "2026-12-29",
+                "2026-12-31",
+                "2027-01-01",
+            ]
+            .map(date),
+        );
+        for (original, following, modified, preceding) in [
+            ("2026-12-23", "2026-12-23", "2026-12-23", "2026-12-23"),
+            ("2026-12-24", "2026-12-30", "2026-12-30", "2026-12-23"),
+            ("2026-12-26", "2026-12-30", "2026-12-30", "2026-12-23"),
+            ("2026-12-31", "2027-01-04", "2026-12-30", "2026-12-30"),
+        ] {
+            for (convention, expected) in [
+                (BusinessDayAdjustment::Following, following),
+                (BusinessDayAdjustment::ModifiedFollowing, modified),
+                (BusinessDayAdjustment::Preceding, preceding),
+            ] {
+                let adjusted = calendar.adjust(date(original), convention).unwrap();
+                assert_eq!(adjusted, date(expected));
+                assert!(calendar.is_business_day(adjusted));
+                assert_eq!(calendar.adjust(adjusted, convention), Ok(adjusted));
+            }
+        }
+    }
+
+    #[test]
+    fn adjustment_propagates_date_range_errors() {
+        let calendar = Calendar::new([Date::MIN, Date::MAX]);
+        assert_eq!(
+            calendar.adjust(Date::MIN, BusinessDayAdjustment::Preceding),
+            Err(CoreError::DateOutOfRange {
+                date: Date::MIN,
+                direction: "preceding",
+            })
+        );
+        assert_eq!(
+            calendar.adjust(Date::MAX, BusinessDayAdjustment::Following),
+            Err(CoreError::DateOutOfRange {
+                date: Date::MAX,
+                direction: "following",
+            })
+        );
+        assert_eq!(
+            calendar.adjust(Date::MIN, BusinessDayAdjustment::Unadjusted),
+            Ok(Date::MIN)
+        );
+        assert_eq!(
+            calendar.adjust(Date::MAX, BusinessDayAdjustment::Unadjusted),
+            Ok(Date::MAX)
+        );
+    }
+
+    #[test]
+    fn modified_following_does_not_accept_the_same_month_in_another_year() {
+        // An explicit calendar may close every date in a year. The first
+        // following business day is in January again, but a different month
+        // in the calendar: modified following must move back to December.
+        let holidays = (1..=12)
+            .zip([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
+            .flat_map(|(month, last)| {
+                (1..=last).map(move |day| Date::new(2026, month, day).unwrap())
+            });
+        let calendar = Calendar::new(holidays);
+        let value = date("2026-01-01");
+        assert_eq!(
+            calendar.adjust(value, BusinessDayAdjustment::Following),
+            Ok(date("2027-01-01"))
+        );
+        assert_eq!(
+            calendar.adjust(value, BusinessDayAdjustment::ModifiedFollowing),
+            Ok(date("2025-12-31"))
+        );
     }
 
     #[test]

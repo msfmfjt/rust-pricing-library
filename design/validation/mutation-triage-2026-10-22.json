@@ -1,0 +1,861 @@
+{
+  "date": "2026-10-22",
+  "base_commit": "d2d94586a1d328caa2dda73c7aae3559ddd45602",
+  "rust_version": "1.98.1",
+  "cargo_mutants_version": "27.1.0",
+  "scope": "All 952 pricing-numerics production mutations; pricing-numerics nonignored unit tests only; no downstream integration or Python coverage",
+  "production_source_unchanged": true,
+  "mutation_exclusions_added": [],
+  "runs": {
+    "before": {
+      "command": [
+        "cargo",
+        "mutants",
+        "--package=pricing-numerics",
+        "--test-package=pricing-numerics",
+        "--cargo-arg=--lib",
+        "--baseline=run",
+        "--no-shuffle",
+        "--jobs=2",
+        "--timeout=20",
+        "--build-timeout=600",
+        "--output=/tmp/pricing-numerics-after-final"
+      ],
+      "source_head": "2513e9edbb6c0a218f0b007e4d24b8d9b0f691cb",
+      "file_sha256": {
+        "crates/pricing-numerics/src/complex.rs": "d0f76ffcc5c4186f4e46756f4a572b4b3541cb19e0e137b72313020b8e8355df",
+        "crates/pricing-numerics/src/correlation.rs": "91927497f63e5cc4cf0de8937a9025c04d2df06d920aa114294db9cb0add0df1",
+        "crates/pricing-numerics/src/fractional.rs": "41810043c0366318b318bf97ff518372b1368fbb0c2bf541d002c567ce969408",
+        "crates/pricing-numerics/src/least_squares.rs": "66406092c640b54be26694825781078a8431ab9a7de7ef7cf97a28da53700d29",
+        "crates/pricing-numerics/src/lib.rs": "3a2b9ca9664cda9a76947b859750a9d1fc43a11b082611e8853c3b66c432a5b3",
+        "crates/pricing-numerics/src/normal.rs": "2804b735e08e6812d0fe852283c3b643dde187b4d1ef88995b6a748ae8ddf8a4",
+        "crates/pricing-numerics/src/reduction.rs": "696dcbcc63986543029f17c468383ed845c144883e7a2ed5ea33070f07bb8292"
+      },
+      "test_scope": "pricing-numerics unit tests only",
+      "environment": {
+        "CARGO_PROFILE_TEST_DEBUG": "0"
+      },
+      "exit_code": 3,
+      "selected": 952,
+      "counts": {
+        "total_mutants": 952,
+        "caught": 912,
+        "missed": 30,
+        "timeout": 3,
+        "unviable": 7,
+        "success": 0
+      },
+      "start_time": "2026-10-22T18:24:25.403456496Z",
+      "end_time": "2026-10-22T18:28:08.236969557Z",
+      "cargo_mutants_version": "27.1.0",
+      "complete": true,
+      "outstanding": [
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/lib.rs:21:5: replace foundation_role -> &'static str with \"\""
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/correlation.rs:65:9: replace CorrelationFactor::compile -> Result<Self, CorrelationError> with Ok(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/lib.rs:21:5: replace foundation_role -> &'static str with \"xyzzy\""
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/correlation.rs:195:9: replace CorrelationFactor::diagnostics -> &CorrelationDiagnostics with Box::leak(Box::new(Default::default()))"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:15:25: replace < with <= in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:47:14: replace > with >= in standard_normal_cdf"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/reduction.rs:259:5: replace fixed_tree_reduce -> Option<T> with Some(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:41:13: replace < with <= in digamma_half_to_two"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/reduction.rs:259:23: replace > with >= in fixed_tree_reduce"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/fractional.rs:43:11: replace += with -= in digamma_half_to_two"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/fractional.rs:43:11: replace += with *= in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:53:14: replace / with % in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:53:9: delete - in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:83:31: replace < with <= in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:94:25: replace || with && in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with == in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with > in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with <= in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:110:27: replace && with || in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:110:50: replace + with - in fractional_ou_correlation"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/fractional.rs:134:9: replace <impl PartialOrd for SimpsonPanel>::partial_cmp -> Option<std::cmp::Ordering> with Some(Default::default())"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/fractional.rs:139:9: replace <impl Ord for SimpsonPanel>::cmp -> std::cmp::Ordering with Default::default()"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:190:25: replace > with >= in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:201:24: replace || with && in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:204:80: replace + with * in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:205:81: replace + with * in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:205:93: replace + with - in adaptive_simpson"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:205:93: replace + with * in adaptive_simpson"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/complex.rs:97:22: replace / with % in <impl Div for Complex64>::div"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:140:24: replace > with >= in blocked"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:140:53: replace < with <= in blocked"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/least_squares.rs:197:5: replace bounded_least_squares -> Result<LeastSquaresResult, LeastSquaresError<E>> with Ok(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:209:13: replace || with && in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:263:35: replace && with || in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:274:53: replace + with - in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:274:49: replace * with / in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:276:21: replace + with - in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:276:17: replace * with / in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:282:21: replace *= with += in bounded_least_squares"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:282:21: replace *= with /= in bounded_least_squares"
+        }
+      ],
+      "by_file": {
+        "crates/pricing-numerics/src/lib.rs": {
+          "MissedMutant": 2
+        },
+        "crates/pricing-numerics/src/correlation.rs": {
+          "CaughtMutant": 158,
+          "Unviable": 2
+        },
+        "crates/pricing-numerics/src/normal.rs": {
+          "CaughtMutant": 69,
+          "MissedMutant": 2
+        },
+        "crates/pricing-numerics/src/reduction.rs": {
+          "CaughtMutant": 179,
+          "Unviable": 1,
+          "Timeout": 1
+        },
+        "crates/pricing-numerics/src/fractional.rs": {
+          "CaughtMutant": 194,
+          "MissedMutant": 16,
+          "Timeout": 2,
+          "Unviable": 2
+        },
+        "crates/pricing-numerics/src/complex.rs": {
+          "CaughtMutant": 98,
+          "Unviable": 1
+        },
+        "crates/pricing-numerics/src/least_squares.rs": {
+          "CaughtMutant": 214,
+          "MissedMutant": 10,
+          "Unviable": 1
+        }
+      },
+      "baseline_commands": [
+        [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--no-run",
+          "--verbose",
+          "--package=pricing-numerics@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ],
+        [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing-numerics@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ]
+      ],
+      "unit_test_count": 47,
+      "evidence_checker": "run_mutation_tests.check_outcomes(..., expected_packages=(pricing-numerics,))",
+      "raw_report_sha256": "bb889af08249af3200160ad565d064dde7735f53f051cf0e8ccb404877b2ad41",
+      "raw_inventory_sha256": "084403661fdefdf7020a64cd6797c21c4fcfc6c844c4ca4c56e83f8e6bb0edd0",
+      "sorted_mutation_names_sha256": "466c1490c6bc4ca8448c6eb182cc0a533e04d3c14f44b15bee2ebb495438c780",
+      "source_verified_at_commit": "d2d94586a1d328caa2dda73c7aae3559ddd45602",
+      "source_note": "Reuses the complete prior after run; all seven file hashes match this committed base."
+    },
+    "after": {
+      "command": [
+        "cargo",
+        "mutants",
+        "--package=pricing-numerics",
+        "--test-package=pricing-numerics",
+        "--cargo-arg=--lib",
+        "--baseline=run",
+        "--no-shuffle",
+        "--jobs=2",
+        "--timeout=20",
+        "--build-timeout=600",
+        "--output=/tmp/pricing-numerics-triage-after"
+      ],
+      "source_head": "d2d94586a1d328caa2dda73c7aae3559ddd45602",
+      "file_sha256": {
+        "crates/pricing-numerics/src/complex.rs": "d0f76ffcc5c4186f4e46756f4a572b4b3541cb19e0e137b72313020b8e8355df",
+        "crates/pricing-numerics/src/correlation.rs": "91927497f63e5cc4cf0de8937a9025c04d2df06d920aa114294db9cb0add0df1",
+        "crates/pricing-numerics/src/fractional.rs": "2ba748f3a19dc82fac22b4beecd8a9dc150ef2f217896d75da53eb5d6d5a321b",
+        "crates/pricing-numerics/src/least_squares.rs": "7c89227cb4f66cc9ed0c6b76daf9246abb8ef065b85d5e2c89647a6f8c578cdc",
+        "crates/pricing-numerics/src/lib.rs": "97ef81992f57afadd17d074628636facd768361443a903e3aadc11383f4bc1bd",
+        "crates/pricing-numerics/src/normal.rs": "2804b735e08e6812d0fe852283c3b643dde187b4d1ef88995b6a748ae8ddf8a4",
+        "crates/pricing-numerics/src/reduction.rs": "696dcbcc63986543029f17c468383ed845c144883e7a2ed5ea33070f07bb8292"
+      },
+      "test_scope": "pricing-numerics unit tests only",
+      "environment": {
+        "CARGO_PROFILE_TEST_DEBUG": "0"
+      },
+      "exit_code": 3,
+      "selected": 952,
+      "counts": {
+        "total_mutants": 952,
+        "caught": 931,
+        "missed": 11,
+        "timeout": 3,
+        "unviable": 7,
+        "success": 0
+      },
+      "start_time": "2026-10-22T18:51:15.288748801Z",
+      "end_time": "2026-10-22T18:55:07.993656687Z",
+      "cargo_mutants_version": "27.1.0",
+      "complete": true,
+      "outstanding": [
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/correlation.rs:65:9: replace CorrelationFactor::compile -> Result<Self, CorrelationError> with Ok(Default::default())"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/correlation.rs:195:9: replace CorrelationFactor::diagnostics -> &CorrelationDiagnostics with Box::leak(Box::new(Default::default()))"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:15:25: replace < with <= in standard_normal_cdf"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/normal.rs:47:14: replace > with >= in standard_normal_cdf"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/reduction.rs:259:5: replace fixed_tree_reduce -> Option<T> with Some(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:41:13: replace < with <= in digamma_half_to_two"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/reduction.rs:259:23: replace > with >= in fixed_tree_reduce"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/fractional.rs:43:11: replace += with -= in digamma_half_to_two"
+        },
+        {
+          "outcome": "Timeout",
+          "name": "crates/pricing-numerics/src/fractional.rs:43:11: replace += with *= in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:53:14: replace / with % in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:53:9: delete - in digamma_half_to_two"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:83:31: replace < with <= in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:94:25: replace || with && in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with <= in fractional_ou_correlation"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:110:27: replace && with || in fractional_ou_correlation"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/fractional.rs:134:9: replace <impl PartialOrd for SimpsonPanel>::partial_cmp -> Option<std::cmp::Ordering> with Some(Default::default())"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/fractional.rs:139:9: replace <impl Ord for SimpsonPanel>::cmp -> std::cmp::Ordering with Default::default()"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/fractional.rs:201:24: replace || with && in adaptive_simpson"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/complex.rs:97:22: replace / with % in <impl Div for Complex64>::div"
+        },
+        {
+          "outcome": "Unviable",
+          "name": "crates/pricing-numerics/src/least_squares.rs:197:5: replace bounded_least_squares -> Result<LeastSquaresResult, LeastSquaresError<E>> with Ok(Default::default())"
+        },
+        {
+          "outcome": "MissedMutant",
+          "name": "crates/pricing-numerics/src/least_squares.rs:209:13: replace || with && in bounded_least_squares"
+        }
+      ],
+      "by_file": {
+        "crates/pricing-numerics/src/lib.rs": {
+          "CaughtMutant": 2
+        },
+        "crates/pricing-numerics/src/correlation.rs": {
+          "CaughtMutant": 158,
+          "Unviable": 2
+        },
+        "crates/pricing-numerics/src/normal.rs": {
+          "CaughtMutant": 69,
+          "MissedMutant": 2
+        },
+        "crates/pricing-numerics/src/reduction.rs": {
+          "CaughtMutant": 179,
+          "Unviable": 1,
+          "Timeout": 1
+        },
+        "crates/pricing-numerics/src/fractional.rs": {
+          "CaughtMutant": 202,
+          "MissedMutant": 8,
+          "Timeout": 2,
+          "Unviable": 2
+        },
+        "crates/pricing-numerics/src/complex.rs": {
+          "CaughtMutant": 98,
+          "Unviable": 1
+        },
+        "crates/pricing-numerics/src/least_squares.rs": {
+          "CaughtMutant": 223,
+          "Unviable": 1,
+          "MissedMutant": 1
+        }
+      },
+      "baseline_commands": [
+        [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--no-run",
+          "--verbose",
+          "--package=pricing-numerics@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ],
+        [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing-numerics@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ]
+      ],
+      "unit_test_count": 55,
+      "evidence_checker": "run_mutation_tests.check_outcomes(..., expected_packages=(pricing-numerics,))",
+      "raw_report_sha256": "a6b061ef96363a7ee2ef6b46c13a7659d7d89837559e9e9c23b2be760ea79d52",
+      "raw_inventory_sha256": "7b12b76d7b131b1793d5f4386b19ad2de384eaebf8980e1c8b498ba5caea821b",
+      "sorted_mutation_names_sha256": "466c1490c6bc4ca8448c6eb182cc0a533e04d3c14f44b15bee2ebb495438c780",
+      "source_note": "Base plus test-only edits; exact source is identified by file_sha256. Production prefixes unchanged."
+    }
+  },
+  "outcome_transitions": [
+    {
+      "before": "CaughtMutant",
+      "after": "CaughtMutant",
+      "count": 912
+    },
+    {
+      "before": "MissedMutant",
+      "after": "CaughtMutant",
+      "count": 19
+    },
+    {
+      "before": "MissedMutant",
+      "after": "MissedMutant",
+      "count": 11
+    },
+    {
+      "before": "Timeout",
+      "after": "Timeout",
+      "count": 3
+    },
+    {
+      "before": "Unviable",
+      "after": "Unviable",
+      "count": 7
+    }
+  ],
+  "newly_caught": [
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with == in fractional_ou_correlation",
+      "failed_tests": [
+        "fractional::tests::fractional_ou_matches_independent_infinite_interval_quadrature"
+      ],
+      "log_sha256": "643350610062dd0c71f239e4ca4c55eca1a23ba8ef77e227ad67ea4e04e641c4"
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with > in fractional_ou_correlation",
+      "failed_tests": [
+        "fractional::tests::fractional_ou_matches_independent_infinite_interval_quadrature"
+      ],
+      "log_sha256": "2322de12bc308833c9bdf43d2e749f4f2b4a543bef44bf4906de1871592c3ffe"
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:110:50: replace + with - in fractional_ou_correlation",
+      "failed_tests": [
+        "fractional::tests::fractional_ou_matches_independent_infinite_interval_quadrature"
+      ],
+      "log_sha256": "ae89762e0ff7ac2c4143985f2ac15af9eb6e2ee565a1cc0cb362a7aa6bf0f8f8"
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:190:25: replace > with >= in adaptive_simpson",
+      "failed_tests": [
+        "fractional::tests::quadrature_accepts_an_exact_error_budget_without_extra_subdivision"
+      ],
+      "log_sha256": "6def146150214993e7a676da6caa6e18128934795535fe3c2263866f8f4b576b"
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:204:80: replace + with * in adaptive_simpson",
+      "failed_tests": [
+        "fractional::tests::quadrature_stops_at_the_depth_budget_on_an_unresolved_jump"
+      ],
+      "log_sha256": "9be1931d33f9c5958b859b8707da8af8668ccfbb04553ea6b238d8152fa4e9bb"
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:205:81: replace + with * in adaptive_simpson",
+      "failed_tests": [
+        "fractional::tests::quadrature_stops_at_the_depth_budget_on_an_unresolved_jump"
+      ],
+      "log_sha256": "49130236911351b95080b0629cfa47ca794cef345e6e0820f3e1687dcb6ad5a0"
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:205:93: replace + with * in adaptive_simpson",
+      "failed_tests": [
+        "fractional::tests::equal_error_panels_refine_in_insertion_order"
+      ],
+      "log_sha256": "8a018602df072a611553357402a15a9f2981f8a988e3e1e14537a3b6a623768f"
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:205:93: replace + with - in adaptive_simpson",
+      "failed_tests": [
+        "fractional::tests::equal_error_panels_refine_in_insertion_order"
+      ],
+      "log_sha256": "540ed84b365a46c2aa0d8db1da6e4aebce641bd9745c1048e52517c22d756efd"
+    },
+    {
+      "name": "crates/pricing-numerics/src/least_squares.rs:140:24: replace > with >= in blocked",
+      "failed_tests": [
+        "least_squares::tests::a_zero_gradient_at_a_bound_can_move_inward_through_coupling"
+      ],
+      "log_sha256": "a215afc4213f4383a44f7e91b0c60b46b2fc440f353d5eab2f4c497d74f76e33"
+    },
+    {
+      "name": "crates/pricing-numerics/src/least_squares.rs:140:53: replace < with <= in blocked",
+      "failed_tests": [
+        "least_squares::tests::a_zero_gradient_at_a_bound_can_move_inward_through_coupling"
+      ],
+      "log_sha256": "8547c04068f2857b60da630a72ee8b03b07bde6c23d3855b179e868e3ab2288e"
+    },
+    {
+      "name": "crates/pricing-numerics/src/least_squares.rs:263:35: replace && with || in bounded_least_squares",
+      "failed_tests": [
+        "least_squares::tests::an_outward_active_variable_does_not_couple_into_the_free_step"
+      ],
+      "log_sha256": "a1e9c0302c56256df2a3f094a431cfb51f6c0a1874ec60f1b7834b6f7b3e4539"
+    },
+    {
+      "name": "crates/pricing-numerics/src/least_squares.rs:274:49: replace * with / in bounded_least_squares",
+      "failed_tests": [
+        "least_squares::tests::damped_step_matches_an_independent_diagonal_ridge_problem"
+      ],
+      "log_sha256": "cf2149f6b459ca6a3e9874d3ca09847721499dc8228f8fc290f7b7f2567917d5"
+    },
+    {
+      "name": "crates/pricing-numerics/src/least_squares.rs:274:53: replace + with - in bounded_least_squares",
+      "failed_tests": [
+        "least_squares::tests::damped_step_matches_an_independent_diagonal_ridge_problem"
+      ],
+      "log_sha256": "eec57b090e329e2c75e10725f035947bbe5e7371d91fcff8407322818faadf71"
+    },
+    {
+      "name": "crates/pricing-numerics/src/least_squares.rs:276:17: replace * with / in bounded_least_squares",
+      "failed_tests": [
+        "least_squares::tests::an_outward_active_variable_does_not_couple_into_the_free_step",
+        "least_squares::tests::damped_step_matches_an_independent_diagonal_ridge_problem"
+      ],
+      "log_sha256": "5e88a1b420e0406a9b6f2471f607090af661779d045c1b03768a132838230a65"
+    },
+    {
+      "name": "crates/pricing-numerics/src/least_squares.rs:276:21: replace + with - in bounded_least_squares",
+      "failed_tests": [
+        "least_squares::tests::an_outward_active_variable_does_not_couple_into_the_free_step",
+        "least_squares::tests::damped_step_matches_an_independent_diagonal_ridge_problem"
+      ],
+      "log_sha256": "b66582507ff61d8668015ef0effd66dcfb553effd236b6a72731dbd6c67fa13b"
+    },
+    {
+      "name": "crates/pricing-numerics/src/least_squares.rs:282:21: replace *= with += in bounded_least_squares",
+      "failed_tests": [
+        "least_squares::tests::failed_factorizations_exhaust_damping_without_model_trials"
+      ],
+      "log_sha256": "030b1db754abd76ed7a240a252f450e513aab2294424d2657e34ac8bdeac80ab"
+    },
+    {
+      "name": "crates/pricing-numerics/src/least_squares.rs:282:21: replace *= with /= in bounded_least_squares",
+      "failed_tests": [
+        "least_squares::tests::failed_factorizations_exhaust_damping_without_model_trials"
+      ],
+      "log_sha256": "f1134c4a0fb9adb3690955d56204cc0faecc026dee82922eb25e9ae2a36eebbd"
+    },
+    {
+      "name": "crates/pricing-numerics/src/lib.rs:21:5: replace foundation_role -> &'static str with \"\"",
+      "failed_tests": [
+        "tests::legacy_foundation_role_remains_compatible"
+      ],
+      "log_sha256": "c3d4aa3ed3e99f2d7dec5111ae3374b097922e265cfd2a8b31a2f78f835f068b"
+    },
+    {
+      "name": "crates/pricing-numerics/src/lib.rs:21:5: replace foundation_role -> &'static str with \"xyzzy\"",
+      "failed_tests": [
+        "tests::legacy_foundation_role_remains_compatible"
+      ],
+      "log_sha256": "4ceaaab71cfd00280c372555ed881a832fa5d8eebc9fa30ee67640ab0091db24"
+    }
+  ],
+  "remaining_survivors": [
+    {
+      "name": "crates/pricing-numerics/src/normal.rs:15:25: replace < with <= in standard_normal_cdf",
+      "outcome": "MissedMutant",
+      "category": "precision_evidence",
+      "rationale": "Only the approximation boundary differs. At the negative binary boundary, relative errors against erfc are 3.6098e-9 (original) and 2.8897e-9 (mutant), inside the existing 1e-8 budget. Outputs differ; not replay-equivalent.",
+      "excluded": false
+    },
+    {
+      "name": "crates/pricing-numerics/src/normal.rs:47:14: replace > with >= in standard_normal_cdf",
+      "outcome": "MissedMutant",
+      "category": "equivalent_or_unreachable_in_current_domain",
+      "rationale": "Only signed zero selects the other branch. Both return exactly 0.5.",
+      "excluded": false
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:41:13: replace < with <= in digamma_half_to_two",
+      "outcome": "MissedMutant",
+      "category": "precision_evidence",
+      "rationale": "An extra recurrence at shifted x=12 preserves the exact mathematical identity. The 1501-point grid has maximum absolute error 1.001e-15 for both; not a global floating-point/replay proof.",
+      "excluded": false
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:53:14: replace / with % in digamma_half_to_two",
+      "outcome": "MissedMutant",
+      "category": "precision_evidence",
+      "rationale": "The x^-14 coefficient perturbation has real-arithmetic magnitude at most (11/12)*12^-14 < 7.14e-16. Does not bound all rounding interactions; existing budget is 3e-15.",
+      "excluded": false
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:53:9: delete - in digamma_half_to_two",
+      "outcome": "MissedMutant",
+      "category": "precision_evidence",
+      "rationale": "The x^-14 coefficient perturbation has real-arithmetic magnitude at most (1/6)*12^-14 < 1.30e-16. Does not bound all rounding interactions; existing budget is 3e-15.",
+      "excluded": false
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:83:31: replace < with <= in fractional_ou_correlation",
+      "outcome": "MissedMutant",
+      "category": "precision_candidate",
+      "rationale": "The two cusp expressions are algebraically equal at u=lag, but floating evaluation can differ. No global precision/replay proof.",
+      "excluded": false
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:94:25: replace || with && in fractional_ou_correlation",
+      "outcome": "MissedMutant",
+      "category": "precision_candidate",
+      "rationale": "Removing endpoint guards leaves an exactly zero left Jacobian and a small floating sin(pi) right Jacobian. Tiny roundoff is possible; no global precision/replay proof.",
+      "excluded": false
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:104:27: replace < with <= in fractional_ou_correlation",
+      "outcome": "MissedMutant",
+      "category": "equivalent_or_unreachable_in_current_domain",
+      "rationale": "At lag=64 the <= variant adds a zero-width physical segment. Its transformed integrand is zero throughout, so the extra integral is zero for valid inputs.",
+      "excluded": false
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:110:27: replace && with || in fractional_ou_correlation",
+      "outcome": "MissedMutant",
+      "category": "unresolved_guard_reachability",
+      "rationale": "NaN/infinity still fail both conditions. A finite correlation outside the bound would instead be accepted. No valid public input reaching this case is established; not equivalent.",
+      "excluded": false
+    },
+    {
+      "name": "crates/pricing-numerics/src/fractional.rs:201:24: replace || with && in adaptive_simpson",
+      "outcome": "MissedMutant",
+      "category": "equivalent_or_unreachable_in_current_domain",
+      "rationale": "Production always integrates the helper on [0,1]. Before the depth-40 guard, dyadic midpoint offsets are at least 2^-40 and cannot collapse. Does not cover arbitrary helper intervals or simultaneous mutations.",
+      "excluded": false
+    },
+    {
+      "name": "crates/pricing-numerics/src/least_squares.rs:209:13: replace || with && in bounded_least_squares",
+      "outcome": "MissedMutant",
+      "category": "equivalent_or_unreachable_in_current_domain",
+      "rationale": "With finite positive scale, the later scaled-width finiteness check rejects any nonfinite bound with the same InvalidInput error. Other scale/start checks are independent.",
+      "excluded": false
+    }
+  ],
+  "remaining_category_counts": {
+    "precision_evidence": 4,
+    "equivalent_or_unreachable_in_current_domain": 4,
+    "precision_candidate": 2,
+    "unresolved_guard_reachability": 1
+  },
+  "precision_analysis": {
+    "cdf_boundary": [
+      {
+        "x": "-7.07106781186547461715008466853760182857513427734375",
+        "reference": "0.00000000000076872989721402089819538444545246364293041874695013212327899902097397594948866471",
+        "base": "0.0000000000007687298944390885408641332151748797800287771320171259503695182502269744873046875",
+        "mutant": "0.0000000000007687298994354242305720774198802915685817260804668649143422953784465789794921875",
+        "base_relative_error": "0.00000000360976250226246451979914699474923664776150467975338477414815651365737442962614",
+        "mutant_relative_error": "0.0000000028897059167691451430571570906045216876206189914891441875897187242505712399335031"
+      },
+      {
+        "x": "7.07106781186547461715008466853760182857513427734375",
+        "reference": "0.99999999999923127010278597910180461555454753635706958125304986787672100097902602",
+        "base": "0.999999999999231281577749541611410677433013916015625",
+        "mutant": "0.999999999999231281577749541611410677433013916015625",
+        "base_relative_error": "0.000000000000000011474963562518427209438415805276278511881944871105183869163333775623452341510361",
+        "mutant_relative_error": "0.000000000000000011474963562518427209438415805276278511881944871105183869163333775623452341510361"
+      }
+    ],
+    "digamma_extra_recurrence": {
+      "sample_count": 1501,
+      "grid": "0.5 + k/1000, k=0..1500, converted from f64",
+      "measured_maxima": {
+        "base_abs_error": "0.0000000000000010009373407189661904562688728507119298413562813582437165069296498732119749680033",
+        "mutant_abs_error": "0.0000000000000010009373407189661904562688728507119298413562813582437165069296498732119749680033",
+        "difference": "0.00000000000000033306690738754696212708950042724609375"
+      }
+    },
+    "digamma_coefficient_perturbation_bounds": {
+      "remainder_instead_of_division": "0.00000000000000071396018670761917070582449241604255989672244722193822846576397770227376900554168",
+      "positive_instead_of_negative": "0.00000000000000012981094303774894012833172589382591998122226313126149608468435958223159436464394"
+    },
+    "method": {
+      "mpmath_version": "1.3.0",
+      "decimal_precision": 80,
+      "rust_version": "1.98.1",
+      "mutations": [
+        "normal.rs:15 < to <=",
+        "fractional.rs:41 < to <="
+      ],
+      "source": "Production prefixes from the seven source hashes in runs.after; compile original and each single replacement as Rust modules with the actual NeumaierSum.",
+      "reference_input": "Convert actual binary f64 input to mp.mpf; do not substitute ideal decimal inputs.",
+      "cdf_reference": "mp.erfc(-x / mp.sqrt(2)) / 2",
+      "digamma_reference": "mp.digamma(x)",
+      "coefficient_bounds": [
+        "(mp.mpf(11)/12)*mp.mpf(12)**(-14)",
+        "(mp.mpf(1)/6)*mp.mpf(12)**(-14)"
+      ],
+      "raw_probe_csv_sha256": "c5e9ef2c0777c74bdafdac9b6e6c26c098d4d3dcb5d4b0481cc109331da004cd",
+      "limitations": "Diagnostic accuracy evidence. Finite grid and real-arithmetic perturbation bounds do not certify all f64 behavior or bitwise replay equivalence."
+    }
+  },
+  "references": {
+    "mpmath_version": "1.3.0",
+    "decimal_precision": 80,
+    "normal": [
+      {
+        "x": "0.5",
+        "pdf": "0.3520653267642994777746804415965176531103",
+        "cdf_negative_x": "0.3085375387259868963622953893916622601164"
+      },
+      {
+        "x": "2.5",
+        "pdf": "0.01752830049356853736215832216674858614851",
+        "cdf_negative_x": "0.006209665325776135166978104574192221127898"
+      },
+      {
+        "x": "7",
+        "pdf": "0.000000000009134720408364593342868613916794233023",
+        "cdf_negative_x": "0.000000000001279812543885835004383623690780832998033"
+      },
+      {
+        "x": "7.1",
+        "pdf": "0.000000000004513543677205509568347927551603378678386",
+        "cdf_negative_x": "6.237844463331575105220134813307977555529e-13"
+      },
+      {
+        "x": "8",
+        "pdf": "5.05227108353689228795018461551083466035e-15",
+        "cdf_negative_x": "6.220960574271784123515995172588188422489e-16"
+      },
+      {
+        "x": "10",
+        "pdf": "7.694598626706419346339033580041877235359e-23",
+        "cdf_negative_x": "7.619853024160526065973343251599308363504e-24"
+      },
+      {
+        "x": "20",
+        "pdf": "5.520948362159763189582735682787000953833e-88",
+        "cdf_negative_x": "2.753624118606233695075622780857465332807e-89"
+      },
+      {
+        "x": "37",
+        "pdf": "2.120006551524605626852045477107199373242e-298",
+        "cdf_negative_x": "5.725571222524576822683192548273201656433e-300"
+      }
+    ],
+    "fractional_ou": [
+      {
+        "hurst": "0.025",
+        "lag": "0.1",
+        "correlation": "0.08523949777099244457994196238345442806209"
+      },
+      {
+        "hurst": "0.1",
+        "lag": "0.01",
+        "correlation": "0.5664453348491846298429010202251761981978"
+      },
+      {
+        "hurst": "0.25",
+        "lag": "1e-24",
+        "correlation": "0.9999999999988716208329044874261038410969"
+      },
+      {
+        "hurst": "0.25",
+        "lag": "1",
+        "correlation": "0.09415265574292779844561793942561556355237"
+      },
+      {
+        "hurst": "0.4",
+        "lag": "3",
+        "correlation": "-0.00763344838325431432603755472283145585596"
+      },
+      {
+        "hurst": "0.1",
+        "lag": "10",
+        "correlation": "-0.002936858825762870585391532615361289072421"
+      },
+      {
+        "hurst": "0.25",
+        "lag": "64",
+        "correlation": "-0.0005514727717999759400609987617356440821095"
+      },
+      {
+        "hurst": "0.25",
+        "lag": "80",
+        "correlation": "-0.000394471027930615585495751184140333680629"
+      },
+      {
+        "hurst": "0.25",
+        "lag": "100000",
+        "correlation": "-0.000000008920620584109088295750019251935378189818"
+      }
+    ]
+  },
+  "reference_generator_sha256": "a0086e8a270e2f01b55b9a08f31e45c04b9fc62d5e72d559dd3eea47a20ee222"
+}

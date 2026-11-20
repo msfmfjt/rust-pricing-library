@@ -1,0 +1,4320 @@
+{
+  "date": "2026-10-23",
+  "base_commit": "86738ae127c0ac2871d014ed8504b2f605e2eb0d",
+  "base_tree": "c2ca16a6a0ffaa18dcb9dca76f4616265b84e956",
+  "rust_toolchain": "1.98.1",
+  "cargo_mutants_version": "27.1.0",
+  "scope": "All 243 generated mutations in market/forward.rs and market/dividend.rs; pricing market:: unit tests only.",
+  "added_tests": {
+    "market::forward": 6,
+    "market::dividend": 12
+  },
+  "production_prefixes_unchanged": true,
+  "before": {
+    "command": [
+      "cargo",
+      "mutants",
+      "--package=pricing",
+      "--test-package=pricing",
+      "--file=crates/pricing/src/market/forward.rs",
+      "--file=crates/pricing/src/market/dividend.rs",
+      "--cargo-arg=--lib",
+      "--cargo-test-arg=market::",
+      "--baseline=run",
+      "--no-shuffle",
+      "--jobs=4",
+      "--timeout=20",
+      "--build-timeout=600",
+      "--output=/tmp/pricing-carry-before"
+    ],
+    "source_head": "86738ae127c0ac2871d014ed8504b2f605e2eb0d",
+    "worktree_status": "",
+    "file_sha256": {
+      "crates/pricing/src/market/forward.rs": "6ffd41a34b9daa83dfc932d455d2c479b152f0d3478835c42dae9511cf810f69",
+      "crates/pricing/src/market/dividend.rs": "5723835c0b5fd1789e445d70c4ba747dc71f63911ee030113d4e69807b6d8d6a"
+    },
+    "production_prefix_sha256": {
+      "crates/pricing/src/market/forward.rs": "67d5e416786a5331dcc19bc85ceb63f5c161870df84615266527df0c7b4d8ee5",
+      "crates/pricing/src/market/dividend.rs": "a3aaf44f43f01009556966020d706a236cbe5da25884f7105881c3aa98295a33"
+    },
+    "environment": {
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    },
+    "status": "complete",
+    "test_scope": "pricing unit tests matching market:: only; no integration or numerical-crate tests per mutation",
+    "exit_code": 2,
+    "selected": 243,
+    "counts": {
+      "total_mutants": 243,
+      "caught": 126,
+      "missed": 83,
+      "timeout": 0,
+      "unviable": 34,
+      "success": 0
+    },
+    "start_time": "2026-10-23T14:37:59.836419715Z",
+    "end_time": "2026-10-23T14:52:33.15805278Z",
+    "cargo_mutants_version": "27.1.0",
+    "baseline_phases": [
+      {
+        "phase": "Build",
+        "duration": 68.844627629,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--no-run",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ]
+      },
+      {
+        "phase": "Test",
+        "duration": 0.051923798,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      }
+    ],
+    "by_file": {
+      "crates/pricing/src/market/dividend.rs": {
+        "Unviable": 26,
+        "CaughtMutant": 114,
+        "MissedMutant": 81
+      },
+      "crates/pricing/src/market/forward.rs": {
+        "Unviable": 8,
+        "CaughtMutant": 12,
+        "MissedMutant": 2
+      }
+    },
+    "baseline_result": "ok. 53 passed; 0 failed; 0 ignored; 0 measured; 519 filtered out; finished in 0.01s",
+    "baseline_log_sha256": "6566106146dc46984be50d585fff7dbd13e2a266487e8b3694d64a62fa58d49e",
+    "verified_test_log_scope": {
+      "expected_tests": 53,
+      "logs_checked": 210
+    },
+    "raw_artifacts": {
+      "outcomes.json": {
+        "path": "/tmp/pricing-carry-before/mutants.out/outcomes.json",
+        "sha256": "3542182abb331933f2c6dbd62d37e86994c76ab9caf414890b9e93764d466c1c"
+      },
+      "mutants.json": {
+        "path": "/tmp/pricing-carry-before/mutants.out/mutants.json",
+        "sha256": "fa29485a0b30c6431c4436a0f8eba147dfeb8dbc08267a8cb03c35739fedbb46"
+      }
+    }
+  },
+  "after": {
+    "command": [
+      "cargo",
+      "mutants",
+      "--package=pricing",
+      "--test-package=pricing",
+      "--file=crates/pricing/src/market/forward.rs",
+      "--file=crates/pricing/src/market/dividend.rs",
+      "--cargo-arg=--lib",
+      "--cargo-test-arg=market::",
+      "--baseline=run",
+      "--no-shuffle",
+      "--jobs=4",
+      "--timeout=20",
+      "--build-timeout=600",
+      "--output=/tmp/pricing-carry-after-final"
+    ],
+    "source_head": "86738ae127c0ac2871d014ed8504b2f605e2eb0d",
+    "worktree_status": " M crates/pricing/src/market/dividend.rs\n M crates/pricing/src/market/forward.rs\n",
+    "file_sha256": {
+      "crates/pricing/src/market/forward.rs": "34c9faca841c41c57d9ebaa2b8f24ea4d48ac66a79414c7e347f6aeba26d1894",
+      "crates/pricing/src/market/dividend.rs": "250dee8c8d41456bfd2820f2c1bead652fef4859ac387fdada365a8ec003a005"
+    },
+    "production_prefix_sha256": {
+      "crates/pricing/src/market/forward.rs": "67d5e416786a5331dcc19bc85ceb63f5c161870df84615266527df0c7b4d8ee5",
+      "crates/pricing/src/market/dividend.rs": "a3aaf44f43f01009556966020d706a236cbe5da25884f7105881c3aa98295a33"
+    },
+    "environment": {
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    },
+    "status": "complete",
+    "test_scope": "pricing unit tests matching market:: only; no integration or numerical-crate tests per mutation",
+    "exit_code": 2,
+    "selected": 243,
+    "counts": {
+      "total_mutants": 243,
+      "caught": 206,
+      "missed": 3,
+      "timeout": 0,
+      "unviable": 34,
+      "success": 0
+    },
+    "start_time": "2026-10-23T14:53:51.560806692Z",
+    "end_time": "2026-10-23T15:08:47.923738121Z",
+    "cargo_mutants_version": "27.1.0",
+    "baseline_phases": [
+      {
+        "phase": "Build",
+        "duration": 72.585612475,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--no-run",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ]
+      },
+      {
+        "phase": "Test",
+        "duration": 0.051337906,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      }
+    ],
+    "by_file": {
+      "crates/pricing/src/market/dividend.rs": {
+        "Unviable": 26,
+        "CaughtMutant": 192,
+        "MissedMutant": 3
+      },
+      "crates/pricing/src/market/forward.rs": {
+        "Unviable": 8,
+        "CaughtMutant": 14
+      }
+    },
+    "baseline_result": "ok. 71 passed; 0 failed; 0 ignored; 0 measured; 519 filtered out; finished in 0.01s",
+    "baseline_log_sha256": "8ed83643bfdce958d8e049fb11cbfcdcc6fd77cbddf1d27d7b3d1169eb686283",
+    "verified_test_log_scope": {
+      "expected_tests": 71,
+      "logs_checked": 210
+    },
+    "raw_artifacts": {
+      "outcomes.json": {
+        "path": "/tmp/pricing-carry-after-final/mutants.out/outcomes.json",
+        "sha256": "a35d39a23daf63144370547f2574d211341c0fa9cda470526e3b47393072d0bd"
+      },
+      "mutants.json": {
+        "path": "/tmp/pricing-carry-after-final/mutants.out/mutants.json",
+        "sha256": "fa29485a0b30c6431c4436a0f8eba147dfeb8dbc08267a8cb03c35739fedbb46"
+      }
+    }
+  },
+  "transition_counts": [
+    {
+      "before": "CaughtMutant",
+      "after": "CaughtMutant",
+      "count": 126
+    },
+    {
+      "before": "MissedMutant",
+      "after": "CaughtMutant",
+      "count": 80
+    },
+    {
+      "before": "MissedMutant",
+      "after": "MissedMutant",
+      "count": 3
+    },
+    {
+      "before": "Unviable",
+      "after": "Unviable",
+      "count": 34
+    }
+  ],
+  "all_identity_transitions": [
+    {
+      "name": "crates/pricing/src/market/dividend.rs:107:9: replace CompiledDividendEvent::event -> EventId with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:112:9: replace CompiledDividendEvent::ex_time -> f64 with -1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:112:9: replace CompiledDividendEvent::ex_time -> f64 with 0.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:112:9: replace CompiledDividendEvent::ex_time -> f64 with 1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:117:9: replace CompiledDividendEvent::fixed_cash -> f64 with -1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:117:9: replace CompiledDividendEvent::fixed_cash -> f64 with 0.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:117:9: replace CompiledDividendEvent::fixed_cash -> f64 with 1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:122:9: replace CompiledDividendEvent::alpha -> f64 with -1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:122:9: replace CompiledDividendEvent::alpha -> f64 with 0.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:122:9: replace CompiledDividendEvent::alpha -> f64 with 1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:127:9: replace CompiledDividendEvent::beta -> f64 with -1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:127:9: replace CompiledDividendEvent::beta -> f64 with 0.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:127:9: replace CompiledDividendEvent::beta -> f64 with 1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:14: replace - with + in CompiledDividendEvent::post_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:14: replace - with / in CompiledDividendEvent::post_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:27: replace * with + in CompiledDividendEvent::post_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:27: replace * with / in CompiledDividendEvent::post_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:38: replace - with + in CompiledDividendEvent::post_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:38: replace - with / in CompiledDividendEvent::post_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:51: replace * with + in CompiledDividendEvent::post_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:51: replace * with / in CompiledDividendEvent::post_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:9: replace CompiledDividendEvent::post_spot -> f64 with -1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:9: replace CompiledDividendEvent::post_spot -> f64 with 0.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:9: replace CompiledDividendEvent::post_spot -> f64 with 1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:146:9: replace AffineDividendCoordinate::identity -> Self with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:155:9: replace AffineDividendCoordinate::a -> f64 with -1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:155:9: replace AffineDividendCoordinate::a -> f64 with 0.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:155:9: replace AffineDividendCoordinate::a -> f64 with 1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:160:9: replace AffineDividendCoordinate::b -> f64 with -1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:160:9: replace AffineDividendCoordinate::b -> f64 with 0.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:160:9: replace AffineDividendCoordinate::b -> f64 with 1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:167:9: replace AffineDividendCoordinate::spot_scale -> f64 with -1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:167:9: replace AffineDividendCoordinate::spot_scale -> f64 with 0.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:167:9: replace AffineDividendCoordinate::spot_scale -> f64 with 1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:173:21: replace == with != in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:173:9: replace AffineDividendCoordinate::at_spot -> Self with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:177:23: replace * with + in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:177:23: replace * with / in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:177:34: replace / with % in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:177:34: replace / with * in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:32: replace - with + in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:32: replace - with / in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:51: replace - with + in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:51: replace - with / in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:61: replace * with + in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:61: replace * with / in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:72: replace / with % in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:72: replace / with * in AffineDividendCoordinate::at_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:17:9: replace DividendQuote::fixed_cash -> Result<Self, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:185:16: replace * with + in AffineDividendCoordinate::reconstruct_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:185:16: replace * with / in AffineDividendCoordinate::reconstruct_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:185:37: replace + with * in AffineDividendCoordinate::reconstruct_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:185:37: replace + with - in AffineDividendCoordinate::reconstruct_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:185:46: replace * with + in AffineDividendCoordinate::reconstruct_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:185:46: replace * with / in AffineDividendCoordinate::reconstruct_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:185:9: replace AffineDividendCoordinate::reconstruct_spot -> f64 with -1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:185:9: replace AffineDividendCoordinate::reconstruct_spot -> f64 with 0.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:185:9: replace AffineDividendCoordinate::reconstruct_spot -> f64 with 1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:189:9: replace AffineDividendCoordinate::after -> Result<Self, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:190:21: replace - with + in AffineDividendCoordinate::after",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:190:21: replace - with / in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:190:35: replace * with + in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:190:35: replace * with / in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:190:44: replace - with + in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:190:44: replace - with / in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:191:21: replace - with + in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:191:21: replace - with / in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:191:35: replace * with + in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:191:35: replace * with / in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:192:30: replace - with + in AffineDividendCoordinate::after",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:192:30: replace - with / in AffineDividendCoordinate::after",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:192:44: replace * with + in AffineDividendCoordinate::after",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:192:44: replace * with / in AffineDividendCoordinate::after",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:194:12: delete ! in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:201:12: delete ! in AffineDividendCoordinate::after",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:223:9: replace AffineDividendTimelineEntry::event -> EventId with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:228:9: replace AffineDividendTimelineEntry::ex_time -> f64 with -1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:228:9: replace AffineDividendTimelineEntry::ex_time -> f64 with 0.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:228:9: replace AffineDividendTimelineEntry::ex_time -> f64 with 1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:22:9: replace DividendQuote::proportional -> Result<Self, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:233:9: replace AffineDividendTimelineEntry::before -> AffineDividendCoordinate with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:238:9: replace AffineDividendTimelineEntry::after -> AffineDividendCoordinate with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:259:9: replace DividendMatchingTolerance::default_for_spot -> Self with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:260:36: replace * with + in DividendMatchingTolerance::default_for_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:260:36: replace * with / in DividendMatchingTolerance::default_for_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:267:9: replace DividendMatchingTolerance::abs_price_tol -> f64 with -1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:267:9: replace DividendMatchingTolerance::abs_price_tol -> f64 with 0.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:267:9: replace DividendMatchingTolerance::abs_price_tol -> f64 with 1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:272:9: replace DividendMatchingTolerance::rel_price_tol -> f64 with -1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:272:9: replace DividendMatchingTolerance::rel_price_tol -> f64 with 0.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:272:9: replace DividendMatchingTolerance::rel_price_tol -> f64 with 1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:316:9: replace AffineDividendTransform::new_with_carry_curves -> Result<Self, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:31:9: replace DividendQuote::fixed_cash_and_proportional -> Result<Self, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:332:9: replace AffineDividendTransform::compile_reserve -> Result<(), MarketError> with Ok(())",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:335:26: replace *= with += in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:335:26: replace *= with /= in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:335:33: replace - with + in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:335:33: replace - with / in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:337:44: replace / with % in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:337:44: replace / with * in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:341:21: replace += with *= in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:341:21: replace += with -= in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:341:41: replace / with % in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:341:41: replace / with * in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:341:56: replace * with + in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:341:56: replace * with / in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:343:40: replace - with + in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:343:40: replace - with / in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:344:12: delete ! in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:344:33: replace || with && in AffineDividendTransform::compile_reserve",
+      "before": "MissedMutant",
+      "after": "MissedMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:344:36: delete ! in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:344:58: replace || with && in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:344:70: replace <= with > in AffineDividendTransform::compile_reserve",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:357:9: replace AffineDividendTransform::initial_reserve -> f64 with -1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:357:9: replace AffineDividendTransform::initial_reserve -> f64 with 0.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:357:9: replace AffineDividendTransform::initial_reserve -> f64 with 1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:362:9: replace AffineDividendTransform::initial_coordinate -> AffineDividendCoordinate with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:363:37: replace / with % in AffineDividendTransform::initial_coordinate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:363:37: replace / with * in AffineDividendTransform::initial_coordinate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:364:33: replace - with + in AffineDividendTransform::initial_coordinate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:364:33: replace - with / in AffineDividendTransform::initial_coordinate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:364:57: replace / with % in AffineDividendTransform::initial_coordinate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:364:57: replace / with * in AffineDividendTransform::initial_coordinate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:375:25: replace == with != in AffineDividendTransform::carry",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:375:32: replace || with && in AffineDividendTransform::carry",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:375:41: replace == with != in AffineDividendTransform::carry",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:375:9: replace AffineDividendTransform::carry -> Result<AffineDividendCoordinate, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:380:17: replace - with + in AffineDividendTransform::carry",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:380:17: replace - with / in AffineDividendTransform::carry",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:381:17: replace - with + in AffineDividendTransform::carry",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:381:17: replace - with / in AffineDividendTransform::carry",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:382:17: replace + with * in AffineDividendTransform::carry",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:382:17: replace + with - in AffineDividendTransform::carry",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:383:26: replace *= with += in AffineDividendTransform::carry",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:383:26: replace *= with /= in AffineDividendTransform::carry",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:384:16: delete ! in AffineDividendTransform::carry",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:38:9: replace DividendQuote::fixed_cash_amount -> f64 with -1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:38:9: replace DividendQuote::fixed_cash_amount -> f64 with 0.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:38:9: replace DividendQuote::fixed_cash_amount -> f64 with 1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:397:9: replace AffineDividendTransform::underlying -> UnderlyingId with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:402:9: replace AffineDividendTransform::spot -> PositiveF64 with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:407:9: replace AffineDividendTransform::events -> &[CompiledDividendEvent] with Vec::leak(Vec::new())",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:407:9: replace AffineDividendTransform::events -> &[CompiledDividendEvent] with Vec::leak(vec![Default::default()])",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:411:9: replace AffineDividendTransform::with_spot -> Result<Self, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:437:12: delete ! in AffineDividendTransform::coordinate_after_time",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:437:30: replace || with && in AffineDividendTransform::coordinate_after_time",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:437:38: replace < with <= in AffineDividendTransform::coordinate_after_time",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:437:38: replace < with == in AffineDividendTransform::coordinate_after_time",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:437:38: replace < with > in AffineDividendTransform::coordinate_after_time",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:437:9: replace AffineDividendTransform::coordinate_after_time -> Result<AffineDividendCoordinate, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:446:66: replace <= with > in AffineDividendTransform::coordinate_after_time",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:456:32: replace <= with > in AffineDividendTransform::coordinate_after_time",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:456:40: replace || with && in AffineDividendTransform::coordinate_after_time",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:456:56: replace == with != in AffineDividendTransform::coordinate_after_time",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:467:9: replace AffineDividendTransform::coordinate_before_event -> Result<AffineDividendCoordinate, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:478:35: replace == with != in AffineDividendTransform::coordinate_before_event",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:482:37: replace && with || in AffineDividendTransform::coordinate_before_event",
+      "before": "MissedMutant",
+      "after": "MissedMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:494:9: replace AffineDividendTransform::event_timeline -> Result<Box<[AffineDividendTimelineEntry]>, MarketError> with Ok(Box::new(Vec::leak(Vec::new())))",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:494:9: replace AffineDividendTransform::event_timeline -> Result<Box<[AffineDividendTimelineEntry]>, MarketError> with Ok(Box::new(Vec::leak(vec![Default::default()])))",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:497:71: replace != with == in AffineDividendTransform::event_timeline",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:49:9: replace DividendQuote::beta -> f64 with -1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:49:9: replace DividendQuote::beta -> f64 with 0.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:49:9: replace DividendQuote::beta -> f64 with 1.0",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:501:50: replace >= with < in AffineDividendTransform::event_timeline",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:517:9: replace AffineDividendTransform::spot_contract_strike -> Result<f64, MarketError> with Ok(-1.0)",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:517:9: replace AffineDividendTransform::spot_contract_strike -> Result<f64, MarketError> with Ok(0.0)",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:517:9: replace AffineDividendTransform::spot_contract_strike -> Result<f64, MarketError> with Ok(1.0)",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:519:12: delete ! in AffineDividendTransform::spot_contract_strike",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:535:9: replace AffineDividendTransform::apply_event_to_spot -> Result<f64, MarketError> with Ok(-1.0)",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:535:9: replace AffineDividendTransform::apply_event_to_spot -> Result<f64, MarketError> with Ok(0.0)",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:535:9: replace AffineDividendTransform::apply_event_to_spot -> Result<f64, MarketError> with Ok(1.0)",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:537:12: delete ! in AffineDividendTransform::apply_event_to_spot",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:537:35: replace || with && in AffineDividendTransform::apply_event_to_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:537:48: replace <= with > in AffineDividendTransform::apply_event_to_spot",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:558:9: replace AffineDividendTransform::validate_post_event_f_state -> Result<f64, MarketError> with Ok(-1.0)",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:558:9: replace AffineDividendTransform::validate_post_event_f_state -> Result<f64, MarketError> with Ok(0.0)",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:558:9: replace AffineDividendTransform::validate_post_event_f_state -> Result<f64, MarketError> with Ok(1.0)",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:562:12: delete ! in AffineDividendTransform::validate_post_event_f_state",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:562:35: replace || with && in AffineDividendTransform::validate_post_event_f_state",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:562:48: replace <= with > in AffineDividendTransform::validate_post_event_f_state",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:584:5: replace validate_dividend_call_price_matching -> Result<(), MarketError> with Ok(())",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:584:8: delete ! in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:591:8: delete ! in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:598:25: replace - with + in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:598:25: replace - with / in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:598:39: replace * with + in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:598:39: replace * with / in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:599:33: replace - with + in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:599:33: replace - with / in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:602:38: replace * with + in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:602:38: replace * with / in validate_dividend_call_price_matching",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:603:18: replace > with < in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:603:18: replace > with == in validate_dividend_call_price_matching",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:603:18: replace > with >= in validate_dividend_call_price_matching",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:620:5: replace compile_event -> Result<CompiledDividendEvent, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:621:28: replace / with % in compile_event",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:621:28: replace / with * in compile_event",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:622:8: delete ! in compile_event",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:639:5: replace validate_events -> Result<(), MarketError> with Ok(())",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:641:12: delete ! in validate_events",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:641:39: replace || with && in validate_events",
+      "before": "MissedMutant",
+      "after": "MissedMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:641:56: replace < with <= in validate_events",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:641:56: replace < with == in validate_events",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:641:56: replace < with > in validate_events",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:651:13: replace && with || in validate_events",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:651:30: replace <= with > in validate_events",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:654:35: replace - with + in validate_events",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:654:35: replace - with / in validate_events",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:665:27: replace && with || in validate_fixed_cash",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:665:37: replace >= with < in validate_fixed_cash",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:665:5: replace validate_fixed_cash -> Result<(), MarketError> with Ok(())",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:676:25: replace && with || in validate_beta",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:676:5: replace validate_beta -> Result<(), MarketError> with Ok(())",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:687:26: replace && with || in validate_tolerance",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:687:35: replace >= with < in validate_tolerance",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:687:5: replace validate_tolerance -> Result<(), MarketError> with Ok(())",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:81:9: replace DividendEvent::event -> EventId with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:86:9: replace DividendEvent::ex_time -> f64 with -1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:86:9: replace DividendEvent::ex_time -> f64 with 0.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:86:9: replace DividendEvent::ex_time -> f64 with 1.0",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:91:9: replace DividendEvent::quote -> DividendQuote with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:113:9: replace EquityForward::evaluate -> Result<ForwardEvaluation, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:115:39: replace * with + in EquityForward::evaluate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:115:39: replace * with / in EquityForward::evaluate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:115:64: replace - with + in EquityForward::evaluate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:115:64: replace - with / in EquityForward::evaluate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:116:12: delete ! in EquityForward::evaluate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:116:33: replace || with && in EquityForward::evaluate",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:116:44: replace <= with > in EquityForward::evaluate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:130:12: delete ! in EquityForward::evaluate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:130:47: replace || with && in EquityForward::evaluate",
+      "before": "MissedMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:130:72: replace <= with > in EquityForward::evaluate",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:147:9: replace EquityForward::forward -> Result<f64, MarketError> with Ok(-1.0)",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:147:9: replace EquityForward::forward -> Result<f64, MarketError> with Ok(0.0)",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:147:9: replace EquityForward::forward -> Result<f64, MarketError> with Ok(1.0)",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:56:9: replace EquityForward::with_discrete_dividends -> Result<Self, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:74:9: replace EquityForward::underlying -> UnderlyingId with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:79:9: replace EquityForward::spot -> PositiveF64 with Default::default()",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:84:9: replace EquityForward::discount_curve -> &LogLinearDiscountCurve with Box::leak(Box::new(Default::default()))",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:89:9: replace EquityForward::dividend_curve -> &LogLinearDiscountCurve with Box::leak(Box::new(Default::default()))",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:94:9: replace EquityForward::discrete_dividends -> Option<&AffineDividendTransform> with None",
+      "before": "CaughtMutant",
+      "after": "CaughtMutant"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:94:9: replace EquityForward::discrete_dividends -> Option<&AffineDividendTransform> with Some(Box::leak(Box::new(Default::default())))",
+      "before": "Unviable",
+      "after": "Unviable"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:98:9: replace EquityForward::with_spot -> Result<Self, MarketError> with Ok(Default::default())",
+      "before": "Unviable",
+      "after": "Unviable"
+    }
+  ],
+  "newly_caught_evidence": [
+    {
+      "name": "crates/pricing/src/market/dividend.rs:112:9: replace CompiledDividendEvent::ex_time -> f64 with -1.0",
+      "failed_tests": [
+        "market::dividend::tests::quote_and_event_accessors_preserve_the_supplied_contract",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102423967,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_112_col_9_002.log",
+      "log_sha256": "68869cefb83a4828c559ea74eb6d44d9e4167799dc8f18f39aeb501021fbb2a4",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_112_col_9_002.diff",
+      "diff_sha256": "1fdde2c8a6528ace895b1e561fa0b39e14de602ab93094ea5507f1bc3057c6a1"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:112:9: replace CompiledDividendEvent::ex_time -> f64 with 0.0",
+      "failed_tests": [
+        "market::dividend::tests::quote_and_event_accessors_preserve_the_supplied_contract",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.259086375,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_112_col_9.log",
+      "log_sha256": "a12ad954a0c0a791cf541cac043e6928eb662080b8cabbb22dc7a692420e71bb",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_112_col_9.diff",
+      "diff_sha256": "7ea4bd90ea906b50a22afc66d15f43eece29ee330a177068f872e1829f1c56f8"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:112:9: replace CompiledDividendEvent::ex_time -> f64 with 1.0",
+      "failed_tests": [
+        "market::dividend::tests::quote_and_event_accessors_preserve_the_supplied_contract",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.7367638,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_112_col_9_001.log",
+      "log_sha256": "523dae4a1ce45eda42a8e6899c069e3f97a779dbb2f8fbfa59278b227858175f",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_112_col_9_001.diff",
+      "diff_sha256": "05d38498ae67fafd1f678c1382785bf32ad6ed1a74ace9c5a46a1d1946c74f3c"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:14: replace - with + in CompiledDividendEvent::post_spot",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.105011561,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_132_col_14.log",
+      "log_sha256": "2b11680158cfe925c8edbddfa2efa723d371f6d2ad6657fe48bdb0d766d0496b",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_132_col_14.diff",
+      "diff_sha256": "686ce6c92d12103532f1f8bb1a0f1d16671ae2a131cba0b30ae722f045a1f942"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:14: replace - with / in CompiledDividendEvent::post_spot",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.103408957,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_132_col_14_001.log",
+      "log_sha256": "e7718d326480a65f17684baddd41349d5eaa0be48d6d1b4d6d96ba3824715b77",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_132_col_14_001.diff",
+      "diff_sha256": "f1f04a0f9676a7e7042a24e9d1af1dacd771333b8a11c2f0734ab39a93d9acaa"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:27: replace * with + in CompiledDividendEvent::post_spot",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.054095122,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_132_col_27.log",
+      "log_sha256": "3f5234cedc878c6ee2c2e3f37e56f9f7691348cb2d1502d3e784f1264df6142b",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_132_col_27.diff",
+      "diff_sha256": "0fbdbb5a10784db89bc83903329cf703b6fd488ab4ad06f1ec30b60a2b74a0a9"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:27: replace * with / in CompiledDividendEvent::post_spot",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.85618746,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_132_col_27_001.log",
+      "log_sha256": "a373601d30456273e482caf4bd380b2ef94a59eda67721d1d97943fa68f3ca37",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_132_col_27_001.diff",
+      "diff_sha256": "3d05042c4c4cc171924f583da1dff60ee9db96a5024be51f2559e106bca78f5d"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:9: replace CompiledDividendEvent::post_spot -> f64 with -1.0",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102232459,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_132_col_9_002.log",
+      "log_sha256": "347b3e76eaee15ecafbee3f25da95f65f57108def87228d4057be222043d039c",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_132_col_9_002.diff",
+      "diff_sha256": "b003cb09b025e75db13ed1a8c1cd1da715549f4b196c18ce2b6ae625d81e2024"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:132:9: replace CompiledDividendEvent::post_spot -> f64 with 0.0",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102282631,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_132_col_9.log",
+      "log_sha256": "1e54d9d0c6afb38e0ac030f00e26bc3136506194a898fd3a5f3df85ddf1193b5",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_132_col_9.diff",
+      "diff_sha256": "5a84ef0050bb6345f0726982f599d35b0f279cd4e0ea791e220467356136a12a"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:167:9: replace AffineDividendCoordinate::spot_scale -> f64 with -1.0",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::empty_schedule_and_identity_coordinate_preserve_the_path",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.056321285,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_167_col_9_002.log",
+      "log_sha256": "53bfcbfa0e928d7edb615d6c949ee3c194e1d8f75bf2a0a0ff8dd75cf9a01cc6",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_167_col_9_002.diff",
+      "diff_sha256": "15ee056a4edccc0bd697ade397f146fdefc6b8cceebff22cbefbf8e568852192"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:167:9: replace AffineDividendCoordinate::spot_scale -> f64 with 0.0",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::empty_schedule_and_identity_coordinate_preserve_the_path",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.64130207,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_167_col_9.log",
+      "log_sha256": "77c05968853b714402a9539dc72169f9e3b08b2e624dfbc25e32e86d35259e7b",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_167_col_9.diff",
+      "diff_sha256": "d2e5edfb32e829f855f94ea3b72a7ceed64dfc1b4c8b2273a0f1bd8ee55e34a5"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:167:9: replace AffineDividendCoordinate::spot_scale -> f64 with 1.0",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.103533647,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_167_col_9_001.log",
+      "log_sha256": "eb3d29505495191294161f55e560b7d613a32e98e5c01bfcad14035c558f7318",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_167_col_9_001.diff",
+      "diff_sha256": "58861faf03e5608dfb878bf73e4e9f67f8a774803a885da8fdcb8367ab5d320e"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:173:21: replace == with != in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.101476419,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_173_col_21.log",
+      "log_sha256": "ca191974eedff636307e0205fc7b92ce2b5c7ad32607af3862823d44be5a3d1a",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_173_col_21.diff",
+      "diff_sha256": "2480892621bdcf517ae04b77802386ce5f22770c796aaff86f787cc4e1440bb9"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:177:23: replace * with + in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.107353774,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_177_col_23.log",
+      "log_sha256": "06275e9be80352e13662ecbdaca7a37cf5a2b898f0724494c8e39ed563564b2b",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_177_col_23.diff",
+      "diff_sha256": "151c58ef5cd1f3d0bd4799c206eccd1a6c2814305c592e9594dcbcb9ef116db0"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:177:23: replace * with / in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.105025331,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_177_col_23_001.log",
+      "log_sha256": "b0670a1854f23cc8ff03b8a50b85e9347c0522464b7dec937c4da2d43974beb7",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_177_col_23_001.diff",
+      "diff_sha256": "d8c77ab533e30b11a08321fccdb6d415590ba7ee89259adcbefd30b36d6e3289"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:177:34: replace / with % in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.426091147,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_177_col_34.log",
+      "log_sha256": "1c12e3ab37c320c046604e4982c3303e2effa171357d030a8414a7abef6d094b",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_177_col_34.diff",
+      "diff_sha256": "4522e7ccac144b8b15f26a740f1a670c8e91665666a8931cedb851a4dd9e8998"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:177:34: replace / with * in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.051700591,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_177_col_34_001.log",
+      "log_sha256": "bfaa931f6d9850fa271a586ed1cd5eef9aff7b9f6522f17153d2242cb63598d3",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_177_col_34_001.diff",
+      "diff_sha256": "7fd0393980c2d7c6a32b6e315b8595196ee6a56aafcd1430a32d414a35936e2c"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:32: replace - with + in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.055618189,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_178_col_32.log",
+      "log_sha256": "020fd1fa49efb075ca885ba322538f47810e2f5109d08b85522cd1e51a544d87",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_178_col_32.diff",
+      "diff_sha256": "e9e94560af6d18f40508fd00950c897e2a85233da52e42fead79ca0d98f4ebf4"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:32: replace - with / in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.21310284,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_178_col_32_001.log",
+      "log_sha256": "27fe3e7b2f9a1b29c3051e335b2aeec5180c4638b23be4019ed1829072b9c184",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_178_col_32_001.diff",
+      "diff_sha256": "5e1423a8643f62863c579e048a68d0c6287cb024e59e59a430eab65a4b44d4fb"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:51: replace - with + in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102423961,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_178_col_51.log",
+      "log_sha256": "882d6128977e55babf6975c148d92b717d790590ff975d677663085827a14c60",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_178_col_51.diff",
+      "diff_sha256": "54f75beb1675db775b8b51cda9c73d6c2675d9da8cc54608e777997c2ef3fd90"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:51: replace - with / in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.161401877,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_178_col_51_001.log",
+      "log_sha256": "55416d8f5c4efe5d078848ace2e12ee4107d7a1e76492c17a930c7f657009fd8",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_178_col_51_001.diff",
+      "diff_sha256": "5ba27f5e74759041c77cfb85f89db858adb14987998e0129f71762b43793e672"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:61: replace * with + in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.101464215,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_178_col_61.log",
+      "log_sha256": "79459bd6349bf90447a9178f9276807f5acfdae3206430fc05d3bd5df4f771e2",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_178_col_61.diff",
+      "diff_sha256": "8b5dbe3980827536dfdabaf122921ff3b6713a313206d6e3bf10729930136fda"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:61: replace * with / in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.052286015,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_178_col_61_001.log",
+      "log_sha256": "ad42d6be4a2c9950381f4184b156484e47348d3eaa99a9df9a13de1c6a309796",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_178_col_61_001.diff",
+      "diff_sha256": "39aa94ecd750aa64bec3a3f965b5027b3cd97572534dc5fce241e1e62b5ee78f"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:72: replace / with % in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.15581594,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_178_col_72.log",
+      "log_sha256": "bbac1b414cfbdab4d35bcb181a2062eb8ca6fbf3eaa3fc5067988538871ca47b",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_178_col_72.diff",
+      "diff_sha256": "f70affd8627291f4efb7e2e040f019698089931e03ec6c2658237f8b8ab3d032"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:178:72: replace / with * in AffineDividendCoordinate::at_spot",
+      "failed_tests": [
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.155459254,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_178_col_72_001.log",
+      "log_sha256": "388571836ff9c05691cb1eebd062262cfe89098fd1611cafbd36c2a1f5b175b9",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_178_col_72_001.diff",
+      "diff_sha256": "e500d57f0182bbd53811d33ac32dabd9b80df9e09ab62ce7480727cd08d3714b"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:185:16: replace * with / in AffineDividendCoordinate::reconstruct_spot",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102006281,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_185_col_16_001.log",
+      "log_sha256": "453219463cd7d8fe109fee1a54dd373d991508a8188d4733232f5f3ecb5b805e",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_185_col_16_001.diff",
+      "diff_sha256": "d84c9193821f6a31ac91e0fa6438132211ce6e0f824a6dcd881ab4b1fb00dded"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:190:21: replace - with + in AffineDividendCoordinate::after",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.101937165,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_190_col_21.log",
+      "log_sha256": "1479299c3b03f01fafc642200d4294814109ee319d8432f7087692debe5557f4",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_190_col_21.diff",
+      "diff_sha256": "42aed9bfe9c6a1e8100c30efe1b3094e29b86da12428eb055e163ccb149a7d32"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:192:30: replace - with + in AffineDividendCoordinate::after",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.101786147,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_192_col_30.log",
+      "log_sha256": "17da24406d083f44f18381aa579b60fae16e56ed9a0890224f69e294538f71e5",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_192_col_30.diff",
+      "diff_sha256": "0fec91db7de44066361619ad80275cd2f3f4e0f34e831306b200319cd9b62255"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:192:30: replace - with / in AffineDividendCoordinate::after",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.15210659,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_192_col_30_001.log",
+      "log_sha256": "ddf9aa4bff424b7742762f010f17a3b6586aa8db8003b9284168f23ab0bfc98d",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_192_col_30_001.diff",
+      "diff_sha256": "fc52401d5808f5ac8b503b8423c0bb39ae4c439c3feeac97d5420d2c13a31864"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:192:44: replace * with + in AffineDividendCoordinate::after",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102829927,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_192_col_44.log",
+      "log_sha256": "7ac7aaacbe448812c721f5fb0079a3a89a6fc5732fd6abe62c8cf8131bef309e",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_192_col_44.diff",
+      "diff_sha256": "12478d1811a4ff2123535a81f60ab5b27df5489081fe38157e08e7df1e1e3d01"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:192:44: replace * with / in AffineDividendCoordinate::after",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.05146538,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_192_col_44_001.log",
+      "log_sha256": "289746b8aaa319b2fe53c7e15503ad0824205a3ce2a29c8fc6b7e49c89e4c06f",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_192_col_44_001.diff",
+      "diff_sha256": "cb6d1fd196e2442e17bb88e4498bacb87fb132bffa8233df22312a85e99f7793"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:228:9: replace AffineDividendTimelineEntry::ex_time -> f64 with -1.0",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.109979679,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_228_col_9_002.log",
+      "log_sha256": "7f340cbc4959c5647e1ad663abf057a0529d5ab84abb983c3bc169501f0dba8a",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_228_col_9_002.diff",
+      "diff_sha256": "e2bd54740cd1d04fbdf7cb16c6ebcfc53a428f5c121e1eabc10a6252cfd237d9"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:228:9: replace AffineDividendTimelineEntry::ex_time -> f64 with 0.0",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.392191525,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_228_col_9.log",
+      "log_sha256": "c71283c0d4fbdb72abf8210aab35d81c68f7f4bc068daa9b38a3429c8a5a01ca",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_228_col_9.diff",
+      "diff_sha256": "796603b3edb693cd7ee10e09ab855e240d3d91fab9c66f962e3dc40746662ab3"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:228:9: replace AffineDividendTimelineEntry::ex_time -> f64 with 1.0",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.157732908,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_228_col_9_001.log",
+      "log_sha256": "a7acef5b1083e0aebc483a16b59481971d07fc212909ca5a0501fcf23bf559e0",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_228_col_9_001.diff",
+      "diff_sha256": "71e9c3d8e082213bcdff803212938c3ccbaf1267e8303103d072ded2b6d38c40"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:260:36: replace * with + in DividendMatchingTolerance::default_for_spot",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_and_nonfinite_prices_retain_error_fields"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.051835212,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_260_col_36.log",
+      "log_sha256": "ffa14ed4ccba908f20256f4215ceae460d8358e396d52c899a7522e83257cb5a",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_260_col_36.diff",
+      "diff_sha256": "6b7cc9d99b4893ba78ec48abdd27c0b96df1b558edbb86546056b4fbea11e330"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:260:36: replace * with / in DividendMatchingTolerance::default_for_spot",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_and_nonfinite_prices_retain_error_fields"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.104116081,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_260_col_36_001.log",
+      "log_sha256": "5c2fb87d657d5a6f8751bd0001806c7d0db7b446959169bbd3ea69cd58ae6d04",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_260_col_36_001.diff",
+      "diff_sha256": "c9331ba1165f65b061e8477c90a14bf290956a4d386ec1c24f6544c1556acb46"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:267:9: replace DividendMatchingTolerance::abs_price_tol -> f64 with -1.0",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_and_nonfinite_prices_retain_error_fields",
+        "market::dividend::tests::matching_tolerances_use_inclusive_absolute_and_relative_boundaries"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102697117,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_267_col_9_002.log",
+      "log_sha256": "48a5f19ef52bbedc60d9cdba0cbe72d1ec0b4387e1852bd20a6d17428756a310",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_267_col_9_002.diff",
+      "diff_sha256": "8aaa2e5d3d6f6ee5c6a65e948c28850605b3868c1dbed2beb2975a0fdc96f07b"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:267:9: replace DividendMatchingTolerance::abs_price_tol -> f64 with 0.0",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_and_nonfinite_prices_retain_error_fields",
+        "market::dividend::tests::matching_tolerances_use_inclusive_absolute_and_relative_boundaries"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102083568,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_267_col_9.log",
+      "log_sha256": "23461398ec7f2258befecd71d7b6ac48afcacec42b1b849525ce61ddd3e8dd00",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_267_col_9.diff",
+      "diff_sha256": "1cb9db94c6a221d7d86d86d0d68fe49e71f82c0086b3022eecfbb7ee1816f856"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:267:9: replace DividendMatchingTolerance::abs_price_tol -> f64 with 1.0",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_and_nonfinite_prices_retain_error_fields",
+        "market::dividend::tests::matching_tolerances_use_inclusive_absolute_and_relative_boundaries"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.101613189,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_267_col_9_001.log",
+      "log_sha256": "815fd20594b9de3c6899b0b0ef8c65d5735c56014530975939e8f148522e34ee",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_267_col_9_001.diff",
+      "diff_sha256": "16fe4f97aafae517619fd0675d4ac437b90eb3e635e64fd63ec18989dc45c072"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:272:9: replace DividendMatchingTolerance::rel_price_tol -> f64 with -1.0",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_and_nonfinite_prices_retain_error_fields",
+        "market::dividend::tests::matching_tolerances_use_inclusive_absolute_and_relative_boundaries"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.101807297,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_272_col_9_002.log",
+      "log_sha256": "8b288e05d88ea09411c1842cc161e3befb19d1c04e39574bf5111b4eed00e8e1",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_272_col_9_002.diff",
+      "diff_sha256": "6b115676816e1fbb5bc4fbcc896296d9dfc7b48ef91153d2fd998d5f6d5b72be"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:272:9: replace DividendMatchingTolerance::rel_price_tol -> f64 with 0.0",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_and_nonfinite_prices_retain_error_fields",
+        "market::dividend::tests::matching_tolerances_use_inclusive_absolute_and_relative_boundaries"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.105604905,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_272_col_9.log",
+      "log_sha256": "3709af86fa90182f5306b2c6c21ff1d34ba051463b5224e32552aaee85a95ff4",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_272_col_9.diff",
+      "diff_sha256": "36b985bc7c34c13cd3ef473373bbd5967190ed6641ccdcdf83d4dbb9a665f284"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:272:9: replace DividendMatchingTolerance::rel_price_tol -> f64 with 1.0",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_and_nonfinite_prices_retain_error_fields",
+        "market::dividend::tests::matching_tolerances_use_inclusive_absolute_and_relative_boundaries"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 1.002633958,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_272_col_9_001.log",
+      "log_sha256": "39e1fe1fad33980659b4947896bb90b7d21ce45ae93299562fb233108d61b285",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_272_col_9_001.diff",
+      "diff_sha256": "e3ceaf2fb8339776e3671e89eedb0c5126a4b2988b40ddba411fca46caa73b52"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:357:9: replace AffineDividendTransform::initial_reserve -> f64 with -1.0",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::empty_schedule_and_identity_coordinate_preserve_the_path",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.337742781,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_357_col_9_002.log",
+      "log_sha256": "d7525e81bbf28a280a7b2d05452cdfe4fdf50561e5bcd3d5703a0bc3f5d3de6f",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_357_col_9_002.diff",
+      "diff_sha256": "7608715072dd80c931a6bb36955ee58457d7538926ed14385adc7423e3884b1d"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:357:9: replace AffineDividendTransform::initial_reserve -> f64 with 0.0",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.104049008,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_357_col_9.log",
+      "log_sha256": "3d801a1deeb273702b54e86a60cdf02ac9940d9c2b16823fb32d928a0d24d688",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_357_col_9.diff",
+      "diff_sha256": "f71e0edaf133b47fcd48ca464579c456d88e28ec518f97f96b64e68ab7bf1430"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:357:9: replace AffineDividendTransform::initial_reserve -> f64 with 1.0",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::empty_schedule_and_identity_coordinate_preserve_the_path",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.104824024,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_357_col_9_001.log",
+      "log_sha256": "7dc7d8022d6a9b3bd6123143d5161990b0dfe98a7c77e0b470aa04305f6b3339",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_357_col_9_001.diff",
+      "diff_sha256": "c090a4ffccc8c220b3d2dffe3c640a8918fe0551425c8d3c881fe134458f0a6a"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:375:25: replace == with != in AffineDividendTransform::carry",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102474688,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_375_col_25.log",
+      "log_sha256": "c246fc835f0a619faaa7c2f301faced863bc6abc4965cddf7cd4dd9a6829539c",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_375_col_25.diff",
+      "diff_sha256": "9a4377bcfea1593cb3ab4d888fe95f25fbe09d7a32fe5fc950e281d70e86dbec"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:375:32: replace || with && in AffineDividendTransform::carry",
+      "failed_tests": [
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.198123007,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_375_col_32.log",
+      "log_sha256": "802e90d0b95ca78f041b33a29b069e307a9d0cb69442d826282dc37beda70108",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_375_col_32.diff",
+      "diff_sha256": "70dc933c29fb8e700550800e6bea2c677ecb352e20acebbff9f019fe000552d1"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:375:41: replace == with != in AffineDividendTransform::carry",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.104026917,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_375_col_41.log",
+      "log_sha256": "a563ccaa535d10228d9b65a004088772bdbd35bae1220a90a0d80a40fb10cd33",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_375_col_41.diff",
+      "diff_sha256": "450b3c84d13260aa847f93f8d09cb7b9d45d9e27025be23526b63ee6640198a0"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:380:17: replace - with + in AffineDividendTransform::carry",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.103335897,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_380_col_17.log",
+      "log_sha256": "9ba9570e83d3048569fe94e83121f88601c59c4c90aba0e08a1b99722894d771",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_380_col_17.diff",
+      "diff_sha256": "faf9a56fd235541f5efd9c846ccd6e155bb73b52cca7d6e64fedb0a661ff61ae"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:380:17: replace - with / in AffineDividendTransform::carry",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.101503883,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_380_col_17_001.log",
+      "log_sha256": "072f2c6c4d1ad35060d5350411f37de3cea8216154839a12d26c31ab64d1497b",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_380_col_17_001.diff",
+      "diff_sha256": "fe482c1d29434cdd8d8501ea2e43816a9fb47db3dd8fef013d564343720dbeb0"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:381:17: replace - with + in AffineDividendTransform::carry",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.107697489,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_381_col_17.log",
+      "log_sha256": "a413609bbce89abd656cce8c6dfe99f142c59ac03ecf7f4c67cab9913de8f9b7",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_381_col_17.diff",
+      "diff_sha256": "8dc1aa8ffe442997cda2c0b8c7a01e7eebe4f36eeb72ea5a57d5f570cf79fba9"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:382:17: replace + with * in AffineDividendTransform::carry",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102628092,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_382_col_17_001.log",
+      "log_sha256": "addf18bdc5a8a347c163e143de9352ec8995c6dc3137d0048a56b873347c7353",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_382_col_17_001.diff",
+      "diff_sha256": "0e4f5a0fdf3db322ef4fcc88fd73c6f61405290cecf85385f9cbe4991eb788c2"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:382:17: replace + with - in AffineDividendTransform::carry",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102343269,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_382_col_17.log",
+      "log_sha256": "72d551f4971acc7b6ebf9751a0f4ad2b21f72259c60f5df3b939d3f5992d3a88",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_382_col_17.diff",
+      "diff_sha256": "db317f43a8a254886d2c1597c6b1052862a8f6ca57612b83386dcaee98abab49"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:383:26: replace *= with += in AffineDividendTransform::carry",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.103880671,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_383_col_26.log",
+      "log_sha256": "719353afd205f30dc77e3e3928b27f8c9d7a9060e6fbf0d8b592152419f37006",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_383_col_26.diff",
+      "diff_sha256": "9b241d5697ce07d65b11a6b917089af833629b4a3dbc93fddbe205a365f45e7d"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:383:26: replace *= with /= in AffineDividendTransform::carry",
+      "failed_tests": [
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.104342043,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_383_col_26_001.log",
+      "log_sha256": "66292d50c72343e28880bd47625452d3ca6e7b210ff77f3d0e61bd2cd7137a0c",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_383_col_26_001.diff",
+      "diff_sha256": "0c54f07d35e5b97a2abfe291e2fab5f99c707a76db17c8b68f0c07c70249000e"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:437:30: replace || with && in AffineDividendTransform::coordinate_after_time",
+      "failed_tests": [
+        "market::dividend::tests::query_time_and_strike_failures_keep_the_requested_value"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102606038,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_437_col_30.log",
+      "log_sha256": "bea45df95d4aafcff6395b1f944f0d8364d0cded854321eac4f16574f2d01269",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_437_col_30.diff",
+      "diff_sha256": "e35e1d6eaf1fea254ad8d3870ec34e45d76afcc094e84c372b46f3f2cf9d27f6"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:437:38: replace < with <= in AffineDividendTransform::coordinate_after_time",
+      "failed_tests": [
+        "market::dividend::tests::empty_schedule_and_identity_coordinate_preserve_the_path",
+        "market::dividend::tests::schedule_validation_reports_time_order_and_raw_quote_errors",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::positive_canonical_forward_can_underflow_after_a_proportional_dividend"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 1.191116962,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_437_col_38_002.log",
+      "log_sha256": "1da1307ae80f715821616bc36b40d6fa926e105e936bd8bf2baf7039397bf204",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_437_col_38_002.diff",
+      "diff_sha256": "55a0b98cf3c214f84f11a3fd91ace6696020046ff46a6101c48b15ed98922e0d"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:437:38: replace < with == in AffineDividendTransform::coordinate_after_time",
+      "failed_tests": [
+        "market::dividend::tests::empty_schedule_and_identity_coordinate_preserve_the_path",
+        "market::dividend::tests::query_time_and_strike_failures_keep_the_requested_value",
+        "market::dividend::tests::schedule_validation_reports_time_order_and_raw_quote_errors",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion",
+        "market::forward::tests::positive_canonical_forward_can_underflow_after_a_proportional_dividend"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.051564314,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_437_col_38.log",
+      "log_sha256": "57758f9d9fdee04e0a1d2459c753eebd1253b620f455dc99da0dab5885ff3b63",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_437_col_38.diff",
+      "diff_sha256": "d846ab930b06eb63208952394a7b34fb6af7cad456d1b123695e5bbe74432a86"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:456:32: replace <= with > in AffineDividendTransform::coordinate_after_time",
+      "failed_tests": [
+        "market::dividend::tests::cash_events_use_post_event_coordinates_at_the_exact_ex_date",
+        "market::dividend::tests::final_cash_clears_the_reserve_coordinate_exactly_despite_roundoff",
+        "market::dividend::tests::spot_refit_keeps_cash_fixed_and_matches_recompiled_coordinates",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102416932,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_456_col_32.log",
+      "log_sha256": "8364ba5a458fea0e2b64e52af0eb5112e128ceec06f759db7e6e7f00d48ef320",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_456_col_32.diff",
+      "diff_sha256": "68d648c85f14647f63e292acffe0a112750f7826979a0ca6a0aed7d3405a1d1a"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:456:40: replace || with && in AffineDividendTransform::coordinate_after_time",
+      "failed_tests": [
+        "market::dividend::tests::final_cash_clears_the_reserve_coordinate_exactly_despite_roundoff",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.051484524,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_456_col_40.log",
+      "log_sha256": "e7bdd777468a6803cfe361062e52c607497749e4f5b73f4e1bcbc55c949b2668",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_456_col_40.diff",
+      "diff_sha256": "2637e034950ebe66011491fd5dbd898e5954a4ad313b7b72d38d6092f4b8fd28"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:456:56: replace == with != in AffineDividendTransform::coordinate_after_time",
+      "failed_tests": [
+        "market::dividend::tests::final_cash_clears_the_reserve_coordinate_exactly_despite_roundoff",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.101861954,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_456_col_56.log",
+      "log_sha256": "eb94a5c2079e7548d23609dcacb409a8c2e053778457f64a08f4003d44db35bb",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_456_col_56.diff",
+      "diff_sha256": "c2ca41ca364531d16fe7552b32f75c35007e96d3f9c1f583e4cd0947ad691a89"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:478:35: replace == with != in AffineDividendTransform::coordinate_before_event",
+      "failed_tests": [
+        "market::dividend::tests::final_cash_clears_the_reserve_coordinate_exactly_despite_roundoff",
+        "market::forward::tests::multiple_dividends_follow_independent_cash_flow_recursion"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.051816194,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_478_col_35.log",
+      "log_sha256": "0ff9fd7cb6b7b5bd761902baa699d08adc101fe02d1fc43fa460a63727bc8f46",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_478_col_35.diff",
+      "diff_sha256": "acb1a984c3fbf1af6b5e042663625ba58a6f04c082e4862ca90df4b6e2bcb5a0"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:537:12: delete ! in AffineDividendTransform::apply_event_to_spot",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.667812079,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_537_col_12.log",
+      "log_sha256": "88034ec4e2e41be7ba2c2eabbbfe378c63ef51f6efe86d9ea9cfac07103ea9d5",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_537_col_12.diff",
+      "diff_sha256": "d2ad3464e096977c68c304c51f71641aa95f34dcd07babbf12bb94010f2cf132"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:558:9: replace AffineDividendTransform::validate_post_event_f_state -> Result<f64, MarketError> with Ok(-1.0)",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102435487,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_558_col_9_002.log",
+      "log_sha256": "dcd5d0dac615fbb0e76e1a4d435cb39af9897a72afd2d1885bf9ae7e364b9397",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_558_col_9_002.diff",
+      "diff_sha256": "651878e5cbbe391a06e268c286f30020be0e25952b4092341d3adc706cee07cb"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:558:9: replace AffineDividendTransform::validate_post_event_f_state -> Result<f64, MarketError> with Ok(0.0)",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.105246262,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_558_col_9.log",
+      "log_sha256": "318656217327dfbc3f3246c142d4aee4072a0bed38c7d849421ad26d96c83b67",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_558_col_9.diff",
+      "diff_sha256": "28cb6277b21bfd7ab3dab11b8270ccea4f4e1a716528f50bc02d3160f9aabfa5"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:558:9: replace AffineDividendTransform::validate_post_event_f_state -> Result<f64, MarketError> with Ok(1.0)",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102886896,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_558_col_9_001.log",
+      "log_sha256": "24c4bc8cce83cd877428b86f213be2f3d31b66474cad5bd262de4a7b938e560c",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_558_col_9_001.diff",
+      "diff_sha256": "e45716143f397f850067da6fa2ae7274a5d2d6259f710b7862c82e68bacc9536"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:562:12: delete ! in AffineDividendTransform::validate_post_event_f_state",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.051462158,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_562_col_12.log",
+      "log_sha256": "ed0199af43483aa9e9673d11ad91d7a12743d10d6a66ae8722908738ede91a40",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_562_col_12.diff",
+      "diff_sha256": "248e86a7c30446bbc2362de5518b4fbe028683822fe4a8c462d3811da12f5019"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:562:35: replace || with && in AffineDividendTransform::validate_post_event_f_state",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.10220494,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_562_col_35.log",
+      "log_sha256": "29dacfb0dd151c1f4bcdc57911fc7b5979527256dd3efda03854c5c7032ae25c",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_562_col_35.diff",
+      "diff_sha256": "7c6246dcfff847ccd03b7faf81f5483101ee9df5f4104d9fd7051e929bf93328"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:562:48: replace <= with > in AffineDividendTransform::validate_post_event_f_state",
+      "failed_tests": [
+        "market::dividend::tests::dividend_state_validation_checks_the_reconstructed_post_event_spot"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.05209786,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_562_col_48.log",
+      "log_sha256": "2a17ce285e08fe7c88ecb09e5c8eb3a6afb621d1d8363871e775e47bdbfd2ec7",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_562_col_48.diff",
+      "diff_sha256": "36361d8cd659cb1360d136c5a74adcd430de505a85e151cba95b4e66a1296b6d"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:602:38: replace * with / in validate_dividend_call_price_matching",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_use_inclusive_absolute_and_relative_boundaries"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.103221802,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_602_col_38_001.log",
+      "log_sha256": "a82e5730b1f4c84afe7b2861ea4e6e2c198c460188c2c2f1c3ef83eacd12590f",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_602_col_38_001.diff",
+      "diff_sha256": "a4aac23cc1197345add8c742af1db7234e16e04330f3cb4714edeea73abec71d"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:603:18: replace > with >= in validate_dividend_call_price_matching",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_use_inclusive_absolute_and_relative_boundaries"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.10129312,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_603_col_18_002.log",
+      "log_sha256": "3fd685b9daacde056e22a0d7041332b6da14a7f41852138df77ca6fde52dcc82",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_603_col_18_002.diff",
+      "diff_sha256": "02bd6467ff907aed5a4fa75e2e5421434d69412cceb503b3137691d3186afc93"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:641:56: replace < with <= in validate_events",
+      "failed_tests": [
+        "market::dividend::tests::schedule_validation_reports_time_order_and_raw_quote_errors",
+        "market::forward::tests::positive_canonical_forward_can_underflow_after_a_proportional_dividend",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.051745777,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_641_col_56_002.log",
+      "log_sha256": "28c0e393fe4901a412c6bc63ca8d4602e0fc380e888a82b558902ac1cbf9e271",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_641_col_56_002.diff",
+      "diff_sha256": "1c9412e261b353dc9413fa367612a30adc00a580da617a4f4984d6c3f3a6cd42"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:641:56: replace < with == in validate_events",
+      "failed_tests": [
+        "market::dividend::tests::schedule_validation_reports_time_order_and_raw_quote_errors",
+        "market::forward::tests::positive_canonical_forward_can_underflow_after_a_proportional_dividend",
+        "market::forward::tests::zero_cash_coordinates_do_not_require_representable_carry_growth"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.102160501,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_641_col_56.log",
+      "log_sha256": "6bc8e933f3bf6914aa3a3907cfcde433ec8703478e5d07ed40eaa2181cb102b6",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_641_col_56.diff",
+      "diff_sha256": "6c72fa90ef2601e4f3143e168961b165cda553e092cce923adc1544a0cd36394"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:687:26: replace && with || in validate_tolerance",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_and_nonfinite_prices_retain_error_fields"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.101846149,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_687_col_26.log",
+      "log_sha256": "a599334c028d226fc4940a758b7e5df14a9cea5d9af7fa2dea79ee6cbd5fd679",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_687_col_26.diff",
+      "diff_sha256": "41fdf7fc9dc45280c71dc2a1e108cb419ef045ef3127e55593a490082092b7e7"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:687:5: replace validate_tolerance -> Result<(), MarketError> with Ok(())",
+      "failed_tests": [
+        "market::dividend::tests::matching_tolerances_and_nonfinite_prices_retain_error_fields"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.052131152,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_687_col_5.log",
+      "log_sha256": "9279f4d036e95647ff00efd3cfcfd8b0d721e1271e53f4cd68ff03472874cdda",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_687_col_5.diff",
+      "diff_sha256": "db90943c51740651dc281d8088e1c407f23c0d02f464434c09601e3a6150ac33"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:86:9: replace DividendEvent::ex_time -> f64 with -1.0",
+      "failed_tests": [
+        "market::dividend::tests::quote_and_event_accessors_preserve_the_supplied_contract"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.101609613,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_86_col_9_002.log",
+      "log_sha256": "4952006ed4d86d8c6a887f3fe29eb3fcd6ed0066eb8da22bd29d1f0efdef491b",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_86_col_9_002.diff",
+      "diff_sha256": "c25d26a362a5529c5d5cd2063b494631942edda77ef0df6fece2b09279821071"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:86:9: replace DividendEvent::ex_time -> f64 with 0.0",
+      "failed_tests": [
+        "market::dividend::tests::quote_and_event_accessors_preserve_the_supplied_contract"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.103740673,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_86_col_9.log",
+      "log_sha256": "0cde22dee1f593da5f36da21cfc59571500b57fa0d5447a85092797adf99bae7",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_86_col_9.diff",
+      "diff_sha256": "cd3f1abb4286151aff8342b90227819d584629ff281184921fc71440a453fe9f"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:86:9: replace DividendEvent::ex_time -> f64 with 1.0",
+      "failed_tests": [
+        "market::dividend::tests::quote_and_event_accessors_preserve_the_supplied_contract"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.051546169,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_86_col_9_001.log",
+      "log_sha256": "a5af1490ec928701b44f4ab57ceb442e1efc117d79071198f5fd80eb9842f522",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_86_col_9_001.diff",
+      "diff_sha256": "83c60d8b60aab0339c8619aa9fa3329f23889134964041ea52b27c46f1846e0f"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:116:33: replace || with && in EquityForward::evaluate",
+      "failed_tests": [
+        "market::forward::tests::canonical_forward_overflow_reports_underlying_before_dividend_carry"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.994660984,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__forward.rs_line_116_col_33.log",
+      "log_sha256": "ad6f26d97b5c164df0b4b74cb5929fc96ccfdd80c8e09291210b32584946ee5d",
+      "diff_path": "diff/crates__pricing__src__market__forward.rs_line_116_col_33.diff",
+      "diff_sha256": "e880d535f39a6b5784be2aa4ac087e06580618fca7dc14630c40459235d966a1"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:130:47: replace || with && in EquityForward::evaluate",
+      "failed_tests": [
+        "market::forward::tests::positive_canonical_forward_can_underflow_after_a_proportional_dividend"
+      ],
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.30756417,
+        "process_status": {
+          "Failure": 101
+        },
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__forward.rs_line_130_col_47.log",
+      "log_sha256": "e57eded7d68d859259050cf9f47bd311c86ebd685ee87f51d7f45f0cbf77e7ca",
+      "diff_path": "diff/crates__pricing__src__market__forward.rs_line_130_col_47.diff",
+      "diff_sha256": "ad3431c02aab7ff42b9a8515923b3dd701f2072e205199e1fe8ecbeda8fb39d1"
+    }
+  ],
+  "remaining_survivors": [
+    {
+      "name": "crates/pricing/src/market/dividend.rs:344:33: replace || with && in AffineDividendTransform::compile_reserve",
+      "assessment": {
+        "kind": "redundant guard on validated inputs",
+        "rationale": "PositiveF64 makes Spot finite and positive. Valid cash, proportions and positive curve discounts make a finite reserve nonnegative, so Spot minus a finite reserve is finite. A NaN/infinite reserve makes the residual nonfinite too. Thus the two nonfinite predicates have the same truth value in the current domain; replacing their inner disjunction by conjunction preserves the result and error.",
+        "limitation": "This reasoning depends on finite positive Spot and validated nonnegative reserve terms; a synthetic private negative reserve could invalidate it."
+      },
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.107730007,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_344_col_33.log",
+      "log_sha256": "239ce5f363b61a8b45104176513ccccb49c27416b4c00fdc059d4b551a4d931c",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_344_col_33.diff",
+      "diff_sha256": "0a1d6aab1249aef74aa4e5580ca15bc0745ced0c7d3f917e268a1d031f656a82",
+      "disposition": "Still selected and MissedMutant; no exclusion or waiver."
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:482:37: replace && with || in AffineDividendTransform::coordinate_before_event",
+      "assessment": {
+        "kind": "redundant guard after checked state transitions",
+        "rationale": "A successfully funded transform starts with finite A and B. carry checks updated A; after checks both A and B. coordinate_before_event only composes these checked steps, so both operands of its final finite test are true whenever execution reaches it.",
+        "limitation": "Applies to transforms constructed through the current validation and a valid event index, with only this mutation; it does not assert behavior for synthetic invalid private states."
+      },
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.051647549,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_482_col_37.log",
+      "log_sha256": "6f8cce6d253d9b7bb025b9d92b3d705bf24364d69fcec03933296dff5e6f98be",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_482_col_37.diff",
+      "diff_sha256": "2fdd27c2ae8cff2e3a9fb5db072bf00cca9a1a26ca7e1c522e9c60c9ed0bf6ab",
+      "disposition": "Still selected and MissedMutant; no exclusion or waiver."
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:641:39: replace || with && in validate_events",
+      "assessment": {
+        "kind": "constructor invariant makes the duplicate time rejection unreachable",
+        "rationale": "DividendEvent has private fields and its public constructor already rejects nonfinite or negative times. Transform construction and Spot recompilation receive events preserving that invariant. Both predicates in this duplicate check are therefore false for these inputs, before and after the mutation.",
+        "limitation": "The tool skips DividendEvent::new, which is covered by explicit tests. This is not a claim about simultaneous constructor mutations or new unchecked/deserialization construction paths."
+      },
+      "last_phase": {
+        "phase": "Test",
+        "duration": 0.05158986,
+        "process_status": "Success",
+        "argv": [
+          "/root/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "market::"
+        ]
+      },
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_641_col_39.log",
+      "log_sha256": "a34cb317a461364b2f693fa9f224836de5b9a6d31b6f82cdbc5c70f409d00165",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_641_col_39.diff",
+      "diff_sha256": "f4daa1372bbf0460a0d039d4f0db4e1d8c546c9d30868dd5fbf1827a33cb037c",
+      "disposition": "Still selected and MissedMutant; no exclusion or waiver."
+    }
+  ],
+  "unviable_evidence": [
+    {
+      "name": "crates/pricing/src/market/dividend.rs:107:9: replace CompiledDividendEvent::event -> EventId with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `ids::EventId: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_107_col_9.log",
+      "log_sha256": "956d37facf73e2f88efc3c5a7c8ae1f9fc48a4925e1989a16ce159cd76d8d8a5",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_107_col_9.diff",
+      "diff_sha256": "2cff2f549ae5fbb6384e8825df5d53b10097bf2d93c21c8e6ef192ffb977312d"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:146:9: replace AffineDividendCoordinate::identity -> Self with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendCoordinate: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_146_col_9.log",
+      "log_sha256": "eaa985d032fae92797ed0a58f9510a8300c328afa19c30c785dccaae7626b4d2",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_146_col_9.diff",
+      "diff_sha256": "af1ce247b11a39be185bf90c1183236f63c9b867d9ff26c1fe19c32929d25615"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:173:9: replace AffineDividendCoordinate::at_spot -> Self with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendCoordinate: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_173_col_9.log",
+      "log_sha256": "98761b99eb6fb10581984152f7475bf917241bb835de591c53238f4b461dd41a",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_173_col_9.diff",
+      "diff_sha256": "3d43453b071e7096c4a8a93d933d28b6948bc596e595432349fa1fba58824086"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:17:9: replace DividendQuote::fixed_cash -> Result<Self, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::DividendQuote: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_17_col_9.log",
+      "log_sha256": "0273f7c0478d85201b0a3a513a345b327c7f72c0439ba94430542c926a055363",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_17_col_9.diff",
+      "diff_sha256": "6130f73cb134fb4e5d943c3f1fa098c201f85492343f691a384082f6960f2458"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:189:9: replace AffineDividendCoordinate::after -> Result<Self, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendCoordinate: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_189_col_9.log",
+      "log_sha256": "f3f209a821c5210e76b1786f25baedc415a90b4169d2fb9af8a3f196ee9769b9",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_189_col_9.diff",
+      "diff_sha256": "7338426fa935fbdec627cc408b0cfbd4518e99255298fe040fac2795b82d4688"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:223:9: replace AffineDividendTimelineEntry::event -> EventId with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `ids::EventId: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_223_col_9.log",
+      "log_sha256": "3a33ac8dfee3f73ce3828fffb1fbde0195bbd6b31802d27954dbe2e2bcf8ca6d",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_223_col_9.diff",
+      "diff_sha256": "eb523a3e2c15f6261896c0c205be7793fd23d53ef2ce179f34a19f555aa33ba2"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:22:9: replace DividendQuote::proportional -> Result<Self, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::DividendQuote: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_22_col_9.log",
+      "log_sha256": "c4ff8cf2ee0f1a3ad02aa1fd4178c63f52f0b582e9297d5a2c61a3983a4e2651",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_22_col_9.diff",
+      "diff_sha256": "f2a890f6e5477f4f55e62153d2a27d7fd0f136e8748e7d604703407661a9ceea"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:233:9: replace AffineDividendTimelineEntry::before -> AffineDividendCoordinate with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendCoordinate: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_233_col_9.log",
+      "log_sha256": "2fb1a61c145cd88f714c197c94d093fd9b24bee2b2db7c8e544933a0e532b6dc",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_233_col_9.diff",
+      "diff_sha256": "0cd8902727a8d2b9d96a292ebb934b9ce3f6a7a59ba5c63b001285c18d60971d"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:238:9: replace AffineDividendTimelineEntry::after -> AffineDividendCoordinate with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendCoordinate: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_238_col_9.log",
+      "log_sha256": "105ef5979040aac6d1d7cd48a506d992dc4b23834e7c4cac2008776fb1cbf501",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_238_col_9.diff",
+      "diff_sha256": "3c1aaf47139d35ed97edf3ec28e77673cb32759f3f4300972583824bd9454ec2"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:259:9: replace DividendMatchingTolerance::default_for_spot -> Self with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::DividendMatchingTolerance: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_259_col_9.log",
+      "log_sha256": "53291b54a10f9d31e322cfa8cc90475dc684a9e191a6c43a27341eb2c21bc25a",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_259_col_9.diff",
+      "diff_sha256": "4aca1473f08317924a671cddb113ea4734d8f08ef9335fac62e84944176313af"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:316:9: replace AffineDividendTransform::new_with_carry_curves -> Result<Self, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendTransform: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_316_col_9.log",
+      "log_sha256": "e036b158ef4622e59fbe9d8b5ccad79c08a4e5acf382dd2517f009df9819e4b5",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_316_col_9.diff",
+      "diff_sha256": "cc0f3fab06fc0f531d0365361c270bd67d6200c86c37d5731f638ed3940beed6"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:31:9: replace DividendQuote::fixed_cash_and_proportional -> Result<Self, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::DividendQuote: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_31_col_9.log",
+      "log_sha256": "4d06cfb08fd679e952fb47c0b5172ea858ceb0cea8460c79cc2879bc2737078a",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_31_col_9.diff",
+      "diff_sha256": "7a5350d6bef81fa6a47c67e15594c90874666fee190f1df8ffdb43d4dcda4988"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:362:9: replace AffineDividendTransform::initial_coordinate -> AffineDividendCoordinate with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendCoordinate: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_362_col_9.log",
+      "log_sha256": "276e128ffa87f81b1c02def98a8062a8452eea30fa56712ef9bb3f80b3d9fe19",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_362_col_9.diff",
+      "diff_sha256": "4b7d66e89f390bf6921943e24aa99e52ef9a334bdc7a79aa457ba325e05e98d2"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:375:9: replace AffineDividendTransform::carry -> Result<AffineDividendCoordinate, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendCoordinate: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_375_col_9.log",
+      "log_sha256": "c30d78de6a6b7de3c7ffd4ac8901367f5554c2711c2905805ba8e94e5afbe490",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_375_col_9.diff",
+      "diff_sha256": "6e484a2b6147c6ca8ae7699760d29c60b3784a02e6fdc035c146a5e8fbec00df"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:397:9: replace AffineDividendTransform::underlying -> UnderlyingId with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `ids::UnderlyingId: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_397_col_9.log",
+      "log_sha256": "785fa0ad60287da49188a8b4d25f27c088409afd38ccbfc14b7f401612140aec",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_397_col_9.diff",
+      "diff_sha256": "0b36984511c8a9c675588004eebe724b7ee99ee7d71a2e22716101462465e590"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:402:9: replace AffineDividendTransform::spot -> PositiveF64 with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `number::PositiveF64: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_402_col_9.log",
+      "log_sha256": "9d49ec1857cd237bd230ea6e519e14438e25cab8682224f33c351ac36c29a02e",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_402_col_9.diff",
+      "diff_sha256": "1e68eb5e45a0985128c57eb4970a9fad692df307783814dff622e69b825db02b"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:407:9: replace AffineDividendTransform::events -> &[CompiledDividendEvent] with Vec::leak(vec![Default::default()])",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `CompiledDividendEvent: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_407_col_9_001.log",
+      "log_sha256": "658c2fd9dcb44bffebfd58a7b7a211343a272248b56918fab9bdef25a03be7c3",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_407_col_9_001.diff",
+      "diff_sha256": "7099346eb4604a9b1fd57824db10a7ffd205e4d0c1a8b72a298b730be5f70325"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:411:9: replace AffineDividendTransform::with_spot -> Result<Self, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendTransform: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_411_col_9.log",
+      "log_sha256": "4cd6ce06f21f46dede2b4fd47feaf860041d6fa178726c78da933eaf77f75534",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_411_col_9.diff",
+      "diff_sha256": "da5b6b1b4cefd851c3da35e2d961d2f64eb1bc6c552944e69db261bb2871b7d1"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:437:9: replace AffineDividendTransform::coordinate_after_time -> Result<AffineDividendCoordinate, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendCoordinate: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_437_col_9.log",
+      "log_sha256": "0e822ed18158dd925219dbee9b5697013a30fff92bc02a0c84857ecbab1e1593",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_437_col_9.diff",
+      "diff_sha256": "ff9d64aed30ff5c7a8fb71f3baf519df88ff2662787071d0ac0e2760fe96fee2"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:467:9: replace AffineDividendTransform::coordinate_before_event -> Result<AffineDividendCoordinate, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendCoordinate: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_467_col_9.log",
+      "log_sha256": "f835a18ef7ffd4874c2a7401924a1fa1f25b79c00e7e2502e7c88635a7f18774",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_467_col_9.diff",
+      "diff_sha256": "93b5eaa216f1671d7e90e100ebe04db12a9fc70c9fe705ea5e4899531abfac67"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:494:9: replace AffineDividendTransform::event_timeline -> Result<Box<[AffineDividendTimelineEntry]>, MarketError> with Ok(Box::new(Vec::leak(Vec::new())))",
+      "compiler_errors": [
+        "error[E0308]: mismatched types"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_494_col_9.log",
+      "log_sha256": "b4f1d3999b37e683eee90032dedd9b42c01dc58bde311d64120517bed270c21e",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_494_col_9.diff",
+      "diff_sha256": "909d14a36739f0c48b9a8cfd9a155e9c39580acb646fbcd8c30b5045d9adb78e"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:494:9: replace AffineDividendTransform::event_timeline -> Result<Box<[AffineDividendTimelineEntry]>, MarketError> with Ok(Box::new(Vec::leak(vec![Default::default()])))",
+      "compiler_errors": [
+        "error[E0308]: mismatched types"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_494_col_9_001.log",
+      "log_sha256": "05fbde715f5ac1181574eef6f39886880069c8f8eedabe9dc959622f240991d1",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_494_col_9_001.diff",
+      "diff_sha256": "02207a41f3b07dbe8099760285f03ea4fff5b14a9ad9b22835c54cd2769b073c"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:620:5: replace compile_event -> Result<CompiledDividendEvent, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `CompiledDividendEvent: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_620_col_5.log",
+      "log_sha256": "a3a4ace8198ee8134e8e1a91391697a1badea5acbcbb4176c7cc309dfde37772",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_620_col_5.diff",
+      "diff_sha256": "d72fa3659e610146f7a018166d916107b869d79f30248a85046880b2e518b852"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:651:13: replace && with || in validate_events",
+      "compiler_errors": [
+        "error: `||` operators are not supported in let chain conditions"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_651_col_13.log",
+      "log_sha256": "26fd6e2d41a2f556cd8cf74ddbfd9fe969d0c716d549088ba2ea01431849c9f7",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_651_col_13.diff",
+      "diff_sha256": "e7427cc085de927a739afc68ef566495324bc3af2e632ead2c454e3a01492a97"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:81:9: replace DividendEvent::event -> EventId with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `ids::EventId: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_81_col_9.log",
+      "log_sha256": "3e13288eab22825e519ca76944e80af1e1d875288bd41f09f7e9c35952bc79b9",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_81_col_9.diff",
+      "diff_sha256": "a1e4066039c77b074c46785a78daaa6fe72efa0cd520c475d2011545264375d4"
+    },
+    {
+      "name": "crates/pricing/src/market/dividend.rs:91:9: replace DividendEvent::quote -> DividendQuote with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::DividendQuote: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__dividend.rs_line_91_col_9.log",
+      "log_sha256": "0cd68baeeae819bf93fbfc362a6af637c4353d8c489b807a22f089a360bd5b35",
+      "diff_path": "diff/crates__pricing__src__market__dividend.rs_line_91_col_9.diff",
+      "diff_sha256": "b01c9b30d39ea33cee41d0762331f183eb058d2c78431d31a4739bb63d53e907"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:113:9: replace EquityForward::evaluate -> Result<ForwardEvaluation, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `ForwardEvaluation: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__forward.rs_line_113_col_9.log",
+      "log_sha256": "10266c3f1e31a5a1dd8d5a384bba916d221a09f06165ce3fa8e8dff386f8883c",
+      "diff_path": "diff/crates__pricing__src__market__forward.rs_line_113_col_9.diff",
+      "diff_sha256": "6b702d34025450d1faaf9b78abe9122179b12c5acdeed25d6b0379d188f6ccac"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:56:9: replace EquityForward::with_discrete_dividends -> Result<Self, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `forward::EquityForward: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__forward.rs_line_56_col_9.log",
+      "log_sha256": "9af2752b404e0d3be007d569d07f8d26bbc620514090b68be3c8d934f3f5ce2f",
+      "diff_path": "diff/crates__pricing__src__market__forward.rs_line_56_col_9.diff",
+      "diff_sha256": "147ddb1084b169854ceebf5dc7db686ef2d235727c6530845550517285a0cd04"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:74:9: replace EquityForward::underlying -> UnderlyingId with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `ids::UnderlyingId: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__forward.rs_line_74_col_9.log",
+      "log_sha256": "fdc4126b0d9e24f18be60767c8704f20f17dd43a734820d5d8b8fb2e8281c210",
+      "diff_path": "diff/crates__pricing__src__market__forward.rs_line_74_col_9.diff",
+      "diff_sha256": "024d01a568b4564f1dea6b3fcd258bda59e7805b34ac7c3eea4e15347ba2e836"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:79:9: replace EquityForward::spot -> PositiveF64 with Default::default()",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `number::PositiveF64: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__forward.rs_line_79_col_9.log",
+      "log_sha256": "910e44aafab0f7f21ae6bd2ad1f8da04c43a6cffde5f4d53974f869f2d5f2f16",
+      "diff_path": "diff/crates__pricing__src__market__forward.rs_line_79_col_9.diff",
+      "diff_sha256": "b5b3bfda2edbb28e740e123d748febee54ca062f53c1be63d39aceceb8cb6eaf"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:84:9: replace EquityForward::discount_curve -> &LogLinearDiscountCurve with Box::leak(Box::new(Default::default()))",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `curve::LogLinearDiscountCurve: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__forward.rs_line_84_col_9.log",
+      "log_sha256": "d8aaccfb700c8a256a9eb96000880db8aa20a92017a2558402a13e7ce9bda70f",
+      "diff_path": "diff/crates__pricing__src__market__forward.rs_line_84_col_9.diff",
+      "diff_sha256": "bea6be28468c81b1c6825502e2e6c130a83e491a3f4bc41b48a7255c064c03a2"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:89:9: replace EquityForward::dividend_curve -> &LogLinearDiscountCurve with Box::leak(Box::new(Default::default()))",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `curve::LogLinearDiscountCurve: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__forward.rs_line_89_col_9.log",
+      "log_sha256": "6720e5eebe9b63db3b3816a18980c4a7f159243164ebcd92f3d19c9d73e3b1be",
+      "diff_path": "diff/crates__pricing__src__market__forward.rs_line_89_col_9.diff",
+      "diff_sha256": "0303b2ce9a05752cb022862ff62a380f2bbcd5e73b66d39c4d2d9a6ee770c51d"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:94:9: replace EquityForward::discrete_dividends -> Option<&AffineDividendTransform> with Some(Box::leak(Box::new(Default::default())))",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `dividend::AffineDividendTransform: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__forward.rs_line_94_col_9_001.log",
+      "log_sha256": "c809a57fa4285a434506bdbe8b2823302051b69bb23dca0efede490017ae4297",
+      "diff_path": "diff/crates__pricing__src__market__forward.rs_line_94_col_9_001.diff",
+      "diff_sha256": "de44118477fafdf1ac99f972da855cf761c8e0f002b2de03f60b03e3146b0b04"
+    },
+    {
+      "name": "crates/pricing/src/market/forward.rs:98:9: replace EquityForward::with_spot -> Result<Self, MarketError> with Ok(Default::default())",
+      "compiler_errors": [
+        "error[E0277]: the trait bound `forward::EquityForward: Default` is not satisfied"
+      ],
+      "log_path": "log/crates__pricing__src__market__forward.rs_line_98_col_9.log",
+      "log_sha256": "b1250fc2a08ee240887e5d077a8cbe4bf6e7b0d714fe4c453df954c81828094f",
+      "diff_path": "diff/crates__pricing__src__market__forward.rs_line_98_col_9.diff",
+      "diff_sha256": "c8526a277bda5576a1e550705e14605ccdd4683b05fb15f630566d9b187f24d5"
+    }
+  ],
+  "independent_references": {
+    "method": "Exact rational cash-flow recursion with Python fractions.Fraction; carry growth 2^t, initial spot 128, cash/beta at times 1 and 2 equal (8,1/4), (12,1/2).",
+    "initial_reserve": "40/3",
+    "timeline": [
+      {
+        "time": "0",
+        "phase": "initial",
+        "a": "5/48",
+        "b": "43/48",
+        "spot_scale": "1",
+        "canonical_forward": "128",
+        "spot_contract_forward": "128"
+      },
+      {
+        "time": "1",
+        "phase": "before_event",
+        "a": "5/24",
+        "b": "43/48",
+        "spot_scale": "1",
+        "canonical_forward": "256",
+        "spot_contract_forward": "256"
+      },
+      {
+        "time": "1",
+        "phase": "after_event",
+        "a": "3/32",
+        "b": "43/64",
+        "spot_scale": "3/4",
+        "canonical_forward": "256",
+        "spot_contract_forward": "184"
+      },
+      {
+        "time": "2",
+        "phase": "before_event",
+        "a": "3/16",
+        "b": "43/64",
+        "spot_scale": "3/4",
+        "canonical_forward": "512",
+        "spot_contract_forward": "368"
+      },
+      {
+        "time": "2",
+        "phase": "after_event",
+        "a": "0",
+        "b": "43/128",
+        "spot_scale": "3/8",
+        "canonical_forward": "512",
+        "spot_contract_forward": "172"
+      }
+    ],
+    "time_3_forward": "1024",
+    "time_3_spot_contract_forward": "344",
+    "bumped_initial_spot": "160",
+    "bumped_time_3_spot_contract_forward": "440",
+    "pillar_times": [
+      0,
+      1,
+      2
+    ],
+    "discount_pillars": [
+      "1",
+      "1/4",
+      "1/16"
+    ],
+    "dividend_pillars": [
+      "1",
+      "1/2",
+      "1/4"
+    ],
+    "independent_direct_cash_flow_prices": {
+      "128": "344",
+      "160": "440"
+    },
+    "spot_contract_derivative_at_time_3": "3",
+    "zero_rate_mixed_schedule": [
+      {
+        "spot": "100",
+        "phase": "initial",
+        "a": "37/400",
+        "b": "363/400",
+        "spot_scale": "1"
+      },
+      {
+        "spot": "100",
+        "phase": "after_time_1/4",
+        "a": "1/16",
+        "b": "363/400",
+        "spot_scale": "1"
+      },
+      {
+        "spot": "100",
+        "phase": "after_time_1/2",
+        "a": "0",
+        "b": "363/500",
+        "spot_scale": "4/5"
+      },
+      {
+        "spot": "100",
+        "phase": "after_time_3/4",
+        "a": "0",
+        "b": "363/1000",
+        "spot_scale": "2/5"
+      },
+      {
+        "spot": "125",
+        "phase": "initial",
+        "a": "37/500",
+        "b": "463/500",
+        "spot_scale": "1"
+      },
+      {
+        "spot": "125",
+        "phase": "after_time_1/4",
+        "a": "1/20",
+        "b": "463/500",
+        "spot_scale": "1"
+      },
+      {
+        "spot": "125",
+        "phase": "after_time_1/2",
+        "a": "0",
+        "b": "463/625",
+        "spot_scale": "4/5"
+      },
+      {
+        "spot": "125",
+        "phase": "after_time_3/4",
+        "a": "0",
+        "b": "463/1250",
+        "spot_scale": "2/5"
+      }
+    ]
+  },
+  "tool_generation_limit": "cargo-mutants 27.1.0 skips methods named new in impl/trait visitors. Explicit constructor/domain tests do not imply generated mutation coverage of those methods.",
+  "unit_validation": {
+    "command": "CARGO_PROFILE_TEST_DEBUG=0 cargo test --locked -p pricing -p pricing-numerics --all-features --lib",
+    "exit_code": 0,
+    "results": [
+      "ok. 585 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 114.45s",
+      "ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+    ],
+    "log_path": "/tmp/pricing-carry-all-unit.log",
+    "log_sha256": "b23b240483d5644f69cabd083b0381d7255465fb9d8cbc87ae7143e1e6e60e4a"
+  },
+  "limits": [
+    "No production, API, schema, dependency, RNG or existing precision assertion changes.",
+    "Unit-only surveys do not replace the full/changed runner tests of both Rust crates and their integration/doc targets.",
+    "Prior numerical/calendar misses, timeouts and unviable builds remain unchanged; no whole-library or Python-wheel mutation coverage is claimed."
+  ],
+  "unviable_categories": {
+    "missing_default": 31,
+    "mismatched_types": 2,
+    "invalid_let_chain": 1
+  },
+  "additional_validation": [
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "environment": {
+        "CARGO_PROFILE_TEST_DEBUG": "0"
+      },
+      "exit_code": 0,
+      "log_path": "/tmp/pricing-carry-clippy.log",
+      "log_sha256": "c8cc23074be6c9d866d93f3d1db5edc5d90eeefaf5a0112cdfdd27b791e8d666"
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python",
+        "scripts/check_markdown_links.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ]
+}

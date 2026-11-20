@@ -1,0 +1,262 @@
+{
+  "base_commit": "376c92624f88083b46d86e1087d2b0f03e202b91",
+  "tool_version": "27.1.0",
+  "rust_version": "1.98.1",
+  "date": "2026-10-22",
+  "scope": "Focused unit-test pilots, not whole-library or Python mutation coverage",
+  "runs": {
+    "numeric_inputs_before": {
+      "total_mutants": 15,
+      "caught": 4,
+      "missed": 11,
+      "timeout": 0,
+      "unviable": 0,
+      "success": 0,
+      "start_time": "2026-10-22T17:37:25.719711517Z",
+      "end_time": "2026-10-22T17:39:12.796257551Z",
+      "baseline_test_commands": [
+        [
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--locked",
+          "--lib",
+          "core::number::tests"
+        ]
+      ],
+      "uncaught": [
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with 0.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with -1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:24:9: replace FiniteF64::get -> f64 with 1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:35:9: replace <impl PartialEq for FiniteF64>::eq -> bool with false"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:43:9: replace <impl fmt::Display for FiniteF64>::fmt -> fmt::Result with Ok(Default::default())"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with 0.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with 1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:67:9: replace PositiveF64::get -> f64 with -1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with 0.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with 1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing/src/core/number.rs:91:9: replace NonNegativeF64::get -> f64 with -1.0"
+        }
+      ]
+    },
+    "numeric_inputs_after": {
+      "total_mutants": 15,
+      "caught": 15,
+      "missed": 0,
+      "timeout": 0,
+      "unviable": 0,
+      "success": 0,
+      "start_time": "2026-10-22T17:41:11.270840375Z",
+      "end_time": "2026-10-22T17:43:53.231502336Z",
+      "baseline_test_commands": [
+        [
+          "test",
+          "--verbose",
+          "--package=pricing@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked",
+          "core::number::tests"
+        ]
+      ],
+      "uncaught": []
+    },
+    "reductions_before": {
+      "total_mutants": 181,
+      "caught": 155,
+      "missed": 24,
+      "timeout": 1,
+      "unviable": 1,
+      "success": 0,
+      "start_time": "2026-10-22T17:41:01.39979095Z",
+      "end_time": "2026-10-22T17:42:39.097175181Z",
+      "baseline_test_commands": [
+        [
+          "test",
+          "--verbose",
+          "--package=pricing-numerics@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ]
+      ],
+      "uncaught": [
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:22:29: replace += with -= in NeumaierSum::add"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:29:9: replace NeumaierSum::sum -> f64 with 0.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:29:9: replace NeumaierSum::sum -> f64 with 1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:29:9: replace NeumaierSum::sum -> f64 with -1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:34:9: replace NeumaierSum::correction -> f64 with 0.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:34:9: replace NeumaierSum::correction -> f64 with 1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:34:9: replace NeumaierSum::correction -> f64 with -1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:107:40: replace - with + in CenteredMoment::from_ordered_values_two_pass"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:107:40: replace - with / in CenteredMoment::from_ordered_values_two_pass"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:108:27: replace * with + in CenteredMoment::from_ordered_values_two_pass"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:108:27: replace * with / in CenteredMoment::from_ordered_values_two_pass"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:127:32: replace + with * in CenteredMoment::merged"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:133:37: replace * with / in CenteredMoment::merged"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:133:29: replace * with + in CenteredMoment::merged"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:154:9: replace CenteredMoment::second_moment -> f64 with 0.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:154:9: replace CenteredMoment::second_moment -> f64 with 1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:154:9: replace CenteredMoment::second_moment -> f64 with -1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:159:21: replace > with >= in CenteredMoment::sample_variance"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:203:32: replace + with * in CenteredCovariance::merged"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:212:41: replace * with / in CenteredCovariance::merged"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:234:9: replace CenteredCovariance::cross_moment -> f64 with 0.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:234:9: replace CenteredCovariance::cross_moment -> f64 with 1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:234:9: replace CenteredCovariance::cross_moment -> f64 with -1.0"
+        },
+        {
+          "summary": "MissedMutant",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:239:21: replace > with >= in CenteredCovariance::sample_covariance"
+        },
+        {
+          "summary": "Unviable",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:259:5: replace fixed_tree_reduce -> Option<T> with Some(Default::default())"
+        },
+        {
+          "summary": "Timeout",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:259:23: replace > with >= in fixed_tree_reduce"
+        }
+      ]
+    },
+    "reductions_after": {
+      "total_mutants": 181,
+      "caught": 179,
+      "missed": 0,
+      "timeout": 1,
+      "unviable": 1,
+      "success": 0,
+      "start_time": "2026-10-22T17:45:16.986424429Z",
+      "end_time": "2026-10-22T17:46:07.320449018Z",
+      "baseline_test_commands": [
+        [
+          "test",
+          "--verbose",
+          "--package=pricing-numerics@0.1.0",
+          "--all-features",
+          "--lib",
+          "--locked"
+        ]
+      ],
+      "uncaught": [
+        {
+          "summary": "Unviable",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:259:5: replace fixed_tree_reduce -> Option<T> with Some(Default::default())"
+        },
+        {
+          "summary": "Timeout",
+          "mutation": "crates/pricing-numerics/src/reduction.rs:259:23: replace > with >= in fixed_tree_reduce"
+        }
+      ]
+    }
+  },
+  "source_sha256": {
+    "crates/pricing/src/core/number.rs": "920668789643e55e3e4baf8568e45f46f4ef8072b3f9fa41456f3d44a8426d1a",
+    "crates/pricing-numerics/src/reduction.rs": "696dcbcc63986543029f17c468383ed845c144883e7a2ed5ea33070f07bb8292"
+  },
+  "inventory_only": {
+    "mutants": 34424,
+    "production_files": 263,
+    "executed": false
+  }
+}

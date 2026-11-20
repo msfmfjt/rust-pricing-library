@@ -240,6 +240,218 @@ mod tests {
     }
 
     #[test]
+    fn components_and_iso_format_preserve_the_full_date() {
+        for (year, month, day, text) in [
+            (1, 1, 1, "0001-01-01"),
+            (9, 2, 3, "0009-02-03"),
+            (87, 6, 9, "0087-06-09"),
+            (1900, 12, 31, "1900-12-31"),
+            (2000, 2, 29, "2000-02-29"),
+            (9999, 12, 31, "9999-12-31"),
+        ] {
+            let value = Date::new(year, month, day).unwrap();
+            assert_eq!(
+                (value.year(), value.month(), value.day()),
+                (year, month, day)
+            );
+            assert_eq!(value.to_string(), text);
+            assert_eq!(text.parse::<Date>(), Ok(value));
+        }
+    }
+
+    #[test]
+    fn constructor_rejects_out_of_domain_components() {
+        for (year, month, day) in [
+            (0, 1, 1),
+            (10_000, 1, 1),
+            (u16::MAX, 1, 1),
+            (2024, 0, 1),
+            (2024, 13, 1),
+            (2024, u8::MAX, 1),
+            (2024, 1, 0),
+            (2024, 1, 32),
+            (2024, 1, u8::MAX),
+            (2024, 4, 31),
+            (1900, 2, 29),
+            (2100, 2, 29),
+            (2000, 2, 30),
+        ] {
+            assert!(matches!(
+                Date::new(year, month, day),
+                Err(CoreError::InvalidDate { year: y, month: m, day: d, .. })
+                    if (y, m, d) == (year, month, day)
+            ));
+        }
+    }
+
+    #[test]
+    fn parser_rejects_noncanonical_ascii_and_utf8_without_panicking() {
+        for text in [
+            "",
+            "2024",
+            "2024-2-29",
+            "2024-02-29x",
+            "2024/02-29",
+            "2024-02/29",
+            "+024-02-29",
+            "2024-0/-29",
+            "2024-0x-29",
+            "2024-é-29",
+            "２０２４-02-29",
+            "2024-02-\0x",
+            " 2024-02-29",
+            "2024-02-29 ",
+        ] {
+            assert_eq!(
+                text.parse::<Date>(),
+                Err(CoreError::InvalidIsoDate {
+                    value: text.to_owned()
+                }),
+                "{text:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn gregorian_century_rules_and_all_month_lengths() {
+        for (year, leap) in [
+            (1, false),
+            (4, true),
+            (100, false),
+            (400, true),
+            (1600, true),
+            (1700, false),
+            (1800, false),
+            (1900, false),
+            (2000, true),
+            (2024, true),
+            (2100, false),
+            (2400, true),
+            (9999, false),
+        ] {
+            assert_eq!(is_leap_year(year), leap, "year {year}");
+        }
+        for (year, lengths) in [
+            (1900, [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]),
+            (2000, [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]),
+        ] {
+            for (month, last) in (1..=12).zip(lengths) {
+                assert_eq!(days_in_month(year, month), Some(last));
+                assert!(Date::new(year, month, last).is_ok());
+                assert!(Date::new(year, month, last + 1).is_err());
+            }
+        }
+        for month in [0, 13, u8::MAX] {
+            assert_eq!(days_in_month(2024, month), None);
+        }
+    }
+
+    #[test]
+    fn daily_successors_and_predecessors_cross_each_boundary() {
+        for (left, right) in [
+            ("0001-01-01", "0001-01-02"),
+            ("1900-02-28", "1900-03-01"),
+            ("2000-02-28", "2000-02-29"),
+            ("2000-02-29", "2000-03-01"),
+            ("2023-02-28", "2023-03-01"),
+            ("2024-04-30", "2024-05-01"),
+            ("2026-09-05", "2026-09-06"),
+            ("2026-12-31", "2027-01-01"),
+            ("9999-12-30", "9999-12-31"),
+        ] {
+            let (left, right) = (date(left), date(right));
+            assert_eq!(left.next_day(), Ok(right));
+            assert_eq!(right.previous_day(), Ok(left));
+            assert_eq!(left.days_until(right), 1);
+        }
+    }
+
+    #[test]
+    fn date_limits_report_the_direction_and_original_date() {
+        assert_eq!(Date::MIN, date("0001-01-01"));
+        assert_eq!(Date::MAX, date("9999-12-31"));
+        assert_eq!(
+            Date::MIN.previous_day(),
+            Err(CoreError::DateOutOfRange {
+                date: Date::MIN,
+                direction: "preceding",
+            })
+        );
+        assert_eq!(
+            Date::MAX.next_day(),
+            Err(CoreError::DateOutOfRange {
+                date: Date::MAX,
+                direction: "following",
+            })
+        );
+    }
+
+    #[test]
+    fn day_offsets_and_weekdays_match_independent_gregorian_anchors() {
+        // Ordinals and weekdays independently checked with Python datetime.date.
+        // Gregorian dates are proleptic: no omitted days at the 1582 transition.
+        for (year, month, day, ordinal, weekday) in [
+            (1, 1, 1, 1, Weekday::Monday),
+            (1, 12, 31, 365, Weekday::Monday),
+            (4, 2, 29, 1155, Weekday::Sunday),
+            (100, 3, 1, 36_219, Weekday::Monday),
+            (400, 2, 29, 145_791, Weekday::Tuesday),
+            (1582, 10, 15, 577_736, Weekday::Friday),
+            (1600, 2, 29, 584_082, Weekday::Tuesday),
+            (1700, 3, 1, 620_607, Weekday::Monday),
+            (1900, 3, 1, 693_655, Weekday::Thursday),
+            (1970, 1, 1, 719_163, Weekday::Thursday),
+            (2000, 1, 1, 730_120, Weekday::Saturday),
+            (2000, 2, 29, 730_179, Weekday::Tuesday),
+            (2024, 2, 29, 738_945, Weekday::Thursday),
+            (2026, 9, 9, 739_868, Weekday::Wednesday),
+            (9999, 12, 31, 3_652_059, Weekday::Friday),
+        ] {
+            let value = Date::new(year, month, day).unwrap();
+            assert_eq!(Date::MIN.days_until(value), ordinal - 1, "{value}");
+            assert_eq!(value.days_until(Date::MIN), 1 - ordinal, "{value}");
+            assert_eq!(value.weekday(), weekday, "{value}");
+        }
+        for (day, weekday, weekend) in [
+            (7, Weekday::Monday, false),
+            (8, Weekday::Tuesday, false),
+            (9, Weekday::Wednesday, false),
+            (10, Weekday::Thursday, false),
+            (11, Weekday::Friday, false),
+            (12, Weekday::Saturday, true),
+            (13, Weekday::Sunday, true),
+        ] {
+            assert_eq!(Date::new(2026, 9, day).unwrap().weekday(), weekday);
+            assert_eq!(weekday.is_weekend(), weekend);
+        }
+    }
+
+    #[test]
+    fn day_count_handles_short_periods_zero_and_reverse_dates() {
+        for (start, end, days) in [
+            ("1900-02-28", "1900-03-01", 1.0),
+            ("2000-02-28", "2000-03-01", 2.0),
+            ("2026-09-04", "2026-09-09", 5.0),
+            ("2026-09-09", "2026-09-09", 0.0),
+            ("0001-01-01", "9999-12-31", 3_652_058.0),
+        ] {
+            for (convention, denominator) in [
+                (DayCountConvention::Act365F, 365.0),
+                (DayCountConvention::Act360, 360.0),
+            ] {
+                assert_eq!(
+                    convention.year_fraction(date(start), date(end)),
+                    days / denominator
+                );
+                assert_eq!(
+                    convention.year_fraction(date(end), date(start)),
+                    -days / denominator
+                );
+            }
+        }
+    }
+
+    #[test]
     fn parser_is_strict_and_validates_calendar_dates() {
         assert_eq!(date("2024-02-29").to_string(), "2024-02-29");
         assert!("2023-02-29".parse::<Date>().is_err());
