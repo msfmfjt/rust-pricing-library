@@ -91,7 +91,9 @@ impl JsonLimits {
     };
     pub const HARD_CAP: Self = Self {
         max_input_bytes: 64 * 1024 * 1024,
-        max_nesting_depth: 256,
+        // serde_json stops at 128 nested containers; a larger cap would never
+        // be reached and would surface as a syntax error instead of a limit.
+        max_nesting_depth: 127,
         max_string_bytes: 16 * 1024 * 1024,
         max_number_token_bytes: 1024,
         max_array_elements: 2_000_000,
@@ -632,6 +634,9 @@ struct LsmV3 {
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum LsmStateVariableV3 {
     Spot,
+    FxSpot,
+    DomesticRateFactor,
+    ForeignRateFactor,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -1030,6 +1035,9 @@ impl From<&LsmConfig> for LsmV3 {
                 .iter()
                 .map(|state| match state {
                     LsmStateVariable::Spot => LsmStateVariableV3::Spot,
+                    LsmStateVariable::FxSpot => LsmStateVariableV3::FxSpot,
+                    LsmStateVariable::DomesticRateFactor => LsmStateVariableV3::DomesticRateFactor,
+                    LsmStateVariable::ForeignRateFactor => LsmStateVariableV3::ForeignRateFactor,
                 })
                 .collect(),
             basis: PolynomialBasisV3 {
@@ -1449,6 +1457,9 @@ fn lsm_from_wire(value: LsmV3) -> Result<LsmConfig, WireError> {
         .into_iter()
         .map(|state| match state {
             LsmStateVariableV3::Spot => LsmStateVariable::Spot,
+            LsmStateVariableV3::FxSpot => LsmStateVariable::FxSpot,
+            LsmStateVariableV3::DomesticRateFactor => LsmStateVariable::DomesticRateFactor,
+            LsmStateVariableV3::ForeignRateFactor => LsmStateVariable::ForeignRateFactor,
         })
         .collect::<Vec<_>>();
     let max_total_exponents =
@@ -1655,33 +1666,14 @@ fn risk_from_wire(value: RiskV2) -> Result<RiskRequest, WireError> {
     let gamma = value
         .gamma
         .map(|item| {
-            let bump = match item.bump {
-                SpotBumpV1::Absolute(x) => SpotBump::absolute(x),
-                SpotBumpV1::Relative(x) => SpotBump::relative(x),
-            }
-            .map_err(|error| domain_at("/risk/gamma/bump", error))?;
+            let bump = spot_bump_from_wire(item.bump)
+                .map_err(|error| domain_at("/risk/gamma/bump", error))?;
             Ok::<_, WireError>(GammaConfig::new(bump))
         })
         .transpose()?;
     let vega_kt = value
         .vega_kt
-        .map(|item| {
-            let dates = item
-                .maturity_nodes
-                .iter()
-                .enumerate()
-                .map(|(index, date)| {
-                    parse_date_owned_at(date, format!("/risk/vega_kt/maturity_nodes/{index}"))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            VegaKtConfig::new(
-                dates,
-                item.log_forward_moneyness_nodes,
-                item.relative_density_threshold,
-                item.full_bucket_covariance,
-            )
-            .map_err(|error| domain_at("/risk/vega_kt", error))
-        })
+        .map(|item| vega_kt_from_wire_at(item, "/risk/vega_kt"))
         .transpose()?;
     let smile = match value.smile_dynamics {
         SmileDynamicsV1::LogMoneyness => SmileDynamics::StickyLogMoneyness,
@@ -1706,6 +1698,29 @@ fn risk_from_wire(value: RiskV2) -> Result<RiskRequest, WireError> {
         Some(ladder) => request.with_payoff_smoothing_width_ladder(ladder),
         None => request,
     })
+}
+
+fn spot_bump_from_wire(bump: SpotBumpV1) -> Result<SpotBump, crate::risk::RiskConfigError> {
+    match bump {
+        SpotBumpV1::Absolute(x) => SpotBump::absolute(x),
+        SpotBumpV1::Relative(x) => SpotBump::relative(x),
+    }
+}
+
+fn vega_kt_from_wire_at(item: VegaKtV1, pointer: &str) -> Result<VegaKtConfig, WireError> {
+    let dates = item
+        .maturity_nodes
+        .iter()
+        .enumerate()
+        .map(|(index, date)| parse_date_owned_at(date, format!("{pointer}/maturity_nodes/{index}")))
+        .collect::<Result<Vec<_>, _>>()?;
+    VegaKtConfig::new(
+        dates,
+        item.log_forward_moneyness_nodes,
+        item.relative_density_threshold,
+        item.full_bucket_covariance,
+    )
+    .map_err(|error| domain_at(pointer, error))
 }
 
 fn parse_date_at(value: &str, pointer: &'static str) -> Result<Date, WireError> {
@@ -4196,7 +4211,7 @@ fn encode_value(value: &Value, output: &mut Vec<u8>) -> Result<(), WireError> {
     Ok(())
 }
 
-fn validate_and_decode(input: &[u8], limits: JsonLimits) -> Result<&str, WireError> {
+pub(crate) fn validate_and_decode(input: &[u8], limits: JsonLimits) -> Result<&str, WireError> {
     let limits = limits.checked()?;
     if input.starts_with(&[0xef, 0xbb, 0xbf]) {
         return Err(WireError::Utf8Bom);

@@ -70,8 +70,10 @@ calibration, conditional moment or calibrated surface. Those remain under their
 existing native APIs and replay contracts.
 
 The current writer emits `valuation_report` **v2**, described by the
-[v2 schema](../../schemas/report-v2/valuation_report.schema.json). Readers accept
-v1 and v2; importing v1 and saving again emits v2 without fabricating diagnostics.
+[v2 schema](../../schemas/report-v2/valuation_report.schema.json), unless a row
+carries a typed measure from a [`measures` task](pricing-tasks.md#measures); it
+then emits v3. Readers accept
+v1 to v3; importing v1 and saving again emits v2 without fabricating diagnostics.
 The [frozen v1 schema](../../schemas/report-v1/valuation_report.schema.json) and
 its golden report remain unchanged. A v1 document containing the new field is
 rejected, even if the list is empty. Consumers restricted to v1 must upgrade

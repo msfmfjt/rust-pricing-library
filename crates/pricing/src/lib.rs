@@ -4,6 +4,8 @@
 
 mod api;
 pub mod bass_lv;
+mod black_price;
+pub use engine::multi_asset::cross_currency;
 mod engine;
 use api::{error, request, result};
 pub mod hull_white;
@@ -30,6 +32,7 @@ pub use monte_carlo::{
 pub use plan::{
     PricingPlan, WidthLadderDifference, WidthLadderEntry, WidthLadderResult, compile, evaluate,
 };
+pub mod contract;
 pub mod core;
 pub mod dual;
 pub mod market;
@@ -40,18 +43,23 @@ pub mod risk;
 pub use api::calibration_report::{
     CalibrationKind, CalibrationMetric, DiagnosticUnit, ReportedCalibration,
 };
+pub use api::measure::{
+    AvailableMeasure, BumpCalibration, BumpCost, BumpSize, CorrelationId, CorrelationSelection,
+    Measure, MeasureCapability, MeasureKind, MeasureMethod, MeasureMethodKind, MeasureRequest,
+    MeasureSet, ModelParameterId, ModelParameterSelection,
+};
 pub use api::source::{
     CapabilityReason, CapabilityStatus, MultiAssetModelSpec, MultiAssetSpecification,
-    PricingCapability, PricingOperation, PricingSource, PricingTask,
-    StochasticDividendSpecification,
+    PricingCapability, PricingOperation, PricingSource, PricingTask, SourceFamily,
+    StochasticDividendSpecification, measure_matrix_markdown, operation_matrix_markdown,
 };
 pub use api::specification::{
     EquityModelSpec, PricingModelSpec, PricingNumerics, PricingSpecification, RateModelSpec,
     SpecificationValidationError, VolatilityFactorSpec,
 };
 pub use api::valuation_report::{
-    CalibrationTreatment, ReportAxis, ReportedRisk, RiskParameterKind, SensitivityUnit,
-    UncertaintyScope, ValuationReport,
+    CalibrationTreatment, ReportAxis, ReportRecord, ReportedRisk, RiskParameterKind,
+    SensitivityUnit, UncertaintyScope, ValuationReport,
 };
 pub use engine::risk::source::{
     CompiledPricingTask, PricingTaskError, PricingTaskOutput, PricingTaskResult,

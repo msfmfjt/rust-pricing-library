@@ -1,5 +1,9 @@
 # Design and development records
 
+- [Proposed: measure-oriented analysis facade over pricing tasks](adr/0043-measure-oriented-analysis-facade.md)
+- [Contract exercise rights, continuous monitoring and path storage](adr/0042-contract-exercise-and-monitoring.md)
+- [Contract DSL and lifecycle MC integration](adr/0041-contract-lifecycle-mc.md)
+
 This directory contains requirements, architecture, decisions, implementation
 plans and acceptance evidence. The [library guide](../docs/library/README.md),
 [product reference](../docs/products/README.md) and

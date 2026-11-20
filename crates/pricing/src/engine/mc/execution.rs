@@ -1,8 +1,11 @@
-use std::collections::TryReserveError;
+use std::cell::RefCell;
+use std::collections::{HashMap, TryReserveError};
 use std::error::Error;
 use std::fmt;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::ops::Range;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use pricing_numerics::{
     CenteredCovariance, CenteredMoment, NeumaierSum, reduce_covariances, reduce_moments,
@@ -22,6 +25,9 @@ pub struct ExecutionPolicy {
 impl ExecutionPolicy {
     pub const VERSION: u32 = 1;
     pub const DEFAULT_REDUCTION_BLOCK_SIZE: u64 = 4096;
+    /// Largest accepted worker-thread count. A pool holds this many OS
+    /// threads, so the count must stay bounded for untrusted documents.
+    pub const MAX_WORKER_THREADS: u32 = 1024;
 
     pub fn new(
         worker_threads: u32,
@@ -29,6 +35,12 @@ impl ExecutionPolicy {
     ) -> Result<Self, ExecutorBuildError> {
         let worker_threads =
             NonZeroU32::new(worker_threads).ok_or(ExecutorBuildError::ZeroWorkerThreads)?;
+        if worker_threads.get() > Self::MAX_WORKER_THREADS {
+            return Err(ExecutorBuildError::TooManyWorkerThreads {
+                value: worker_threads.get(),
+                maximum: Self::MAX_WORKER_THREADS,
+            });
+        }
         let resolved_block_size =
             reduction_block_size.unwrap_or(Self::DEFAULT_REDUCTION_BLOCK_SIZE);
         let reduction_block_size = NonZeroU64::new(resolved_block_size)
@@ -62,6 +74,7 @@ pub enum ExecutorBuildError {
     ZeroReductionBlockSize,
     ThreadCountUnsupported { value: u32 },
     PoolBuild,
+    TooManyWorkerThreads { value: u32, maximum: u32 },
 }
 
 impl fmt::Display for ExecutorBuildError {
@@ -74,9 +87,10 @@ impl fmt::Display for ExecutorBuildError {
             Self::ThreadCountUnsupported { value } => {
                 write!(formatter, "worker-thread count {value} does not fit usize")
             }
-            Self::PoolBuild => write!(
+            Self::PoolBuild => write!(formatter, "failed to build the worker thread pool"),
+            Self::TooManyWorkerThreads { value, maximum } => write!(
                 formatter,
-                "failed to build the calculation-owned thread pool"
+                "worker-thread count {value} exceeds the maximum {maximum}"
             ),
         }
     }
@@ -181,6 +195,75 @@ impl<E: Error + 'static> Error for TryExecutionError<E> {
     }
 }
 
+/// One scalar reduction recorded by [`capture_reductions`]: the value of
+/// every sampling unit in index order, and the reduced sum the caller saw.
+#[derive(Clone, Debug)]
+pub(crate) struct RecordedReduction {
+    pub values: Vec<f64>,
+    pub sum: f64,
+    /// True when an engine that forms its sampling units itself (Bass-LV,
+    /// early exercise) recorded them directly: one value per unit.
+    pub units: bool,
+}
+
+/// Records sampling units an engine formed itself, in unit order, while this
+/// thread records. Engines that reduce through the executor need not call it.
+pub(crate) fn record_units(values: &[f64]) {
+    RECORDING.with(|r| {
+        if let Some(calls) = r.borrow_mut().as_mut() {
+            calls.push(RecordedReduction {
+                values: values.to_vec(),
+                sum: f64::NAN,
+                units: true,
+            });
+        }
+    });
+}
+
+/// Units above this count are not recorded; the reduction is still run.
+const MAX_RECORDED_UNITS: u64 = 1 << 26;
+
+thread_local! {
+    static RECORDING: RefCell<Option<Vec<RecordedReduction>>> = const { RefCell::new(None) };
+}
+
+/// Runs `f` and returns the scalar reductions (and component 0 of vector
+/// reductions) it started on this thread, in call order. Recording stores
+/// each unit's value as it is produced; it changes no value, block or order.
+/// Reductions started on other threads are not recorded.
+pub(crate) fn capture_reductions<R>(f: impl FnOnce() -> R) -> (R, Vec<RecordedReduction>) {
+    let previous = RECORDING.with(|r| r.borrow_mut().replace(Vec::new()));
+    let result = f();
+    let recorded = RECORDING.with(|r| std::mem::replace(&mut *r.borrow_mut(), previous));
+    (result, recorded.unwrap_or_default())
+}
+
+/// Per-unit slots, present only while this thread records.
+fn recording_slots(units: u64) -> Option<Vec<AtomicU64>> {
+    let recording = RECORDING.with(|r| r.borrow().is_some());
+    (recording && units <= MAX_RECORDED_UNITS)
+        .then(|| (0..units).map(|_| AtomicU64::new(0)).collect())
+}
+
+fn record(slots: Option<Vec<AtomicU64>>, sum: f64) {
+    let values = slots
+        .map(|s| {
+            s.into_iter()
+                .map(|v| f64::from_bits(v.into_inner()))
+                .collect()
+        })
+        .unwrap_or_default();
+    RECORDING.with(|r| {
+        if let Some(calls) = r.borrow_mut().as_mut() {
+            calls.push(RecordedReduction {
+                values,
+                sum,
+                units: false,
+            });
+        }
+    });
+}
+
 /// Marginal statistics and optional upper-triangular centered cross-moments.
 pub(crate) struct VectorStatistics {
     pub components: Vec<DeterministicStatistics>,
@@ -217,10 +300,40 @@ fn try_filled_vector<T: Clone>(length: usize, value: T) -> Result<Vec<T>, TryRes
     Ok(buffer)
 }
 
-/// Executes fixed logical blocks on a calculation-owned Rayon pool.
+/// Distinct worker counts whose pools are kept for reuse; further counts get a
+/// pool of their own, so arbitrary policies cannot accumulate idle threads.
+const MAX_SHARED_POOLS: usize = 8;
+
+/// Reuses one pool per worker count. Building and dropping a pool for every
+/// calculation makes worker threads exit continually, and the intermittent macOS
+/// allocator aborts are detected during that thread teardown. Results depend
+/// only on the fixed block table, never on which pool runs the blocks.
+fn shared_pool(thread_count: usize) -> Result<Arc<ThreadPool>, ExecutorBuildError> {
+    static POOLS: OnceLock<Mutex<HashMap<usize, Arc<ThreadPool>>>> = OnceLock::new();
+    let mut pools = POOLS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    if let Some(pool) = pools.get(&thread_count) {
+        return Ok(Arc::clone(pool));
+    }
+    let pool = Arc::new(
+        ThreadPoolBuilder::new()
+            .num_threads(thread_count)
+            .thread_name(|index| format!("pricing-worker-{index}"))
+            .build()
+            .map_err(|_| ExecutorBuildError::PoolBuild)?,
+    );
+    if pools.len() < MAX_SHARED_POOLS {
+        pools.insert(thread_count, Arc::clone(&pool));
+    }
+    Ok(pool)
+}
+
+/// Executes fixed logical blocks on a Rayon pool with the policy's worker count.
 pub struct DeterministicExecutor {
     policy: ExecutionPolicy,
-    pool: ThreadPool,
+    pool: Arc<ThreadPool>,
 }
 
 impl DeterministicExecutor {
@@ -230,11 +343,7 @@ impl DeterministicExecutor {
                 value: policy.worker_threads().get(),
             }
         })?;
-        let pool = ThreadPoolBuilder::new()
-            .num_threads(thread_count)
-            .thread_name(|index| format!("pricing-worker-{index}"))
-            .build()
-            .map_err(|_| ExecutorBuildError::PoolBuild)?;
+        let pool = shared_pool(thread_count)?;
         Ok(Self { policy, pool })
     }
 
@@ -243,7 +352,7 @@ impl DeterministicExecutor {
         self.policy
     }
 
-    /// Runs `op` on this executor's calculation-owned pool, for engine loops
+    /// Runs `op` on this executor's pool, for engine loops
     /// whose results do not depend on scheduling.
     pub(crate) fn install<R: Send>(&self, op: impl FnOnce() -> R + Send) -> R {
         self.pool.install(op)
@@ -284,6 +393,7 @@ impl DeterministicExecutor {
 
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
+        let slots = recording_slots(sampling_units);
         let block_results = self.pool.install(|| {
             blocks
                 .into_par_iter()
@@ -297,6 +407,9 @@ impl DeterministicExecutor {
                                 source,
                             }
                         })?;
+                        if let Some(slots) = &slots {
+                            slots[sampling_unit as usize].store(value.to_bits(), Ordering::Relaxed);
+                        }
                         sum.add(value);
                         moments.add(value);
                     }
@@ -311,10 +424,14 @@ impl DeterministicExecutor {
             sums.push(block.sum);
             moments.push(block.moments);
         }
-        Ok(DeterministicStatistics {
+        let statistics = DeterministicStatistics {
             sum: reduce_sums(sums),
             moments: reduce_moments(moments),
-        })
+        };
+        if RECORDING.with(|r| r.borrow().is_some()) {
+            record(slots, statistics.sum.total());
+        }
+        Ok(statistics)
     }
 
     /// Dynamic-width counterpart used by surface adjoints. Callback output is
@@ -362,6 +479,11 @@ impl DeterministicExecutor {
         };
         let mut output =
             VectorStatistics::try_new(components, full_covariance).map_err(allocation_failed)?;
+        let slots = if components > 0 {
+            recording_slots(sampling_units)
+        } else {
+            None
+        };
         let results = self.pool.install(|| {
             blocks
                 .into_par_iter()
@@ -378,6 +500,10 @@ impl DeterministicExecutor {
                                 source,
                             }
                         })?;
+                        if let Some(slots) = &slots {
+                            slots[sampling_unit as usize]
+                                .store(values[0].to_bits(), Ordering::Relaxed);
+                        }
                         for (statistic, &value) in statistics.components.iter_mut().zip(&values) {
                             statistic.sum.add(value);
                             statistic.moments.add(value);
@@ -413,6 +539,9 @@ impl DeterministicExecutor {
                 moments: reduce_moments(results.iter().map(|r| r.components[i].moments).collect()),
             };
         }
+        if components > 0 && RECORDING.with(|r| r.borrow().is_some()) {
+            record(slots, output.components[0].sum.total());
+        }
         Ok(output)
     }
 
@@ -435,6 +564,11 @@ impl DeterministicExecutor {
 
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
+        let slots = if N > 0 {
+            recording_slots(sampling_units)
+        } else {
+            None
+        };
         let tile_capacity = u64::from(tile_capacity.get());
         let block_results = self.pool.install(|| {
             blocks
@@ -451,6 +585,10 @@ impl DeterministicExecutor {
                                     source,
                                 }
                             })?;
+                            if let Some(slots) = &slots {
+                                slots[sampling_unit as usize]
+                                    .store(values[0].to_bits(), Ordering::Relaxed);
+                            }
                             for (statistic, value) in statistics.iter_mut().zip(values) {
                                 statistic.sum.add(value);
                                 statistic.moments.add(value);
@@ -477,10 +615,15 @@ impl DeterministicExecutor {
                 moments.push(statistic.moments);
             }
         }
-        Ok(std::array::from_fn(|component| DeterministicStatistics {
-            sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
-            moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
-        }))
+        let statistics: [DeterministicStatistics; N] =
+            std::array::from_fn(|component| DeterministicStatistics {
+                sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
+                moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
+            });
+        if N > 0 && RECORDING.with(|r| r.borrow().is_some()) {
+            record(slots, statistics[0].sum.total());
+        }
+        Ok(statistics)
     }
 
     /// Executes AAD paths in fixed tiles backed by one reusable aligned SoA
@@ -503,6 +646,11 @@ impl DeterministicExecutor {
 
         let blocks = fixed_blocks(sampling_units, self.policy.reduction_block_size().get())
             .map_err(TryExecutionError::Execution)?;
+        let slots = if N > 0 {
+            recording_slots(sampling_units)
+        } else {
+            None
+        };
         let logical_capacity =
             usize::try_from(tile_capacity.get()).map_err(|_| TryExecutionError::Evaluation {
                 sampling_unit: 0,
@@ -535,6 +683,10 @@ impl DeterministicExecutor {
                                             source,
                                         },
                                     )?;
+                                    if let Some(slots) = &slots {
+                                        slots[sampling_unit as usize]
+                                            .store(values[0].to_bits(), Ordering::Relaxed);
+                                    }
                                     for (statistic, value) in statistics.iter_mut().zip(values) {
                                         statistic.sum.add(value);
                                         statistic.moments.add(value);
@@ -562,10 +714,15 @@ impl DeterministicExecutor {
                 moments.push(statistic.moments);
             }
         }
-        Ok(std::array::from_fn(|component| DeterministicStatistics {
-            sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
-            moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
-        }))
+        let statistics: [DeterministicStatistics; N] =
+            std::array::from_fn(|component| DeterministicStatistics {
+                sum: reduce_sums(std::mem::take(&mut per_component_sums[component])),
+                moments: reduce_moments(std::mem::take(&mut per_component_moments[component])),
+            });
+        if N > 0 && RECORDING.with(|r| r.borrow().is_some()) {
+            record(slots, statistics[0].sum.total());
+        }
+        Ok(statistics)
     }
 }
 
@@ -598,6 +755,19 @@ mod tests {
     }
 
     #[test]
+    fn executors_with_the_same_worker_count_reuse_one_pool() {
+        let first = executor(3, 7);
+        let second = executor(3, 11);
+        assert!(Arc::ptr_eq(&first.pool, &second.pool));
+        assert_eq!(first.pool.current_num_threads(), 3);
+        let other = executor(2, 7);
+        assert!(!Arc::ptr_eq(&first.pool, &other.pool));
+        assert_eq!(other.pool.current_num_threads(), 2);
+        let sum = |e: &DeterministicExecutor| e.map_reduce(1000, |i| i as f64).unwrap().total();
+        assert_eq!(sum(&first).to_bits(), sum(&executor(3, 7)).to_bits());
+    }
+
+    #[test]
     fn policy_validates_and_records_resolved_values() {
         let policy = ExecutionPolicy::new(3, None).expect("valid policy");
         assert_eq!(policy.version(), 1);
@@ -606,6 +776,15 @@ mod tests {
         assert_eq!(
             ExecutionPolicy::new(0, None),
             Err(ExecutorBuildError::ZeroWorkerThreads)
+        );
+        let maximum = ExecutionPolicy::MAX_WORKER_THREADS;
+        assert!(ExecutionPolicy::new(maximum, None).is_ok());
+        assert_eq!(
+            ExecutionPolicy::new(maximum + 1, None),
+            Err(ExecutorBuildError::TooManyWorkerThreads {
+                value: maximum + 1,
+                maximum,
+            })
         );
         assert_eq!(
             ExecutionPolicy::new(1, Some(0)),

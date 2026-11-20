@@ -1,4 +1,5 @@
 //! Risk implementation.
+pub(crate) mod bump;
 pub(crate) mod calibration_report;
 pub(crate) mod dual;
 pub(crate) mod early_exercise;
@@ -7,6 +8,7 @@ pub(crate) mod local_vol;
 pub(crate) mod local_vol_allocation;
 pub(crate) mod local_vol_statistics;
 pub(crate) mod lsv;
+pub(crate) mod measure_backend;
 pub(crate) mod pathwise_local_vol;
 pub(crate) mod pricing;
 pub(crate) mod report;

@@ -10,16 +10,24 @@ use crate::multi_asset::{
     MultiAssetHullWhiteConfig,
 };
 use crate::product::GraphProduct;
-use crate::{EquityModelSpec, PricingSpecification, RateModelSpec, SpecificationValidationError};
+use crate::{
+    EquityModelSpec, MeasureKind, MeasureMethodKind, PricingSpecification, RateModelSpec,
+    SpecificationValidationError,
+};
 
 /// Operations have distinct numerical contracts. `Evaluate` retains the risks
 /// already requested by a standard single-asset specification.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum PricingOperation {
     Evaluate,
-    Aad { gamma_relative_bump: Option<f64> },
+    Aad {
+        gamma_relative_bump: Option<f64>,
+    },
     LocalVarianceRisk,
+    /// An explicit list of measures. The nested risk request of a standard
+    /// single-asset source must select nothing, so risk is chosen in one place.
+    Measures(crate::MeasureSet),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -40,6 +48,16 @@ pub enum CapabilityReason {
     ReverseTraceRequired,
     InvalidGammaBump,
     InvalidSource,
+    /// The backend has no estimator of this measure by the requested method.
+    NoNativeEstimator,
+    /// A `Measures` task whose nested risk request also selects risk.
+    AmbiguousRiskSelection,
+    /// The stated bump calibration does not fit the source: a calibrated
+    /// source needs `Fixed` or `Recalibrated`, any other `NotApplicable`.
+    BumpCalibrationMismatch,
+    /// Holding a calibration fixed across a bump needs a backend hook that
+    /// does not exist yet.
+    FixedCalibrationUnavailable,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -65,6 +83,256 @@ impl PricingCapability {
             detail: detail.into(),
         }
     }
+}
+
+/// The source compositions that share one set of exposed task operations.
+/// Capability queries, task construction and the published operation matrix
+/// all read this single classification.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[non_exhaustive]
+pub enum SourceFamily {
+    /// BS, Black-76, Local Volatility or Bass-LV at deterministic rates.
+    StandardSingleAsset,
+    /// One-/two-factor or rough Bergomi stochastic volatility.
+    StochasticVolatility,
+    /// Deterministic-rate one-/two-factor or rough Bergomi LSV.
+    LocalStochasticVolatility,
+    /// Deterministic-rate LSV on a rough-volatility family (rough Heston,
+    /// lifted Heston, quadratic rough Heston, mixed rough Bergomi, rough
+    /// SABR, RFSV). Separate because it has native Spot estimators.
+    RoughFamilyLsv,
+    /// Any single-asset equity model with Hull-White rates.
+    SingleAssetHullWhite,
+    /// A direct rough-volatility family without a local-volatility target.
+    DirectRoughVolatility,
+    /// Baskets, including mixed LSV, shared Hull-White and Local Correlation.
+    MultiAsset,
+    /// Stochastic cash dividends without a Bergomi LSV residual equity.
+    StochasticDividend,
+    /// Stochastic cash dividends with a Bergomi LSV residual equity.
+    StochasticDividendLsv,
+}
+
+impl SourceFamily {
+    pub const ALL: [Self; 9] = [
+        Self::StandardSingleAsset,
+        Self::StochasticVolatility,
+        Self::LocalStochasticVolatility,
+        Self::RoughFamilyLsv,
+        Self::SingleAssetHullWhite,
+        Self::DirectRoughVolatility,
+        Self::MultiAsset,
+        Self::StochasticDividend,
+        Self::StochasticDividendLsv,
+    ];
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::StandardSingleAsset => "standard_single_asset",
+            Self::StochasticVolatility => "stochastic_volatility",
+            Self::LocalStochasticVolatility => "local_stochastic_volatility",
+            Self::RoughFamilyLsv => "rough_family_lsv",
+            Self::SingleAssetHullWhite => "single_asset_hull_white",
+            Self::DirectRoughVolatility => "direct_rough_volatility",
+            Self::MultiAsset => "multi_asset",
+            Self::StochasticDividend => "stochastic_dividend",
+            Self::StochasticDividendLsv => "stochastic_dividend_lsv",
+        }
+    }
+
+    /// Whether the common task exposes `operation` for this family at all.
+    /// A true answer still leaves the payoff, reverse-trace, compilation and
+    /// native preflight conditions reported by `PricingSource::capability`.
+    /// `Measures` is exposed everywhere because a price is always available;
+    /// each listed measure is then judged by `measure_methods`.
+    #[must_use]
+    pub fn exposes(self, operation: &PricingOperation) -> bool {
+        match operation {
+            PricingOperation::Evaluate | PricingOperation::Measures(_) => true,
+            PricingOperation::Aad {
+                gamma_relative_bump: Some(_),
+            } => matches!(self, Self::MultiAsset),
+            PricingOperation::Aad {
+                gamma_relative_bump: None,
+            } => matches!(
+                self,
+                Self::StochasticVolatility
+                    | Self::SingleAssetHullWhite
+                    | Self::MultiAsset
+                    | Self::StochasticDividend
+            ),
+            PricingOperation::LocalVarianceRisk => matches!(
+                self,
+                Self::LocalStochasticVolatility
+                    | Self::RoughFamilyLsv
+                    | Self::StochasticDividendLsv
+            ),
+        }
+    }
+
+    /// The methods by which the `Measures` operation can produce `measure`
+    /// for this family. Empty means the measure has no adapter here yet.
+    #[must_use]
+    pub const fn measure_methods(self, measure: MeasureKind) -> &'static [MeasureMethodKind] {
+        use MeasureMethodKind as M;
+        match (self, measure) {
+            (_, MeasureKind::Price) => &[M::Native],
+            (Self::StandardSingleAsset, MeasureKind::SpotGamma) => {
+                &[M::NativeSpotBump, M::BumpAndRevalue]
+            }
+            (
+                Self::StandardSingleAsset,
+                MeasureKind::SpotDelta | MeasureKind::ParallelMarketIvVega,
+            ) => &[M::Native, M::BumpAndRevalue],
+            (Self::StandardSingleAsset, MeasureKind::VegaKt) => &[M::Native],
+            (Self::RoughFamilyLsv, MeasureKind::SpotDelta) => {
+                &[M::NativeCalibrated, M::BumpAndRevalue]
+            }
+            (Self::RoughFamilyLsv, MeasureKind::SpotGamma) => {
+                &[M::NativeSpotBumpCalibrated, M::BumpAndRevalue]
+            }
+            // An LSV target with a reproducing reporting IV basis: the market
+            // IVs move the target, and the calibration follows.
+            (Self::RoughFamilyLsv, MeasureKind::ParallelMarketIvVega) => {
+                &[M::NativeCalibrated, M::BumpAndRevalue]
+            }
+            (Self::LocalStochasticVolatility, MeasureKind::ParallelMarketIvVega) => {
+                &[M::BumpAndRevalue]
+            }
+            // Fixed-target parameter risk through the particle recalibration.
+            (Self::RoughFamilyLsv, MeasureKind::ModelParameters) => &[M::NativeCalibrated],
+            // Fixed-model pathwise Delta and explicitly bumped Gamma; nothing
+            // is calibrated, so no treatment is stated.
+            (Self::DirectRoughVolatility, MeasureKind::SpotDelta) => {
+                &[M::Native, M::BumpAndRevalue]
+            }
+            (Self::DirectRoughVolatility, MeasureKind::SpotGamma) => {
+                &[M::NativeSpotBump, M::BumpAndRevalue]
+            }
+            (Self::DirectRoughVolatility, MeasureKind::ModelParameters) => &[M::Native],
+            // Stochastic dividends: AAD Delta and a bump of AAD Deltas; the
+            // residual-equity LSV estimators are scale-invariant
+            // (recalibrated) only.
+            // Raw Brownian-correlation partials of the joint reverse.
+            (
+                Self::StochasticDividend,
+                MeasureKind::Correlations
+                | MeasureKind::ModelParameters
+                | MeasureKind::DividendCash
+                | MeasureKind::DiscountCurve,
+            ) => &[M::Native],
+            // Cash means and curves re-anchor the residual-equity LSV like Spot.
+            (
+                Self::StochasticDividendLsv,
+                MeasureKind::DividendCash | MeasureKind::DiscountCurve,
+            ) => &[M::NativeCalibrated],
+            (Self::StochasticDividend, MeasureKind::SpotDelta) => &[M::Native, M::BumpAndRevalue],
+            (Self::StochasticDividend, MeasureKind::SpotGamma) => {
+                &[M::NativeSpotBump, M::BumpAndRevalue]
+            }
+            (Self::StochasticDividendLsv, MeasureKind::SpotDelta) => {
+                &[M::NativeCalibrated, M::BumpAndRevalue]
+            }
+            (Self::StochasticDividendLsv, MeasureKind::SpotGamma) => {
+                &[M::NativeSpotBumpCalibrated, M::BumpAndRevalue]
+            }
+            // Baskets: the AAD Delta per asset and the bump of AAD Deltas,
+            // stated without a treatment on a basket without a calibration
+            // step and as recalibrated on an LSV or Local Correlation one.
+            (Self::MultiAsset, MeasureKind::SpotDelta) => {
+                &[M::Native, M::NativeCalibrated, M::BumpAndRevalue]
+            }
+            // A basket's Spot correlations have no native derivative.
+            (Self::MultiAsset, MeasureKind::Correlations) => &[M::BumpAndRevalue],
+            // The shared Hull-White initial curve, in the same AAD run.
+            (Self::MultiAsset, MeasureKind::DiscountCurve) => &[M::Native, M::NativeCalibrated],
+            (Self::MultiAsset, MeasureKind::CrossGamma) => {
+                &[M::NativeSpotBump, M::NativeSpotBumpCalibrated]
+            }
+            // Every source reprices under a moved Spot.
+            (_, MeasureKind::SpotDelta | MeasureKind::SpotGamma) => &[M::BumpAndRevalue],
+            // A Black-Scholes equity with Hull-White rates has one volatility.
+            (Self::SingleAssetHullWhite, MeasureKind::ParallelMarketIvVega) => &[M::BumpAndRevalue],
+            _ => &[],
+        }
+    }
+}
+
+/// Renders which task operations each source family exposes. The task guide
+/// embeds this table and a test fails when the two differ.
+#[must_use]
+pub fn operation_matrix_markdown() -> String {
+    let columns: [(&str, PricingOperation); 4] = [
+        ("`evaluate`", PricingOperation::Evaluate),
+        (
+            "`aad`",
+            PricingOperation::Aad {
+                gamma_relative_bump: None,
+            },
+        ),
+        (
+            "`aad` with `gamma_relative_bump`",
+            PricingOperation::Aad {
+                gamma_relative_bump: Some(0.01),
+            },
+        ),
+        ("`local_variance_risk`", PricingOperation::LocalVarianceRisk),
+    ];
+    let mut table = String::from("| Source family |");
+    for (label, _) in &columns {
+        table.push_str(&format!(" {label} |"));
+    }
+    table.push_str("\n| --- |");
+    for _ in &columns {
+        table.push_str(" --- |");
+    }
+    table.push('\n');
+    for family in SourceFamily::ALL {
+        table.push_str(&format!("| `{}` |", family.as_str()));
+        for (_, operation) in &columns {
+            table.push_str(if family.exposes(operation) {
+                " exposed |"
+            } else {
+                " not exposed |"
+            });
+        }
+        table.push('\n');
+    }
+    table
+}
+
+/// Renders which measures each source family produces through the `Measures`
+/// operation, and by which method. Embedded in the task guide like the
+/// operation matrix.
+#[must_use]
+pub fn measure_matrix_markdown() -> String {
+    let mut table = String::from("| Source family |");
+    for measure in MeasureKind::ALL {
+        table.push_str(&format!(" `{}` |", measure.as_str()));
+    }
+    table.push_str("\n| --- |");
+    for _ in MeasureKind::ALL {
+        table.push_str(" --- |");
+    }
+    table.push('\n');
+    for family in SourceFamily::ALL {
+        table.push_str(&format!("| `{}` |", family.as_str()));
+        for measure in MeasureKind::ALL {
+            let methods = family.measure_methods(measure);
+            if methods.is_empty() {
+                table.push_str(" not exposed |");
+            } else {
+                let names: Vec<_> = methods
+                    .iter()
+                    .map(|m| format!("`{}`", m.as_str()))
+                    .collect();
+                table.push_str(&format!(" {} |", names.join(", ")));
+            }
+        }
+        table.push('\n');
+    }
+    table
 }
 
 /// Settings consumed by the existing mixed-factor basket compiler. Every
@@ -351,6 +619,39 @@ pub enum PricingSource {
     MultiAsset(MultiAssetSpecification),
     StochasticDividend(StochasticDividendSpecification),
 }
+impl PricingSource {
+    /// Classifies the composition without compiling or calibrating it.
+    #[must_use]
+    pub fn family(&self) -> SourceFamily {
+        match self {
+            Self::SingleAsset(s) => {
+                if matches!(s.model().rates, RateModelSpec::HullWhite { .. }) {
+                    return SourceFamily::SingleAssetHullWhite;
+                }
+                match &s.model().equity {
+                    EquityModelSpec::StochasticVolatility { .. } => {
+                        SourceFamily::StochasticVolatility
+                    }
+                    EquityModelSpec::LocalStochasticVolatility { .. } => {
+                        SourceFamily::LocalStochasticVolatility
+                    }
+                    EquityModelSpec::RoughLocalStochasticVolatility { .. } => {
+                        SourceFamily::RoughFamilyLsv
+                    }
+                    EquityModelSpec::RoughVolatility(_) => SourceFamily::DirectRoughVolatility,
+                    EquityModelSpec::Standard(_) => SourceFamily::StandardSingleAsset,
+                }
+            }
+            Self::MultiAsset(_) => SourceFamily::MultiAsset,
+            Self::StochasticDividend(s) => match &s.equity().model().equity {
+                EquityModelSpec::LocalStochasticVolatility { .. } => {
+                    SourceFamily::StochasticDividendLsv
+                }
+                _ => SourceFamily::StochasticDividend,
+            },
+        }
+    }
+}
 impl From<PricingSpecification> for PricingSource {
     fn from(s: PricingSpecification) -> Self {
         Self::SingleAsset(s)
@@ -393,7 +694,7 @@ impl PricingTask {
         source: Arc<PricingSource>,
         operation: PricingOperation,
     ) -> Result<Self, SpecificationValidationError> {
-        let capability = source.capability(operation);
+        let capability = source.capability(operation.clone());
         if capability.status == CapabilityStatus::Unsupported {
             return Err(SpecificationValidationError::UnsupportedOperation {
                 reason: capability.reason,
@@ -406,9 +707,18 @@ impl PricingTask {
     pub fn source(&self) -> &PricingSource {
         &self.source
     }
+    /// The selected operation. Cloning a measure list shares its storage.
     #[must_use]
     pub fn operation(&self) -> PricingOperation {
-        self.operation
+        self.operation.clone()
+    }
+    /// The requested measures, or `None` for the three legacy operations.
+    #[must_use]
+    pub fn measures(&self) -> Option<&crate::MeasureSet> {
+        match &self.operation {
+            PricingOperation::Measures(set) => Some(set),
+            _ => None,
+        }
     }
 }
 

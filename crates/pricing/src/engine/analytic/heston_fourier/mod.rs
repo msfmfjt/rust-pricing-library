@@ -12,12 +12,13 @@ mod hurst_risk;
 pub use hurst_risk::{HestonFourierHurstRisk, HestonFourierHurstRiskPlan};
 mod parameter_risk;
 mod riccati;
+use crate::black_price::{black_price, log_forward_over_strike};
 use crate::rough_volatility::RoughVolatilityModel;
 pub use greeks::HestonFourierGreeks;
 pub use parameter_risk::{
     HestonFourierParameterRisk, HestonFourierParameterRiskPlan, HestonParameterSensitivities,
 };
-use pricing_numerics::{Complex64 as C, NeumaierSum, standard_normal_cdf};
+use pricing_numerics::{Complex64 as C, NeumaierSum};
 use riccati::RiccatiPlan;
 use std::{error::Error, fmt};
 
@@ -255,20 +256,17 @@ fn black_prices(f: f64, k: f64, d: f64, w: f64) -> (f64, f64) {
     if w == 0.0 {
         return (d * (f - k).max(0.0), d * (k - f).max(0.0));
     }
-    let v = w.sqrt();
-    let d1 = (f.ln() - k.ln()) / v + 0.5 * v;
-    let d2 = d1 - v;
-    // Compute the OTM side directly; use parity for the ITM side.
-    if f <= k {
-        let call = d * (f * standard_normal_cdf(d1) - k * standard_normal_cdf(d2));
-        (call, call + d * (k - f))
+    let call_otm = f <= k;
+    let otm = d * black_price(f, k, log_forward_over_strike(f, k), w.sqrt(), call_otm);
+    if call_otm {
+        (otm, otm + d * (k - f))
     } else {
-        let put = d * (k * standard_normal_cdf(-d2) - f * standard_normal_cdf(-d1));
-        (put + d * (f - k), put)
+        (otm + d * (f - k), otm)
     }
 }
 
 mod iv_calibration;
+pub(crate) use iv_calibration::black_iv_and_vega;
 pub use iv_calibration::{
     HestonIvCalibrationEvaluation, HestonIvCalibrationProblem, HestonIvCalibrationQuote,
     HestonIvCalibrationResult, HestonIvGridValidation, HestonIvRefinementOptions,

@@ -4,6 +4,8 @@
 
 mod bass_lv;
 mod builders;
+mod contract;
+mod cross_currency;
 mod diagnostics;
 mod dual;
 mod errors;
@@ -15,6 +17,7 @@ mod hull_white;
 mod local_correlation;
 mod lsv;
 mod market_iv;
+mod measures;
 mod multi_asset;
 mod multi_asset_hw;
 mod multi_asset_lsv;
@@ -1611,8 +1614,14 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     specification::register(module)?;
     source_config::register(module)?;
     pricing_source::register(module)?;
+    measures::register(module)?;
     pricing_task::register(module)?;
     product_graph::register(module)?;
+    contract::register(module)?;
+    module.add_class::<cross_currency::PyCrossCurrencyEquityBasket>()?;
+    module.add_class::<cross_currency::PyBergomiQuoteRisk>()?;
+    module.add_class::<cross_currency::PyBergomiQuoteHedge>()?;
+    module.add_class::<cross_currency::PyCrossCurrencyEquityOption>()?;
     module.add_class::<bass_lv::PyBassMarginal>()?;
     module.add_class::<bass_lv::PyBassLvConfig>()?;
     module.add_class::<bass_lv::PyBassLvModel>()?;
@@ -1700,6 +1709,9 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<stochastic_dividends::PyStochasticDividendPrice>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendAadRisk>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendGammaRisk>()?;
+    module.add_class::<stochastic_dividends::PyStochasticDividendMeasureRisk>()?;
+    module.add_class::<stochastic_dividends::PyStochasticDividendCorrelationRisk>()?;
+    module.add_class::<stochastic_dividends::PyStochasticDividendModelParameterRisk>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendLocalVarianceRisk>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendLsvSpotRisk>()?;
     module.add_class::<stochastic_dividends::PyStochasticDividendLsvMarketRisk>()?;
@@ -1727,12 +1739,16 @@ fn rust_pricing(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<rough_volatility::PyRoughHestonMcHurstRisk>()?;
     module.add_class::<rough_volatility::PyRoughVolatilityDelta>()?;
     module.add_class::<rough_volatility::PyRoughVolatilityGamma>()?;
+    module.add_class::<rough_volatility::PyRoughVolatilityMeasureRisk>()?;
+    module.add_class::<rough_volatility::PyRoughVolatilityModelParameterRisk>()?;
     module.add_class::<lsv::PyRoughFamilyLsvMarketIvRiskPlan>()?;
     module.add_class::<lsv::PyRoughFamilyLsvMarketIvRisk>()?;
     module.add_class::<lsv::PyRoughFamilyLsvPlan>()?;
     module.add_class::<lsv::PyHestonLsvParameterRisk>()?;
     module.add_class::<lsv::PyRoughFamilyLsvDelta>()?;
     module.add_class::<lsv::PyRoughFamilyLsvGamma>()?;
+    module.add_class::<lsv::PyRoughFamilyLsvMeasureRisk>()?;
+    module.add_class::<lsv::PyRoughFamilyLsvModelParameterRisk>()?;
     module.add_class::<heston_fourier::PyHestonFourierPlan>()?;
     module.add_class::<heston_calibration::PyHestonCalibrationQuote>()?;
     module.add_class::<heston_calibration::PyHestonCalibrationVariable>()?;

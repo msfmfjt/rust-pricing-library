@@ -18,6 +18,14 @@ mod lsv_hard_barrier;
 #[cfg(test)]
 mod lsv_hard_refinement_tests;
 mod lsv_market;
+mod measure;
+pub(crate) use measure::{
+    DividendMeasureSelection, DividendVolatility, dividend_correlations, dividend_parameter_ids,
+};
+pub use measure::{
+    StochasticDividendCorrelationRisk, StochasticDividendDelta, StochasticDividendMarketRisk,
+    StochasticDividendMeasureRisk, StochasticDividendModelParameterRisk,
+};
 mod lsv_parameters;
 mod lsv_parameters_2f;
 #[cfg(test)]
@@ -358,6 +366,86 @@ impl StochasticDividendPricingPlan {
             refined,
             grid,
         ))
+    }
+
+    /// A plan for `request` that reuses this plan's leverage instead of
+    /// calibrating. The surface is re-anchored at the request's funded
+    /// residual Spot, so the leverage stays the same function of the absolute
+    /// residual-equity level (sticky strike) and paths start at the bumped
+    /// residual. No calibration runs. The fingerprint has its own domain.
+    pub(crate) fn with_fixed_calibration(
+        &self,
+        request: &PricingRequest,
+        maximum_step: f64,
+    ) -> Result<Self, MonteCarloError> {
+        let Some(lsv) = &self.lsv else {
+            return Err(MonteCarloError::UnsupportedRiskForModel {
+                model: "a fixed calibration requires a calibrated stochastic-dividend LSV plan",
+            });
+        };
+        let (mut plan, original_target, _, _) =
+            Self::compile_lsv_base(request, self.path.model(), maximum_step, self.policy, false)?;
+        let anchor = plan.path.risky_spot();
+        let particles = match lsv {
+            StochasticDividendLsvCalibration::One {
+                calibration,
+                dividend_volatility_correlation,
+                ..
+            } => {
+                plan.path = plan.path.with_bergomi_lsv(
+                    calibration.factor(),
+                    *dividend_volatility_correlation,
+                    calibration.surface().reanchored(anchor)?,
+                )?;
+                plan.lsv = Some(StochasticDividendLsvCalibration::One {
+                    calibration: calibration.clone(),
+                    original_target,
+                    dividend_volatility_correlation: *dividend_volatility_correlation,
+                });
+                calibration.config()
+            }
+            StochasticDividendLsvCalibration::Two {
+                calibration,
+                dividend_volatility_correlations,
+                ..
+            } => {
+                plan.path = plan.path.with_bergomi_two_factor_lsv(
+                    calibration.factor(),
+                    *dividend_volatility_correlations,
+                    calibration.surface().reanchored(anchor)?,
+                )?;
+                plan.lsv = Some(StochasticDividendLsvCalibration::Two {
+                    calibration: calibration.clone(),
+                    original_target,
+                    dividend_volatility_correlations: *dividend_volatility_correlations,
+                });
+                calibration.config()
+            }
+            StochasticDividendLsvCalibration::Rough {
+                calibration,
+                dividend_volatility_correlation,
+                ..
+            } => {
+                plan.path = plan.path.with_rough_bergomi_lsv(
+                    calibration.model(),
+                    *dividend_volatility_correlation,
+                    calibration.surface().reanchored(anchor)?,
+                )?;
+                plan.lsv = Some(StochasticDividendLsvCalibration::Rough {
+                    calibration: calibration.clone(),
+                    original_target,
+                    dividend_volatility_correlation: *dividend_volatility_correlation,
+                });
+                calibration.config()
+            }
+        };
+        plan.finish_lsv(particles)?;
+        let mut hash = blake3::Hasher::new();
+        hash.update(b"pricing/stochastic-dividend-lsv-fixed-calibration-plan/v1\0");
+        hash.update(plan.fingerprint.as_bytes());
+        hash.update(self.fingerprint.as_bytes());
+        plan.fingerprint = Fingerprint::from_bytes(*hash.finalize().as_bytes());
+        Ok(plan)
     }
 
     /// Particle-calibrated 1F Bergomi LSV for funded residual equity, coupled

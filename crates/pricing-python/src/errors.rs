@@ -111,6 +111,7 @@ pub(crate) fn operation_name(operation: PricingOperation) -> &'static str {
         PricingOperation::Evaluate => "evaluate",
         PricingOperation::Aad { .. } => "aad",
         PricingOperation::LocalVarianceRisk => "local_variance_risk",
+        PricingOperation::Measures(_) => "measures",
         _ => "unknown",
     }
 }
@@ -124,6 +125,10 @@ pub(crate) fn capability_reason(reason: CapabilityReason) -> &'static str {
         CapabilityReason::ReverseTraceRequired => "reverse_trace_required",
         CapabilityReason::InvalidGammaBump => "invalid_gamma_bump",
         CapabilityReason::InvalidSource => "invalid_source",
+        CapabilityReason::NoNativeEstimator => "no_native_estimator",
+        CapabilityReason::AmbiguousRiskSelection => "ambiguous_risk_selection",
+        CapabilityReason::BumpCalibrationMismatch => "bump_calibration_mismatch",
+        CapabilityReason::FixedCalibrationUnavailable => "fixed_calibration_unavailable",
         _ => "unknown",
     }
 }
@@ -320,6 +325,7 @@ fn classify<'a>(error: &'a (dyn Error + 'static)) -> Classification<'a> {
             E::ZeroWorkerThreads | E::ThreadCountUnsupported { .. } => {
                 ("invalid_execution_policy", Some("worker_threads"), None)
             }
+            E::TooManyWorkerThreads { .. } => ("resource_limit", Some("worker_threads"), None),
             E::ZeroReductionBlockSize => (
                 "invalid_execution_policy",
                 Some("reduction_block_size"),

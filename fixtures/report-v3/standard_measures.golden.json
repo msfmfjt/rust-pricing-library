@@ -1,0 +1,156 @@
+{
+  "document_kind": "valuation_report",
+  "schema_version": 3,
+  "task_fingerprint": "blake3-256:6d50c4aba82d09b721a73d54a77793d405d873f2b714e8aa22a4de03b738432a",
+  "plan_fingerprint": "blake3-256:2744c17b402d7a87bf691860a15f52e27b93c7c6a5ee06c06335f46cf8705955",
+  "library_version": "0.1.0",
+  "platform": "aarch64-macos",
+  "currency_id": 2,
+  "value": 10.971075859578747,
+  "standard_error": 1.2277365289907616,
+  "estimator": {
+    "type": "pseudo_monte_carlo"
+  },
+  "independent_sampling_units": 64,
+  "evaluated_paths": "128",
+  "uncertainty_scope": "pricing_sampling",
+  "calibration_seeds": [],
+  "calibration_diagnostics": [],
+  "risks": [
+    {
+      "name": "delta.raw",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [],
+      "values": [
+        0.5921326335957875
+      ],
+      "standard_errors": [
+        0.013508450401114291
+      ],
+      "unit": "currency_per_spot",
+      "method": "aad_reverse",
+      "calibration": "not_applicable",
+      "convention": "smile=StickyLogMoneyness; exercise_strategy=None; stopping_indices=None; gamma_spot_bump=Some(1.0); bump_policy_version=1",
+      "measure": "spot_delta",
+      "method_detail": {
+        "type": "native"
+      }
+    },
+    {
+      "name": "delta.market_scaled",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [],
+      "values": [
+        0.5921326335957875
+      ],
+      "standard_errors": [
+        0.013508450401114291
+      ],
+      "unit": "currency_per_one_percent_spot",
+      "method": "aad_reverse",
+      "calibration": "not_applicable",
+      "convention": "smile=StickyLogMoneyness; exercise_strategy=None; stopping_indices=None; gamma_spot_bump=Some(1.0); bump_policy_version=1",
+      "measure": "spot_delta",
+      "method_detail": {
+        "type": "native"
+      }
+    },
+    {
+      "name": "gamma.raw",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [],
+      "values": [
+        0.011107542646714368
+      ],
+      "standard_errors": [
+        0.006310352255879523
+      ],
+      "unit": "currency_per_spot_squared",
+      "method": "central_bump_of_aad_delta",
+      "calibration": "not_applicable",
+      "convention": "smile=StickyLogMoneyness; exercise_strategy=None; stopping_indices=None; gamma_spot_bump=Some(1.0); bump_policy_version=1",
+      "measure": "spot_gamma",
+      "method_detail": {
+        "type": "native_spot_bump",
+        "bump": {
+          "type": "relative",
+          "value": 0.01
+        }
+      }
+    },
+    {
+      "name": "gamma.market_scaled",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [],
+      "values": [
+        0.011107542646714368
+      ],
+      "standard_errors": [
+        0.006310352255879523
+      ],
+      "unit": "currency_per_one_percent_spot_squared",
+      "method": "central_bump_of_aad_delta",
+      "calibration": "not_applicable",
+      "convention": "smile=StickyLogMoneyness; exercise_strategy=None; stopping_indices=None; gamma_spot_bump=Some(1.0); bump_policy_version=1",
+      "measure": "spot_gamma",
+      "method_detail": {
+        "type": "native_spot_bump",
+        "bump": {
+          "type": "relative",
+          "value": 0.01
+        }
+      }
+    },
+    {
+      "name": "vega.raw",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [],
+      "values": [
+        49.46482861840267
+      ],
+      "standard_errors": [
+        7.679687589653064
+      ],
+      "unit": "currency_per_unit_volatility",
+      "method": "aad_reverse",
+      "calibration": "not_applicable",
+      "convention": "smile=StickyLogMoneyness; exercise_strategy=None; stopping_indices=None; gamma_spot_bump=Some(1.0); bump_policy_version=1",
+      "measure": "parallel_market_iv_vega",
+      "method_detail": {
+        "type": "native"
+      }
+    },
+    {
+      "name": "vega.market_scaled",
+      "underlying_ids": [
+        1
+      ],
+      "axes": [],
+      "values": [
+        0.49464828618402673
+      ],
+      "standard_errors": [
+        0.07679687589653064
+      ],
+      "unit": "currency_per_volatility_point",
+      "method": "aad_reverse",
+      "calibration": "not_applicable",
+      "convention": "smile=StickyLogMoneyness; exercise_strategy=None; stopping_indices=None; gamma_spot_bump=Some(1.0); bump_policy_version=1",
+      "measure": "parallel_market_iv_vega",
+      "method_detail": {
+        "type": "native"
+      }
+    }
+  ]
+}
+

@@ -1,5 +1,5 @@
 use crate::core::{CoreError, NonNegativeF64, PositiveF64};
-use crate::market::{ImpliedVarianceSurface, LocalVarianceGrid, MarketError};
+use crate::market::{ImpliedVarianceSurface, LocalVarianceGrid, MarketError, MarketIvSurface};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BlackScholesSpec {
@@ -129,6 +129,66 @@ impl LocalVolatilitySpec {
     pub fn with_reporting_iv_basis(mut self, basis: LocalVolatilityReportingBasis) -> Self {
         self.reporting_iv_basis = Some(basis);
         self
+    }
+
+    /// The market-IV surface the reporting basis describes, accepted only
+    /// when that surface's strict Dupire construction on this target's axes,
+    /// floor and cap reproduces the target bit for bit, away from its bounds.
+    /// Then a move of the market IVs is a move of this target.
+    pub(crate) fn market_iv_source(&self) -> Result<MarketIvSurface, String> {
+        let basis = self
+            .reporting_iv_basis
+            .as_ref()
+            .ok_or("the local-variance target retains no reporting IV basis")?;
+        let surface = MarketIvSurface::new(
+            basis.maturity_nodes().to_vec(),
+            basis.log_forward_moneyness_nodes().to_vec(),
+            basis.implied_volatilities().to_vec(),
+        )
+        .map_err(|e| format!("the reporting IV basis is not a market-IV surface: {e}"))?;
+        surface
+            .validate_local_variance_source(&self.local_variance_grid)
+            .map_err(|e| {
+                format!("the reporting IV basis does not reproduce the local-variance target: {e}")
+            })?;
+        Ok(surface)
+    }
+
+    /// This target with every reporting IV moved by `shift`, the grid rebuilt
+    /// from the moved surface on the same axes, floor and cap. Any floor or
+    /// cap repair is refused, as it would break the reproduction contract.
+    pub(crate) fn with_parallel_iv_shift(&self, shift: f64) -> Result<Self, String> {
+        let surface = self.market_iv_source()?;
+        let moved = surface
+            .implied_volatilities()
+            .iter()
+            .map(|v| v + shift)
+            .collect::<Vec<_>>();
+        let grid = &self.local_variance_grid;
+        let moved_surface = MarketIvSurface::new(
+            surface.maturity_nodes().to_vec(),
+            surface.log_moneyness_nodes().to_vec(),
+            moved.clone(),
+        )
+        .map_err(|e| format!("the moved IV surface is invalid: {e}"))?;
+        let local_variance_grid = moved_surface
+            .local_variance_grid(
+                grid.time_nodes().to_vec(),
+                grid.log_moneyness_nodes().to_vec(),
+                grid.floor(),
+                grid.cap(),
+            )
+            .map_err(|e| format!("the moved IV surface has no strict Dupire target: {e}"))?;
+        let basis = LocalVolatilityReportingBasis::new(
+            surface.maturity_nodes().to_vec(),
+            surface.log_moneyness_nodes().to_vec(),
+            moved,
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(Self {
+            local_variance_grid,
+            reporting_iv_basis: Some(basis),
+        })
     }
 }
 

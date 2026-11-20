@@ -17,7 +17,8 @@ pub use crate::engine::processes::rough_volatility::{
 };
 pub use crate::engine::risk::rough_volatility::{
     HestonMcParameterRisk, MixedBergomiMcParameterRisk, QuadraticHestonMcParameterRisk,
-    RoughHestonMcHurstRisk, RoughVolatilityDelta, RoughVolatilityGamma, RoughVolatilityPrice,
+    RoughHestonMcHurstRisk, RoughVolatilityDelta, RoughVolatilityGamma, RoughVolatilityMeasureRisk,
+    RoughVolatilityModelParameterRisk, RoughVolatilityParameterRisk, RoughVolatilityPrice,
     RoughVolatilityPricingPlan,
 };
 pub use crate::models::{
@@ -53,7 +54,8 @@ pub use crate::engine::calibration::lsv::{
 pub use crate::engine::risk::lsv::{
     HestonLsvParameterRisk, MixedBergomiLsvParameterRisk, QuadraticHestonLsvParameterRisk,
     RoughFamilyLsvDelta, RoughFamilyLsvDeltaConvention, RoughFamilyLsvGamma,
-    RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvPricingPlan,
+    RoughFamilyLsvMarketIvRisk, RoughFamilyLsvMarketIvRiskPlan, RoughFamilyLsvMeasureRisk,
+    RoughFamilyLsvModelParameterRisk, RoughFamilyLsvParameterRisk, RoughFamilyLsvPricingPlan,
 };
 
 /// Shared finite-bump Gamma report (not a second-order AAD result).

@@ -1,8 +1,9 @@
 //! A common report document has its own schema; legacy result v1-v3 are unchanged.
 use super::*;
 use crate::{
-    CalibrationKind, CalibrationMetric, CalibrationTreatment, DiagnosticUnit, ReportAxis,
-    ReportedCalibration, ReportedRisk, SensitivityUnit, UncertaintyScope, ValuationReport,
+    CalibrationKind, CalibrationMetric, CalibrationTreatment, DiagnosticUnit, MeasureKind,
+    MeasureMethod, ReportAxis, ReportedCalibration, ReportedRisk, SensitivityUnit,
+    UncertaintyScope, ValuationReport,
 };
 const KIND: &str = "valuation_report";
 macro_rules! wire_enum {
@@ -118,6 +119,50 @@ struct RiskV1 {
     method: String,
     calibration: CalibrationV1,
     convention: String,
+    /// Report v3 only, and always together.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    measure: Option<MeasureKindV3>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    method_detail: Option<MethodDetailV3>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    model_parameter: Option<specification::task::ModelParameterV3>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    correlation: Option<specification::task::CorrelationV3>,
+}
+wire_enum!(
+    MeasureKindV3,
+    MeasureKind,
+    [
+        Price,
+        SpotDelta,
+        SpotGamma,
+        ParallelMarketIvVega,
+        VegaKt,
+        ModelParameters,
+        Correlations,
+        DividendCash,
+        CrossGamma,
+        DiscountCurve
+    ]
+);
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum MethodDetailV3 {
+    Native {},
+    NativeSpotBump {
+        bump: SpotBumpV1,
+    },
+    NativeCalibrated {
+        calibration: specification::task::BumpCalibrationV3,
+    },
+    NativeSpotBumpCalibrated {
+        bump: SpotBumpV1,
+        calibration: specification::task::BumpCalibrationV3,
+    },
+    BumpAndRevalue {
+        size: SpotBumpV1,
+        calibration: specification::task::BumpCalibrationV3,
+    },
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -141,7 +186,8 @@ impl From<&ValuationReport> for ReportDocument {
     fn from(r: &ValuationReport) -> Self {
         Self {
             document_kind: KIND.into(),
-            schema_version: 2,
+            // Typed measures are the only content that requires version 3.
+            schema_version: if r.has_measures() { 3 } else { 2 },
             task_fingerprint: r.task_fingerprint().to_string(),
             plan_fingerprint: r.plan_fingerprint().into(),
             library_version: r.library_version().into(),
@@ -202,6 +248,32 @@ impl From<&ValuationReport> for ReportDocument {
                     method: v.method.clone(),
                     calibration: v.calibration.into(),
                     convention: v.convention.clone(),
+                    measure: v.measure.map(Into::into),
+                    model_parameter: v.model_parameter.map(Into::into),
+                    correlation: v.correlation.map(Into::into),
+                    method_detail: v.method_detail.map(|m| match m {
+                        MeasureMethod::Native => MethodDetailV3::Native {},
+                        MeasureMethod::NativeSpotBump { bump } => {
+                            MethodDetailV3::NativeSpotBump { bump: bump.into() }
+                        }
+                        MeasureMethod::NativeCalibrated { calibration } => {
+                            MethodDetailV3::NativeCalibrated {
+                                calibration: calibration.into(),
+                            }
+                        }
+                        MeasureMethod::NativeSpotBumpCalibrated { bump, calibration } => {
+                            MethodDetailV3::NativeSpotBumpCalibrated {
+                                bump: bump.into(),
+                                calibration: calibration.into(),
+                            }
+                        }
+                        MeasureMethod::BumpAndRevalue { size, calibration } => {
+                            MethodDetailV3::BumpAndRevalue {
+                                size: specification::task::bump_size_to_wire(size),
+                                calibration: calibration.into(),
+                            }
+                        }
+                    }),
                 })
                 .collect(),
             vega_kt: r.vega_kt().map(Into::into),
@@ -242,10 +314,20 @@ fn report_from_document(text: &str, header: Envelope) -> Result<ValuationReport,
             actual: header.document_kind,
         });
     }
-    if !matches!(header.schema_version, 1 | 2) {
+    if !matches!(header.schema_version, 1..=3) {
         return Err(WireError::UnsupportedSchemaVersion(header.schema_version));
     }
     let r: ReportDocument = serde_json::from_str(text).map_err(json)?;
+    if header.schema_version < 3
+        && r.risks
+            .iter()
+            .any(|v| v.measure.is_some() || v.method_detail.is_some())
+    {
+        return Err(WireError::DomainAt {
+            pointer: "/risks".into(),
+            message: "typed measures require report schema version 3".into(),
+        });
+    }
     if header.schema_version == 1 && r.calibration_diagnostics.is_some() {
         return Err(WireError::DomainAt {
             pointer: "/calibration_diagnostics".into(),
@@ -299,25 +381,62 @@ fn report_from_document(text: &str, header: Envelope) -> Result<ValuationReport,
         risks: r
             .risks
             .into_iter()
-            .map(|v| ReportedRisk {
-                name: v.name,
-                underlying_ids: v.underlying_ids,
-                axes: v
-                    .axes
-                    .into_iter()
-                    .map(|a| ReportAxis {
-                        name: a.name,
-                        values: a.values,
+            .enumerate()
+            .map(|(i, v)| {
+                let method_detail = v
+                    .method_detail
+                    .map(|m| match m {
+                        MethodDetailV3::Native {} => Ok(MeasureMethod::Native),
+                        MethodDetailV3::NativeSpotBump { bump } => spot_bump_from_wire(bump)
+                            .map(|bump| MeasureMethod::NativeSpotBump { bump })
+                            .map_err(|e| domain_at(format!("/risks/{i}/method_detail/bump"), e)),
+                        MethodDetailV3::NativeCalibrated { calibration } => {
+                            Ok(MeasureMethod::NativeCalibrated {
+                                calibration: calibration.into(),
+                            })
+                        }
+                        MethodDetailV3::NativeSpotBumpCalibrated { bump, calibration } => {
+                            spot_bump_from_wire(bump)
+                                .map(|bump| MeasureMethod::NativeSpotBumpCalibrated {
+                                    bump,
+                                    calibration: calibration.into(),
+                                })
+                                .map_err(|e| domain_at(format!("/risks/{i}/method_detail/bump"), e))
+                        }
+                        MethodDetailV3::BumpAndRevalue { size, calibration } => {
+                            specification::task::bump_size_from_wire(size)
+                                .map(|size| MeasureMethod::BumpAndRevalue {
+                                    size,
+                                    calibration: calibration.into(),
+                                })
+                                .map_err(|e| domain_at(format!("/risks/{i}/method_detail/size"), e))
+                        }
                     })
-                    .collect(),
-                values: v.values,
-                standard_errors: v.standard_errors,
-                unit: v.unit.into(),
-                method: v.method,
-                calibration: v.calibration.into(),
-                convention: v.convention,
+                    .transpose()?;
+                Ok(ReportedRisk {
+                    name: v.name,
+                    underlying_ids: v.underlying_ids,
+                    axes: v
+                        .axes
+                        .into_iter()
+                        .map(|a| ReportAxis {
+                            name: a.name,
+                            values: a.values,
+                        })
+                        .collect(),
+                    values: v.values,
+                    standard_errors: v.standard_errors,
+                    unit: v.unit.into(),
+                    method: v.method,
+                    calibration: v.calibration.into(),
+                    convention: v.convention,
+                    measure: v.measure.map(Into::into),
+                    method_detail,
+                    model_parameter: v.model_parameter.map(Into::into),
+                    correlation: v.correlation.map(Into::into),
+                })
             })
-            .collect(),
+            .collect::<Result<_, WireError>>()?,
         vega_kt: r
             .vega_kt
             .map(|v| vega_kt_from_wire(v, "/vega_kt"))
@@ -327,5 +446,5 @@ fn report_from_document(text: &str, header: Envelope) -> Result<ValuationReport,
     Ok(r)
 }
 pub fn current_valuation_report_schema() -> &'static str {
-    include_str!("../../../../schemas/report-v2/valuation_report.schema.json")
+    include_str!("../../../../schemas/report-v3/valuation_report.schema.json")
 }

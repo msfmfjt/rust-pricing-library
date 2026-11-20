@@ -17,7 +17,9 @@ def main():
     count = 0
     for kind, directory, filename in [('task', 'task-v1', 'pricing_task'),
                                       ('report', 'report-v1', 'valuation_report'),
-                                      ('report_v2', 'report-v2', 'valuation_report')]:
+                                      ('report_v2', 'report-v2', 'valuation_report'),
+                                      ('task_v3', 'task-v3', 'pricing_task'),
+                                      ('report_v3', 'report-v3', 'valuation_report')]:
         schema = json.loads((ROOT / f'schemas/{directory}/{filename}.schema.json').read_text())
         Draft202012Validator.check_schema(schema)
         validator = Draft202012Validator(schema, format_checker=FormatChecker())
@@ -83,6 +85,56 @@ def main():
         changed = copy.deepcopy(current)
         changed['calibration_diagnostics'][0]['metrics'][0]['unit'] = unit
         reject('report_v2', changed, ['calibration_diagnostics', 0, 'metrics', 0, 'values', 0], value)
+    # Measures: version 3 documents, and what the older versions still mean.
+    measured = json.loads((ROOT / 'fixtures/task-v3/standard_measures.golden.json').read_text())
+    typed = json.loads((ROOT / 'fixtures/report-v3/standard_measures.golden.json').read_text())
+    for folder in ('task-v1', 'task-v2'):
+        for fixture in sorted((ROOT / f'fixtures/{folder}').glob('*.json')):
+            validators['task_v3'].validate(json.loads(fixture.read_text()))
+            count += 1
+    older = Draft202012Validator(
+        json.loads((ROOT / 'schemas/task-v2/pricing_task.schema.json').read_text()),
+        format_checker=FormatChecker())
+    assert not older.is_valid(measured)
+    assert not validators['task'].is_valid(measured)
+    assert not validators['report_v2'].is_valid(typed)
+    for path, value in [
+        (['schema_version'], 2), (['schema_version'], 4),
+        (['operation', 'measures'], None),
+        (['operation', 'measures', 0, 'measure', 'type'], 'theta'),
+        (['operation', 'measures', 0, 'method'], {'type': 'bump_and_revalue'}),
+        (['operation', 'measures', 0, 'extra'], 1),
+        (['operation', 'measures', 2, 'method', 'bump', 'value'], 0),
+        (['operation', 'measures', 2, 'method'], {'type': 'native_spot_bump'}),
+        (['operation', 'gamma_relative_bump'], 0.01),
+        (['operation', 'measures', 1, 'method'],
+         {'type': 'bump_and_revalue', 'size': {'type': 'relative', 'value': 0.01}}),
+        (['operation', 'measures', 1, 'method'],
+         {'type': 'bump_and_revalue', 'size': {'type': 'relative', 'value': 0.01},
+          'calibration': 'implicit'}),
+    ]:
+        reject('task_v3', measured, path, value)
+    bumped = copy.deepcopy(measured)
+    bumped['operation']['measures'][1]['method'] = {
+        'type': 'bump_and_revalue', 'size': {'type': 'relative', 'value': 0.01},
+        'calibration': 'not_applicable'}
+    validators['task_v3'].validate(bumped)
+    for path, value in [
+        (['schema_version'], 2), (['risks', 0, 'measure'], 'theta'),
+        (['risks', 0, 'method_detail'], {'type': 'native', 'bump': 1}),
+        (['risks', 0, 'method_detail'], None),
+    ]:
+        reject('report_v3', typed, path, value)
+    for field in ('measure', 'method_detail'):
+        unpaired = copy.deepcopy(typed)
+        del unpaired['risks'][0][field]
+        assert not validators['report_v3'].is_valid(unpaired), f'report accepted a row without {field}'
+        rejected += 1
+    validators['report_v3'].validate(current)
+    untyped = copy.deepcopy(current)
+    untyped['schema_version'] = 3
+    validators['report_v3'].validate(untyped)
+    reject('report_v3', current, ['schema_version'], 1)
     migrated = copy.deepcopy(report)
     migrated['schema_version'] = 2
     validators['report_v2'].validate(migrated)

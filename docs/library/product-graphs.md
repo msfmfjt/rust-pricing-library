@@ -153,3 +153,8 @@ source data.
 Conformance covers [Rust](../../crates/pricing/tests/product_graph.rs),
 [Python](../../tests/python/test_product_graph.py), the wheel API contract and
 [offline schemas](../../scripts/check_product_graph_json_schema.py).
+
+Contract-generated lazy selection, exact comparisons, logarithms and exponentials
+use extended graph v2 / specification v3 / task v2 documents. Legacy sources
+retain their existing emitted versions and fingerprint domains. Current schema
+accessors include version guards for both forms; see [Contract MC integration](contracts.md#native-mc-compilation).

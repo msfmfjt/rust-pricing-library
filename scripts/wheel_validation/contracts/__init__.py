@@ -1,5 +1,5 @@
 """Assemble independently reviewed domains; never derive expectations from the stub."""
-from . import bass, core, dividends, heston, hull_white, multi_asset, rough, sources, vega_kt, volatility
+from . import contract, bass, core, dividends, heston, hull_white, multi_asset, rough, sources, vega_kt, volatility
 from .module import CONTRACT
 
 
@@ -20,7 +20,7 @@ def merge_classes(*domains):
     return merged
 
 
-CLASSES = merge_classes(core.CLASSES, sources.CLASSES, bass.CLASSES, multi_asset.CLASSES,
+CLASSES = merge_classes(contract.CLASSES, core.CLASSES, sources.CLASSES, bass.CLASSES, multi_asset.CLASSES,
                         dividends.CLASSES, heston.CLASSES, hull_white.CLASSES, rough.CLASSES,
                         volatility.CLASSES, vega_kt.CLASSES)
 if set(CLASSES) - set(CONTRACT['exports']):

@@ -3,6 +3,7 @@
 use std::error::Error;
 use std::fmt;
 
+use crate::black_price::{black_price, log_forward_over_strike};
 use crate::core::DayCountConvention;
 use crate::market::{AffineDividendCoordinate, DiscountCurve, MarketError};
 use crate::models::ModelSpec;
@@ -319,18 +320,15 @@ fn deterministic_forward_limit(inputs: BlackForwardOracleInputs) -> BlackScholes
 fn regular_formula(inputs: BlackScholesOracleInputs, forward: f64) -> BlackScholesOracleResult {
     let root_time = inputs.time.sqrt();
     let standard_deviation = inputs.volatility * root_time;
-    let d1 = (forward / inputs.strike).ln() / standard_deviation + 0.5 * standard_deviation;
-    let d2 = d1 - standard_deviation;
+    let log_fk = log_forward_over_strike(forward, inputs.strike);
+    let d1 = log_fk / standard_deviation + 0.5 * standard_deviation;
     let density = normal_density(d1);
-    let (undiscounted_price, delta_probability) = match inputs.side {
-        OptionSide::Call => (
-            forward * normal_cdf(d1) - inputs.strike * normal_cdf(d2),
-            normal_cdf(d1),
-        ),
-        OptionSide::Put => (
-            inputs.strike * normal_cdf(-d2) - forward * normal_cdf(-d1),
-            normal_cdf(d1) - 1.0,
-        ),
+    let call = inputs.side == OptionSide::Call;
+    let undiscounted_price = black_price(forward, inputs.strike, log_fk, standard_deviation, call);
+    let delta_probability = if call {
+        normal_cdf(d1)
+    } else {
+        -normal_cdf(-d1)
     };
     BlackScholesOracleResult {
         price: inputs.notional * inputs.discount * undiscounted_price,
@@ -343,17 +341,14 @@ fn regular_formula(inputs: BlackScholesOracleInputs, forward: f64) -> BlackSchol
 
 fn regular_forward_formula(inputs: BlackForwardOracleInputs) -> BlackScholesOracleResult {
     let std_dev = inputs.volatility * inputs.time.sqrt();
-    let d1 = ((inputs.forward / inputs.strike).ln() + 0.5 * std_dev * std_dev) / std_dev;
-    let d2 = d1 - std_dev;
-    let (side_sign, side_d1, side_d2) = match inputs.side {
-        OptionSide::Call => (1.0, d1, d2),
-        OptionSide::Put => (-1.0, -d1, -d2),
-    };
+    let log_fk = log_forward_over_strike(inputs.forward, inputs.strike);
+    let d1 = log_fk / std_dev + 0.5 * std_dev;
+    let call = inputs.side == OptionSide::Call;
     let price = inputs.notional
         * inputs.discount
-        * side_sign
-        * (inputs.forward * normal_cdf(side_d1) - inputs.strike * normal_cdf(side_d2));
-    let delta = inputs.notional * inputs.discount * side_sign * normal_cdf(side_d1);
+        * black_price(inputs.forward, inputs.strike, log_fk, std_dev, call);
+    let sign = if call { 1.0 } else { -1.0 };
+    let delta = inputs.notional * inputs.discount * sign * normal_cdf(sign * d1);
     let gamma = inputs.notional * inputs.discount * normal_density(d1) / (inputs.forward * std_dev);
     let vega = inputs.notional
         * inputs.discount

@@ -138,12 +138,12 @@ impl MultiAssetPricingPlan {
                 )?;
             }
         }
-        if self
-            .payoff
-            .opcodes()
-            .iter()
-            .any(|op| matches!(op, CompiledOpcode::Indicator { .. }))
-        {
+        if self.payoff.opcodes().iter().any(|op| {
+            matches!(
+                op,
+                CompiledOpcode::Indicator { .. } | crate::product::CompiledOpcode::Compare { .. }
+            )
+        }) {
             return Err(E::Invalid(
                 "AAD of discontinuous payoffs requires explicit smoothing",
             ));

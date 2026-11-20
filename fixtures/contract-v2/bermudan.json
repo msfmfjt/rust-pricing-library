@@ -1,0 +1,39 @@
+{
+  "document_kind": "contract",
+  "schema_version": 2,
+  "id": "bermudan",
+  "observations": [
+    {
+      "id": "bermudan/observation/0",
+      "underlying": 1,
+      "kind": "spot",
+      "date": "2027-09-04",
+      "fixing_source": "official.close"
+    },
+    {
+      "id": "bermudan/option/spot/2027-03-04",
+      "underlying": 1,
+      "kind": "spot",
+      "date": "2027-03-04",
+      "fixing_source": "official.close"
+    }
+  ],
+  "root": {
+    "type": "vanilla_option",
+    "option": {
+      "id": "bermudan/option",
+      "currency": 2,
+      "expiry_observation": "bermudan/observation/0",
+      "side": "call",
+      "strike": 90.0,
+      "notional": 2.0,
+      "feature": {
+        "type": "bermudan",
+        "dates": [
+          "2027-03-04",
+          "2027-09-04"
+        ]
+      }
+    }
+  }
+}

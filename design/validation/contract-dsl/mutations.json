@@ -1,0 +1,42 @@
+{
+  "scope": "six curated semantic mutants; not exhaustive",
+  "results": [
+    {
+      "name": "inclusive_comparison",
+      "status": "killed",
+      "seconds": 13.442,
+      "test": "contract_mc::contract_condition_comparisons"
+    },
+    {
+      "name": "payment_direction",
+      "status": "killed",
+      "seconds": 12.806,
+      "test": "contract_builders::swap_fixings"
+    },
+    {
+      "name": "event_idempotency",
+      "status": "killed",
+      "seconds": 12.27,
+      "test": "contract_lifecycle::replay_is_idempotent"
+    },
+    {
+      "name": "future_event_lookahead",
+      "status": "killed",
+      "seconds": 12.557,
+      "test": "contract_lifecycle::future_fixings"
+    },
+    {
+      "name": "nested_redemption_gate",
+      "status": "killed",
+      "seconds": 12.869,
+      "test": "contract_mc::early_redemption"
+    },
+    {
+      "name": "autocall_coupon_notional",
+      "status": "killed",
+      "seconds": 12.44,
+      "test": "contract_builders::autocall_cancels"
+    }
+  ],
+  "implementation_commit": "aafdcf2c2169ed007aedbb66d930ec9ec6049d1b"
+}

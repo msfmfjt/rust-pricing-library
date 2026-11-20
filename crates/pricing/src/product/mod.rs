@@ -8,11 +8,12 @@ mod smoothing;
 mod spec;
 
 pub use crate::engine::payoff::tape::{
-    CompiledOpcode, CompiledPayoff, PayoffEvaluation, PreDividendAdjoint, TerminalAdjoint,
+    CompiledOpcode, CompiledPayoff, PayoffEvaluation, PayoffWorkspace, PreDividendAdjoint,
+    TerminalAdjoint,
 };
 pub use crate::product::graph::{
-    GraphError, GraphFingerprint, GraphLimitPolicy, SourceGraph, SourceGraphBuilder, SourceNode,
-    SourceOpcode,
+    GraphComparison, GraphError, GraphFingerprint, GraphLimitPolicy, SourceGraph,
+    SourceGraphBuilder, SourceNode, SourceOpcode,
 };
 pub use graph_product::{GraphProduct, GraphProductError};
 pub use smoothing::{CompactC2Smoothing, SmoothingBinaryDerivatives, SmoothingDerivatives};

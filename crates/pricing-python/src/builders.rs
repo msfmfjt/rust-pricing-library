@@ -317,6 +317,50 @@ impl PyProduct {
         }
     }
 
+    /// Export the dated payoff at its source as-of for settlement or later replay.
+    #[pyo3(signature=(as_of, *, currency_id=None, payment_date=None))]
+    fn to_graph(
+        &self,
+        py: Python<'_>,
+        as_of: &Bound<'_, PyAny>,
+        currency_id: Option<u16>,
+        payment_date: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<crate::product_graph::PyGraphProduct> {
+        let path = "/product";
+        self.inner
+            .cashflow_graph(
+                date_from_python(py, as_of, path)?,
+                currency_id.map(CurrencyId::new),
+                payment_date
+                    .map(|p| date_from_python(py, p, path))
+                    .transpose()?,
+            )
+            .map(|inner| crate::product_graph::PyGraphProduct { inner })
+            .map_err(|e| domain_error(py, "invalid_cashflow_graph", path, e))
+    }
+
+    /// Confirm past lapses or an exercise on the original contractual schedule.
+    #[pyo3(signature = (as_of, *, lapsed_dates, exercised_on=None))]
+    fn after_exercise_history(
+        &self,
+        py: Python<'_>,
+        as_of: &Bound<'_, PyAny>,
+        lapsed_dates: &Bound<'_, PyAny>,
+        exercised_on: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let path = "/product/exercise_history";
+        self.inner
+            .after_exercise_history(
+                date_from_python(py, as_of, path)?,
+                &copied_date_array(py, lapsed_dates, path)?,
+                exercised_on
+                    .map(|d| date_from_python(py, d, path))
+                    .transpose()?,
+            )
+            .map(|inner| Self { inner })
+            .map_err(|e| domain_error(py, "invalid_exercise_history", path, e))
+    }
+
     /// Build a European vanilla call or put.
     #[staticmethod]
     fn european_vanilla(
@@ -1003,6 +1047,9 @@ impl PyLsmConfig {
             .iter()
             .map(|variable| match variable {
                 LsmStateVariable::Spot => "spot",
+                LsmStateVariable::FxSpot => "fx_spot",
+                LsmStateVariable::DomesticRateFactor => "domestic_rate_factor",
+                LsmStateVariable::ForeignRateFactor => "foreign_rate_factor",
             })
             .collect()
     }
@@ -1200,11 +1247,14 @@ fn lsm_state_variables_from_python(
         .enumerate()
         .map(|(index, name)| match name.as_str() {
             "spot" => Ok(LsmStateVariable::Spot),
+            "fx_spot" => Ok(LsmStateVariable::FxSpot),
+            "domestic_rate_factor" => Ok(LsmStateVariable::DomesticRateFactor),
+            "foreign_rate_factor" => Ok(LsmStateVariable::ForeignRateFactor),
             _ => Err(domain_error(
                 py,
                 "invalid_lsm_state_variable",
                 &format!("/lsm/state_variables/{index}"),
-                format!("expected 'spot', received {name:?}"),
+                format!("unknown exercise state variable {name:?}"),
             )),
         })
         .collect()
@@ -1241,7 +1291,7 @@ fn copied_date_array(
     Ok(dates)
 }
 
-fn vega_kt_from_python(
+pub(crate) fn vega_kt_from_python(
     py: Python<'_>,
     maturity_nodes: Option<&Bound<'_, PyAny>>,
     log_forward_moneyness_nodes: Option<&Bound<'_, PyAny>>,
@@ -1566,7 +1616,12 @@ fn smile_dynamics_from_str(py: Python<'_>, value: &str) -> PyResult<SmileDynamic
     }
 }
 
-fn domain_error(py: Python<'_>, code: &str, pointer: &str, error: impl ToString) -> PyErr {
+pub(crate) fn domain_error(
+    py: Python<'_>,
+    code: &str,
+    pointer: &str,
+    error: impl ToString,
+) -> PyErr {
     validation_exception(
         py,
         PyValidationIssue::domain(pointer, code, error.to_string()),

@@ -4,13 +4,14 @@ use super::calibration::{
     HestonCalibrationVariable,
 };
 use super::{FourierError, HestonFourierConfig};
+use crate::black_price::black_price;
 use crate::market::{ImpliedVarianceSurface, StandardSsvi};
 use crate::rough_volatility::RoughVolatilityModel;
 use pricing_numerics::least_squares::{
     LeastSquaresEvaluation, LeastSquaresOptions, LeastSquaresResult, LeastSquaresVariable,
     bounded_least_squares,
 };
-use pricing_numerics::{standard_normal_cdf, standard_normal_pdf};
+use pricing_numerics::standard_normal_pdf;
 
 // Explicit experimental numerical domain; no clipping or Vega floor is applied.
 const MAX_STDDEV: f64 = 8.0;
@@ -116,6 +117,17 @@ impl HestonIvCalibrationQuote {
     }
 }
 
+pub(crate) fn black_iv_and_vega(
+    f: f64,
+    k: f64,
+    d: f64,
+    t: f64,
+    is_call: bool,
+    price: f64,
+) -> Result<(f64, f64), FourierError> {
+    BlackCoordinates::new(f, k, d, t, is_call)?.invert(price)
+}
+
 /// One normalized OTM Black calculation, shared by call and put inversion.
 struct BlackCoordinates {
     ratio: f64,
@@ -153,11 +165,7 @@ impl BlackCoordinates {
         })
     }
     fn otm(&self, sd: f64) -> f64 {
-        if sd == 0.0 {
-            return 0.0;
-        }
-        let d1 = self.log_ratio / sd + 0.5 * sd;
-        self.ratio * standard_normal_cdf(d1) - standard_normal_cdf(d1 - sd)
+        black_price(self.ratio, 1.0, self.log_ratio, sd, true)
     }
     fn invert(&self, price: f64) -> Result<(f64, f64), FourierError> {
         let value = price / self.scale - self.intrinsic;

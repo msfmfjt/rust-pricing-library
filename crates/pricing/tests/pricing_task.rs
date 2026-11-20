@@ -524,7 +524,7 @@ fn strict_task_and_report_readers_reject_corruption() {
         ("/source/markets/1/underlying_id", json!(77)),
         ("/source/extra", json!(true)),
         ("/operation/type", json!("delta")),
-        ("/schema_version", json!(2)),
+        ("/schema_version", json!(99)),
     ] {
         let mut v = original.clone();
         if pointer == "/source/extra" {

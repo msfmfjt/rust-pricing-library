@@ -16,6 +16,7 @@ which pricing entry points accept each product family.
 | Product | Contract reference | Example |
 | --- | --- | --- |
 | European vanilla | [European diagnostics](../models/european-bs-diagnostics.md) | [European Black–Scholes](../../examples/python/european_bs.py) |
+| Foreign equity option | [Quanto and FX-linked settlement](../models/cross-currency-equity.md) | [USD equity settled in JPY](../../examples/python/cross_currency_equity.py) |
 | Digital | [Path-dependence calculation specifications](../library/path-dependence-calculation-specifications.md) | [Path dependence](../../examples/python/path_dependence.py) |
 | Barrier | [Path-dependence calculation specifications](../library/path-dependence-calculation-specifications.md) | [Path dependence](../../examples/python/path_dependence.py) |
 | Arithmetic Asian | [Path-dependence calculation specifications](../library/path-dependence-calculation-specifications.md) | [Path dependence](../../examples/python/path_dependence.py) |

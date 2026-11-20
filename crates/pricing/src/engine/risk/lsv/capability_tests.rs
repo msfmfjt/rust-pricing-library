@@ -97,6 +97,7 @@ fn price_only_core_needs_no_recording_or_reverse_implementation() {
             policy: c.policy,
             risk_supported: c.risk_supported,
             fingerprint: c.fingerprint,
+            initial_f: c.initial_f,
         };
         assert_eq!(price_only.evaluate().unwrap(), expected);
     }

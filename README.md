@@ -43,6 +43,7 @@ stable numerical-branch counts.
 | Complete model inputs, JSON replay and common compilation | [Pricing specifications](docs/library/pricing-specification.md) |
 | Capability queries, common risk reports and complete basket/dividend replay | [Pricing tasks](docs/library/pricing-tasks.md) |
 | Custom payoffs and cash-flow source replay | [Product graphs](docs/library/product-graphs.md) |
+| Multi-currency equity and autocall valuation, lifecycle, quote risk and hedging | [Cross-currency equity](docs/models/cross-currency-equity.md) |
 | Supported financial products | [Product reference](docs/products/README.md) |
 | Models, calibration, simulation and risk conventions | [Model reference](docs/models/README.md) |
 | Requirements, architecture, ADRs, roadmaps and acceptance evidence | [Design and development records](design/README.md) |
@@ -204,6 +205,25 @@ entry points retain their existing public paths. The former seven financial
 subcrates are removed; direct users must follow the
 [three-crate migration guide](docs/library/three-crate-migration.md).
 
+### Stochastic discrete cash dividends
+
+Dedicated Rust `StochasticDividendPricingPlan` and Python `StochasticDividendPlan`
+entry points support Buehler cash dividends with BS, 1F/2F Bergomi or rough
+Bergomi at deterministic rates. The separate Rust
+`StochasticDividendHullWhitePricingPlan` and Python `StochasticDividendHullWhitePlan`
+combine constant residual-equity volatility with Hull–White rates.
+
+These plans expose opt-in first-order AAD and finite-bump Spot Gamma; constructors
+still require price-only request flags. See the
+[stochastic-dividend models and limits](docs/models/stochastic-dividends.md),
+[Hull–White model and risk scopes](docs/models/stochastic-dividends-hull-white.md),
+and [Hull–White risk example](examples/python/stochastic_dividend_hull_white_risk.py).
+Cash inputs are Q means. Market-IV calibration, VegaKT, LSV and stochastic-volatility
+plus Hull–White composition are not available for these stochastic-dividend plans.
+
+Experimental [Heston IV calibration and SSVI targets](docs/models/heston-iv-calibration.md)
+provide a separate Black-IV objective with analytic Jacobians.
+
 ## Development
 
 The repository pins Rust 1.98.1. After installing [rustup](https://rustup.rs/), run the
@@ -324,29 +344,6 @@ The MVP support targets are:
 - Windows x86-64 using MSVC (`x86_64-pc-windows-msvc`)
 
 Linux CI is retained as a fast development signal but is not an MVP distribution commitment.
-
-## License
-
-No license has been selected yet. Publication of this repository does not itself grant a license to use, modify, or redistribute the code.
-
-### Stochastic discrete cash dividends
-
-Dedicated Rust `StochasticDividendPricingPlan` and Python `StochasticDividendPlan`
-entry points support Buehler cash dividends with BS, 1F/2F Bergomi or rough
-Bergomi at deterministic rates. The separate Rust
-`StochasticDividendHullWhitePricingPlan` and Python `StochasticDividendHullWhitePlan`
-combine constant residual-equity volatility with Hull–White rates.
-
-These plans expose opt-in first-order AAD and finite-bump Spot Gamma; constructors
-still require price-only request flags. See the
-[stochastic-dividend models and limits](docs/models/stochastic-dividends.md),
-[Hull–White model and risk scopes](docs/models/stochastic-dividends-hull-white.md),
-and [Hull–White risk example](examples/python/stochastic_dividend_hull_white_risk.py).
-Cash inputs are Q means. Market-IV calibration, VegaKT, LSV and stochastic-volatility
-plus Hull–White composition are not available for these stochastic-dividend plans.
-
-Experimental [Heston IV calibration and SSVI targets](docs/models/heston-iv-calibration.md)
-provide a separate Black-IV objective with analytic Jacobians.
 
 ## License
 

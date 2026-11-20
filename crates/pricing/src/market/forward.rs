@@ -109,6 +109,23 @@ impl EquityForward {
         })
     }
 
+    pub(crate) fn with_curves(
+        &self,
+        discount: Arc<LogLinearDiscountCurve>,
+        dividend: Arc<LogLinearDiscountCurve>,
+    ) -> Result<Self, MarketError> {
+        match self.discrete_dividends() {
+            Some(d) => Self::with_discrete_dividends(
+                self.underlying,
+                self.spot,
+                discount,
+                dividend,
+                d.quoted_events()?,
+            ),
+            None => Ok(Self::new(self.underlying, self.spot, discount, dividend)),
+        }
+    }
+
     pub fn evaluate(&self, time: f64) -> Result<ForwardEvaluation, MarketError> {
         let discount = self.discount_curve.evaluate(time)?;
         let dividend = self.dividend_curve.evaluate(time)?;

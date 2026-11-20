@@ -1421,7 +1421,7 @@ fn json_limits_have_stable_default_and_hard_cap_values() {
         JsonLimits::HARD_CAP,
         JsonLimits {
             max_input_bytes: 64 * 1024 * 1024,
-            max_nesting_depth: 256,
+            max_nesting_depth: 127,
             max_string_bytes: 16 * 1024 * 1024,
             max_number_token_bytes: 1024,
             max_array_elements: 2_000_000,
@@ -1430,6 +1430,25 @@ fn json_limits_have_stable_default_and_hard_cap_values() {
         }
     );
     assert_eq!(JsonLimits::default(), JsonLimits::DEFAULT);
+}
+
+#[test]
+fn hard_cap_nesting_depth_is_reachable_and_reported_as_a_limit() {
+    let nested = |depth: usize| format!("{}{}", "[".repeat(depth), "]".repeat(depth));
+    let hard = JsonLimits::HARD_CAP;
+    let deepest = nested(hard.max_nesting_depth);
+    assert_eq!(
+        validate_and_decode(deepest.as_bytes(), hard),
+        Ok(deepest.as_str())
+    );
+    assert_eq!(
+        validate_and_decode(nested(hard.max_nesting_depth + 1).as_bytes(), hard),
+        Err(WireError::ResourceLimit {
+            name: "nesting_depth",
+            observed: hard.max_nesting_depth + 1,
+            limit: hard.max_nesting_depth,
+        })
+    );
 }
 
 #[test]

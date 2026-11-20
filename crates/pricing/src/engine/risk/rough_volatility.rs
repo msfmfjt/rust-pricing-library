@@ -19,8 +19,16 @@ pub use hurst::RoughHestonMcHurstRisk;
 mod delta;
 pub use delta::RoughVolatilityDelta;
 
+mod measure;
+pub(crate) use measure::native_name;
+pub use measure::{
+    RoughVolatilityMeasureRisk, RoughVolatilityModelParameterRisk, RoughVolatilityParameterRisk,
+};
+
 use crate::core::DayCountConvention;
-use crate::engine::processes::rough_volatility::RoughVolatilityPathPlan;
+use crate::engine::processes::rough_volatility::{
+    HESTON_MC_PARAMETER_NAMES, RoughVolatilityPathPlan,
+};
 use crate::hull_white::HullWhitePrice;
 use crate::mc::{
     BrownianBridgePlan, DeterministicExecutor, DeterministicStatistics, EngineConfig,

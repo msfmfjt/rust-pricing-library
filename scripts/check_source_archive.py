@@ -14,6 +14,36 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = {
+    ".github/workflows/contract-dsl.yml",
+    "crates/pricing/src/contract/builders.rs",
+    "crates/pricing-python/src/contract.rs",
+    "crates/pricing/tests/contract_builders.rs",
+    "tests/python/test_contracts.py",
+    "examples/python/contracts.py",
+    "crates/pricing/examples/benchmark_contract.rs",
+    "scripts/check_contract_mutations.py",
+    "scripts/wheel_validation/contracts/contract.py",
+    "crates/pricing/src/engine/payoff/contract.rs",
+    "crates/pricing/src/engine/payoff/program.rs",
+    "crates/pricing/tests/contract_mc.rs",
+    "schemas/product-graph-v2/product_graph.schema.json",
+    "schemas/specification-v3/pricing_specification.schema.json",
+    "schemas/task-v2/pricing_task.schema.json",
+    "scripts/check_contract_mc_json_schema.py",
+    "crates/pricing/src/contract/lifecycle.rs",
+    "crates/pricing/tests/contract_lifecycle.rs",
+    "crates/pricing/src/contract/mod.rs",
+    "crates/pricing/src/contract/expression.rs",
+    "crates/pricing/src/contract/source.rs",
+    "crates/pricing/src/contract/wire.rs",
+    "crates/pricing/tests/contract_source.rs",
+    "schemas/contract-v1/contract.schema.json",
+    "schemas/contract-v2/contract.schema.json",
+    "crates/pricing/tests/contract_advanced.rs",
+    "tests/python/test_contract_advanced.py",
+    "crates/pricing/examples/benchmark_contract_advanced.rs",
+    "docs/library/contracts.md",
+    "design/adr/0041-contract-lifecycle-mc.md",
     ".github/workflows/native-memory-diagnostic.yml",
     "scripts/native_memory_diagnostic.py",
     "scripts/test_native_memory_diagnostic.py",
@@ -162,6 +192,18 @@ REQUIRED_FILES = {
     "fixtures/task-v1/stochastic_dividend_hw.golden.json",
     "fixtures/task-v1/stochastic_dividend_lsv.golden.json",
     "fixtures/report-v1/multi_asset_joint.golden.json",
+    "crates/pricing/src/api/measure.rs",
+    "crates/pricing/src/engine/risk/measure_backend.rs",
+    "crates/pricing-python/src/measures.rs",
+    "crates/pricing/tests/operation_matrix.rs",
+    "crates/pricing/tests/pricing_measures.rs",
+    "crates/pricing/src/engine/risk/bump.rs",
+    "crates/pricing/tests/pricing_bump.rs",
+    "schemas/task-v3/pricing_task.schema.json",
+    "schemas/report-v3/valuation_report.schema.json",
+    "fixtures/task-v3/standard_measures.golden.json",
+    "fixtures/report-v3/standard_measures.golden.json",
+    "design/adr/0043-measure-oriented-analysis-facade.md",
 
     "crates/pricing/src/product/graph_product.rs",
     "crates/pricing/src/wire/product_graph.rs",
@@ -1029,6 +1071,18 @@ REQUIRED_FILES = {
     "CONTRIBUTING.md",
     "rust-toolchain.toml",
     "rustfmt.toml",
+    "verification/lean/.gitignore",
+    "verification/lean/MirCheck.lean",
+    "verification/lean/PricingAudit.lean",
+    "verification/lean/README.md",
+    "verification/lean/contracts.tsv",
+    "verification/lean/lake-manifest.json",
+    "verification/lean/lakefile.toml",
+    "verification/lean/lean-toolchain",
+    "verification/lean/rust-probes/Cargo.lock",
+    "verification/lean/rust-probes/Cargo.toml",
+    "verification/lean/tools/black-reference.tsv",
+    "verification/lean/results/repair-index-guards.tsv.gz",
     "pyproject.toml",
     ".github/dependabot.yml",
     ".github/workflows/ci.yml",
@@ -1324,7 +1378,7 @@ REQUIRED_WHEEL_CI_JOB_SNIPPETS = {
         "if: always()",
     ),
     "rough-dividend-smoothing": (
-        "timeout-minutes: ${{ matrix.os == 'windows-2025' && 30 || 20 }}",
+        "timeout-minutes: ${{ matrix.os == 'macos-15' && 40 || (matrix.os == 'windows-2025' && 30 || 20) }}",
     ),
 }
 
@@ -1699,6 +1753,7 @@ REQUIRED_LOCAL_VOL_DIAGNOSTICS_SNIPPETS = {
 
 FORBIDDEN_PARTS = {
     ".git",
+    ".lake",
     "target",
     "dist",
     "wheelhouse",
@@ -1723,10 +1778,12 @@ FORBIDDEN_SUFFIXES = {
 TEXT_SOURCE_SUFFIXES = {
     ".csv",
     ".json",
+    ".lean",
     ".md",
     ".py",
     ".rs",
     ".toml",
+    ".tsv",
     ".txt",
     ".yaml",
     ".yml",
@@ -1734,6 +1791,7 @@ TEXT_SOURCE_SUFFIXES = {
 TEXT_SOURCE_NAMES = {
     ".gitattributes",
     ".gitignore",
+    "lean-toolchain",
 }
 
 JOE_KUO_DIRECTION_DATA = "crates/pricing/data/joe-kuo-6.21201-u32be.bin"
@@ -1906,6 +1964,11 @@ def repository_source_files() -> set[str]:
         ("schemas", "*.json"),
         ("tests/python", "*.py"),
         ("scripts", "*.py"),
+        ("verification/lean/PricingAudit", "*.lean"),
+        ("verification/lean/rust-probes/src", "*.rs"),
+        ("verification/lean/tools", "*.py"),
+        ("verification/lean/results", "*.json"),
+        ("verification/lean/results", "*.tsv"),
     ]
     files: set[str] = set()
     for root, pattern in patterns:

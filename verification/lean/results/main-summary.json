@@ -1,0 +1,397 @@
+{
+  "previous_tail_contracts": [
+    "x=0.99999997019767761, H=1.00000000000000044 (0x3ff0000000000002), safety=-4.440892098500626e-16, log(safety)=NaN",
+    "volatility=0, endpoint price=Err(ResultBuild(Core(NonFiniteNumber { field: \"estimate_value\", bits: 18444492273895866368 })))",
+    "volatility=0.2, endpoint price=Err(ResultBuild(Core(NonFiniteNumber { field: \"estimate_value\", bits: 18444492273895866368 })))",
+    "cash=64, F=7.105427357601002e-15, pre=64, post from coordinate=3.552713678800501e-15, validator=Err(NonPositivePostDividendSpot { underlying: UnderlyingId(1), event: EventId(1), path: PathIndex(0), pre_spot_bits: 4634204016564240384, alpha_bits: 4602678819172646912, beta_bits: 0, fixed_cash_bits: 4634204016564240384, post_spot_bits: 0 })",
+    "Tail contract discrepancies: 2"
+  ],
+  "source_revision": "2fadb7352972ade46b42ed8cdc87a3a38bcf1a86",
+  "date_utc": "2026-11-19",
+  "stages": {
+    "lean": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "mir": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "mir-unit": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "python": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "schema": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "risk": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "philox": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "fields": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "catalog": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "native-debug": {
+      "exit_code": 1,
+      "counterexamples": 3,
+      "status": "counterexample"
+    },
+    "native-release": {
+      "exit_code": 1,
+      "counterexamples": 3,
+      "status": "counterexample"
+    }
+  },
+  "results": {
+    "mir": {
+      "pricing-numerics": {
+        "body_kinds": {
+          "function": 149,
+          "constant_or_static": 14,
+          "ctfe_function": 16
+        },
+        "blocks": 1300,
+        "edges": 1728,
+        "event_sites": {
+          "return": 179,
+          "index_bounds": 12,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 82,
+          "pointer_alignment": 1,
+          "null_pointer": 1
+        },
+        "entry_reaches": {
+          "return": 179,
+          "index_bounds": 6,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 13,
+          "pointer_alignment": 1,
+          "null_pointer": 1
+        },
+        "kernel_obligations": {
+          "bounds": 780,
+          "ranks": 308
+        }
+      },
+      "pricing": {
+        "body_kinds": {
+          "function": 11777,
+          "ctfe_function": 865,
+          "constant_or_static": 2059
+        },
+        "blocks": 191138,
+        "edges": 290459,
+        "event_sites": {
+          "return": 14697,
+          "index_bounds": 3476,
+          "integer_zero_divisor": 56,
+          "integer_overflow": 3740,
+          "pointer_alignment": 480,
+          "null_pointer": 445
+        },
+        "entry_reaches": {
+          "return": 14697,
+          "index_bounds": 828,
+          "integer_zero_divisor": 28,
+          "integer_overflow": 847,
+          "pointer_alignment": 185,
+          "null_pointer": 162
+        },
+        "kernel_obligations": {
+          "bounds": 87444,
+          "ranks": 3505
+        }
+      },
+      "pricing-python": {
+        "body_kinds": {
+          "function": 6120,
+          "constant_or_static": 4124,
+          "ctfe_function": 17
+        },
+        "blocks": 60401,
+        "edges": 75306,
+        "event_sites": {
+          "return": 10261,
+          "index_bounds": 1315,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 10,
+          "pointer_alignment": 12,
+          "null_pointer": 12
+        },
+        "entry_reaches": {
+          "return": 10261,
+          "index_bounds": 277,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 5,
+          "pointer_alignment": 8,
+          "null_pointer": 8
+        },
+        "kernel_obligations": {
+          "bounds": 12706,
+          "ranks": 510
+        }
+      }
+    },
+    "mir-unit": {
+      "pricing-numerics": {
+        "body_kinds": {
+          "function": 199,
+          "constant_or_static": 73,
+          "ctfe_function": 16
+        },
+        "blocks": 2231,
+        "edges": 2837,
+        "event_sites": {
+          "return": 288,
+          "index_bounds": 30,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 90,
+          "pointer_alignment": 46,
+          "null_pointer": 46
+        },
+        "entry_reaches": {
+          "return": 288,
+          "index_bounds": 14,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 15,
+          "pointer_alignment": 12,
+          "null_pointer": 12
+        },
+        "kernel_obligations": {
+          "bounds": 1421,
+          "ranks": 417
+        }
+      },
+      "pricing": {
+        "body_kinds": {
+          "function": 13654,
+          "ctfe_function": 873,
+          "constant_or_static": 4146
+        },
+        "blocks": 242152,
+        "edges": 366100,
+        "event_sites": {
+          "return": 18667,
+          "index_bounds": 4362,
+          "integer_zero_divisor": 88,
+          "integer_overflow": 4113,
+          "pointer_alignment": 1184,
+          "null_pointer": 1139
+        },
+        "entry_reaches": {
+          "return": 18667,
+          "index_bounds": 1056,
+          "integer_zero_divisor": 49,
+          "integer_overflow": 968,
+          "pointer_alignment": 465,
+          "null_pointer": 437
+        },
+        "kernel_obligations": {
+          "bounds": 111989,
+          "ranks": 4325
+        }
+      },
+      "pricing-python": {
+        "body_kinds": {
+          "function": 6135,
+          "constant_or_static": 4150,
+          "ctfe_function": 17
+        },
+        "blocks": 60693,
+        "edges": 75677,
+        "event_sites": {
+          "return": 10302,
+          "index_bounds": 1315,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 10,
+          "pointer_alignment": 12,
+          "null_pointer": 12
+        },
+        "entry_reaches": {
+          "return": 10302,
+          "index_bounds": 277,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 5,
+          "pointer_alignment": 8,
+          "null_pointer": 8
+        },
+        "kernel_obligations": {
+          "bounds": 12835,
+          "ranks": 533
+        }
+      }
+    },
+    "python": {
+      "files": 41,
+      "code_objects": 577,
+      "instructions": 63303,
+      "entry_reaches": {
+        "return": 575,
+        "explicit_raise": 324,
+        "conditional_jump": 403,
+        "back_edge": 318,
+        "call": 508,
+        "exception_handler": 312
+      },
+      "kernel_obligations": {
+        "bounds": 50460,
+        "ranks": 6235
+      }
+    },
+    "schema": {
+      "documents": 43,
+      "unique_kernel_cases": 691,
+      "required_lists": 1778,
+      "closed_object_keys": 1519,
+      "reference_occurrences": 1638,
+      "disjoint_one_of": 215,
+      "enum_domains": 334,
+      "reference_key_groups": 44,
+      "document_ids": 1,
+      "reference_document_ids": 1
+    },
+    "risk": {
+      "scanned_json_files": 246,
+      "recorded_sweeps": 1484,
+      "distinct_kernel_cases": 1484,
+      "groups": {
+        "design/validation/escrowed-dividends-observations.json:risk_sweeps": {
+          "recorded_pass": 738
+        },
+        "design/validation/extended-model-risk-observations.json:initial_probe": {
+          "recorded_fail": 8
+        },
+        "design/validation/extended-model-risk-observations.json:sweeps": {
+          "recorded_pass": 738
+        }
+      }
+    },
+    "philox": {
+      "kernel_blocks": 180,
+      "native_words": 720,
+      "native_midpoints": 720
+    },
+    "fields": {
+      "eligible_getters": 193,
+      "kernel_cases": 193,
+      "source_files": 50
+    },
+    "catalog": {
+      "named_theorems": 117,
+      "rust_files": 412,
+      "python_files": 41,
+      "rust_source_declarations": 6251,
+      "python_source_declarations": 295,
+      "production_rust_files": 380,
+      "unit_rust_files": 412,
+      "compiled_rust_files": 412,
+      "uncompiled_rust_files": [],
+      "files_with_mapped_contracts": 31,
+      "files_with_getter_contracts": 50,
+      "files_with_direct_or_mapped_contracts": 67,
+      "source_contract_links": 46,
+      "matched_source_variants": {
+        "quintic_binary64_tail": "Witness.rounded_safety"
+      }
+    }
+  },
+  "native_output": {
+    "debug": [
+      "Numeric wrappers: 20480 bit patterns, three public constructors each",
+      "IDs: all 65536 CurrencyId values and boundaries of the other six ID types",
+      "Gregorian public API: 3652059 valid dates checked",
+      "Black-76 Call sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true",
+      "Black-76 Put sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true",
+      "Black-76 Call sigma=8.673617379884035e-19 price=0.00000000000000000e0 bits=0000000000000000 positive=false",
+      "Black-76 Put sigma=8.673617379884035e-19 price=-0.00000000000000000e0 bits=8000000000000000 positive=false",
+      "Complex division x=1e0 re=1e0 im=0e0 reconstructed=true",
+      "Complex division x=1.7976931348623157e308 re=inf im=0e0 reconstructed=false",
+      "Disagreements with exact contracts: 3"
+    ],
+    "release": [
+      "Numeric wrappers: 20480 bit patterns, three public constructors each",
+      "IDs: all 65536 CurrencyId values and boundaries of the other six ID types",
+      "Gregorian public API: 3652059 valid dates checked",
+      "Black-76 Call sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true",
+      "Black-76 Put sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true",
+      "Black-76 Call sigma=8.673617379884035e-19 price=0.00000000000000000e0 bits=0000000000000000 positive=false",
+      "Black-76 Put sigma=8.673617379884035e-19 price=-0.00000000000000000e0 bits=8000000000000000 positive=false",
+      "Complex division x=1e0 re=1e0 im=0e0 reconstructed=true",
+      "Complex division x=1.7976931348623157e308 re=inf im=0e0 reconstructed=false",
+      "Disagreements with exact contracts: 3"
+    ]
+  },
+  "coverage_rows_different_from_pr_216": [
+    {
+      "source": "crates/pricing/src/engine/payoff/barrier.rs",
+      "sha256": "bcd3c2feb6918d849cbb3e8d5c173d2a999920d550c5bb09df7c953c8100ffa9",
+      "declared_functions": "21",
+      "rust_production": "1",
+      "rust_unit": "1",
+      "python_bytecode": "0",
+      "scalar_getter_proofs": "0",
+      "specific_contracts": "Barrier.survival_product"
+    },
+    {
+      "source": "crates/pricing/src/engine/payoff/barrier_bridge.rs",
+      "sha256": "850da48c37ef5d4c7c4f09a396a085f432209e4e670ace1a45e5daac2cda9c5c",
+      "declared_functions": "43",
+      "rust_production": "1",
+      "rust_unit": "1",
+      "python_bytecode": "0",
+      "scalar_getter_proofs": "5",
+      "specific_contracts": "Dynamics.bridge_survival_range"
+    },
+    {
+      "source": "crates/pricing/src/engine/plan/simulation.rs",
+      "sha256": "da7cc13b5633876c7c28ac61b391ccab2679fc066601da18ada102400e209489",
+      "declared_functions": "14",
+      "rust_production": "1",
+      "rust_unit": "1",
+      "python_bytecode": "0",
+      "scalar_getter_proofs": "4",
+      "specific_contracts": "-"
+    },
+    {
+      "source": "crates/pricing/src/market/dividend.rs",
+      "sha256": "5f0043778bf012f76393fa5f1cc9fe44d5fa03f921f78643ee542e7b240835c9",
+      "declared_functions": "61",
+      "rust_production": "1",
+      "rust_unit": "1",
+      "python_bytecode": "0",
+      "scalar_getter_proofs": "12",
+      "specific_contracts": "Dividends.funded_sweep_zero,Witness.dividend_routes_disagree"
+    },
+    {
+      "source": "crates/pricing/src/product/smoothing.rs",
+      "sha256": "c59ac0f7e682debba7203baa08b13533aa191eeb00b7bf9efb451b6d4e7c4cc7",
+      "declared_functions": "16",
+      "rust_production": "1",
+      "rust_unit": "1",
+      "python_bytecode": "0",
+      "scalar_getter_proofs": "0",
+      "specific_contracts": "Barrier.indicator_complement,Witness.rounded_safety,Repair.quintic_hasDerivAt"
+    }
+  ],
+  "coverage_paths_absent_from_main": [],
+  "previous_pr_216_witnesses": [
+    "x=0.99999997019767761, H=1.00000000000000044 (0x3ff0000000000002), safety=-4.440892098500626e-16, log(safety)=NaN",
+    "sigma=0: control=0.10715484619140619, witness=Err(ResultBuild(Core(NonFiniteNumber { field: \"estimate_value\", bits: 18444492273895866368 })))",
+    "sigma=0.2: control=0.00001969861482570, witness=Err(ResultBuild(Core(NonFiniteNumber { field: \"estimate_value\", bits: 18444492273895866368 })))",
+    "cash=64, F=7.105427357601002e-15, pre=64, post from coordinate=3.552713678800501e-15, validator=Err(NonPositivePostDividendSpot { underlying: UnderlyingId(1), event: EventId(1), path: PathIndex(0), pre_spot_bits: 4634204016564240384, alpha_bits: 4602678819172646912, beta_bits: 0, fixed_cash_bits: 4634204016564240384, post_spot_bits: 0 })"
+  ]
+}

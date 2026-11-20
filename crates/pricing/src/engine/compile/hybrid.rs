@@ -45,6 +45,16 @@ impl HybridLsvComposition<'_> {
 }
 
 impl CalibratedHybridLsv {
+    /// A calibration realized elsewhere, paired with its factor.
+    pub(crate) const fn from_parts(
+        factor: HybridVolatilityFactor,
+        calibration: CalibratedHullWhiteLsv,
+    ) -> Self {
+        Self {
+            factor,
+            calibration,
+        }
+    }
     /// The factor and leverage surface are selected together. In particular,
     /// retain the second volatility/rate correlation and the rough convention.
     pub fn into_parts(self) -> (HybridEquityVolatility, CalibratedHullWhiteLsv) {

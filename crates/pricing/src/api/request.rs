@@ -115,6 +115,13 @@ impl PricingRequest {
                         valuation_date,
                     });
                 }
+                if lsm
+                    .state_variables()
+                    .iter()
+                    .any(|s| *s != crate::mc::LsmStateVariable::Spot)
+                {
+                    return Err(crate::mc::LsmNumericalError::StateRequiresJointEquityFx.into());
+                }
                 lsm.validate_independent_from(engine)?;
             }
             (ProductSpec::AmericanVanilla(_), None) => {

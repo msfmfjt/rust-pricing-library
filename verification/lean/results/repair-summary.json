@@ -1,0 +1,1792 @@
+{
+  "source_revision": "0764ddcb6d957d60b4b6b6f9dab2e3125beb4a7c",
+  "proof_revision": "ccddc2ed314b32bcebf890eebd9b366040f1ba4f",
+  "date_utc": "2026-11-20",
+  "crates_tree": "8333b48083e6b2169cd38a0f51e2de00cef08acd",
+  "lean_sources_tree": "d7ce329e5c75ed893990e1db85fbb1ecf4b4ff5d",
+  "verification_tools_tree": "2ed0dfa4d5e20d3eec317efc907e84d480ea7fd4",
+  "proof_manifest_blob": "2cd900ad96948a6d347eca759b51ef080ba8a5e8",
+  "contract_map_blob": "d74d0eec69675931bd746ece4d8941745aa84da5",
+  "versions": {
+    "lean": "4.19.0",
+    "mathlib": "c44e0c8ee63ca166450922a373c7409c5d26b00b",
+    "rustc": "1.98.1 (48a229cea)",
+    "cpython": "3.12.14",
+    "target": "x86_64-unknown-linux-gnu"
+  },
+  "stages": {
+    "lean": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "mir": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "mir-unit": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "index-guards": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "python": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "schema": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "risk": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "philox": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "fields": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "catalog": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "numerical-oracles": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "native-debug": {
+      "exit_code": 0,
+      "counterexamples": 0,
+      "status": "passed"
+    },
+    "native-release": {
+      "exit_code": 0,
+      "counterexamples": 0,
+      "status": "passed"
+    }
+  },
+  "results": {
+    "mir": {
+      "pricing-numerics": {
+        "body_kinds": {
+          "function": 159,
+          "constant_or_static": 15,
+          "ctfe_function": 17
+        },
+        "blocks": 1415,
+        "edges": 1852,
+        "event_sites": {
+          "return": 191,
+          "index_bounds": 12,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 98,
+          "pointer_alignment": 1,
+          "null_pointer": 1
+        },
+        "entry_reaches": {
+          "return": 191,
+          "index_bounds": 6,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 20,
+          "pointer_alignment": 1,
+          "null_pointer": 1
+        },
+        "kernel_obligations": {
+          "bounds": 839,
+          "ranks": 319
+        }
+      },
+      "pricing": {
+        "body_kinds": {
+          "function": 11784,
+          "ctfe_function": 865,
+          "constant_or_static": 2061
+        },
+        "blocks": 191193,
+        "edges": 290520,
+        "event_sites": {
+          "return": 14706,
+          "index_bounds": 3476,
+          "integer_zero_divisor": 56,
+          "integer_overflow": 3740,
+          "pointer_alignment": 480,
+          "null_pointer": 445
+        },
+        "entry_reaches": {
+          "return": 14706,
+          "index_bounds": 828,
+          "integer_zero_divisor": 28,
+          "integer_overflow": 847,
+          "pointer_alignment": 185,
+          "null_pointer": 162
+        },
+        "kernel_obligations": {
+          "bounds": 87447,
+          "ranks": 3505
+        }
+      },
+      "pricing-python": {
+        "body_kinds": {
+          "function": 6120,
+          "constant_or_static": 4124,
+          "ctfe_function": 17
+        },
+        "blocks": 60401,
+        "edges": 75306,
+        "event_sites": {
+          "return": 10261,
+          "index_bounds": 1315,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 10,
+          "pointer_alignment": 12,
+          "null_pointer": 12
+        },
+        "entry_reaches": {
+          "return": 10261,
+          "index_bounds": 277,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 5,
+          "pointer_alignment": 8,
+          "null_pointer": 8
+        },
+        "kernel_obligations": {
+          "bounds": 12706,
+          "ranks": 510
+        }
+      }
+    },
+    "mir-unit": {
+      "pricing-numerics": {
+        "body_kinds": {
+          "function": 211,
+          "constant_or_static": 75,
+          "ctfe_function": 17
+        },
+        "blocks": 2394,
+        "edges": 3013,
+        "event_sites": {
+          "return": 303,
+          "index_bounds": 30,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 106,
+          "pointer_alignment": 46,
+          "null_pointer": 46
+        },
+        "entry_reaches": {
+          "return": 303,
+          "index_bounds": 14,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 22,
+          "pointer_alignment": 12,
+          "null_pointer": 12
+        },
+        "kernel_obligations": {
+          "bounds": 1511,
+          "ranks": 426
+        }
+      },
+      "pricing": {
+        "body_kinds": {
+          "function": 13665,
+          "ctfe_function": 873,
+          "constant_or_static": 4152
+        },
+        "blocks": 242306,
+        "edges": 366297,
+        "event_sites": {
+          "return": 18684,
+          "index_bounds": 4362,
+          "integer_zero_divisor": 88,
+          "integer_overflow": 4113,
+          "pointer_alignment": 1186,
+          "null_pointer": 1141
+        },
+        "entry_reaches": {
+          "return": 18684,
+          "index_bounds": 1056,
+          "integer_zero_divisor": 49,
+          "integer_overflow": 968,
+          "pointer_alignment": 467,
+          "null_pointer": 439
+        },
+        "kernel_obligations": {
+          "bounds": 112015,
+          "ranks": 4325
+        }
+      },
+      "pricing-python": {
+        "body_kinds": {
+          "function": 6135,
+          "constant_or_static": 4150,
+          "ctfe_function": 17
+        },
+        "blocks": 60693,
+        "edges": 75677,
+        "event_sites": {
+          "return": 10302,
+          "index_bounds": 1315,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 10,
+          "pointer_alignment": 12,
+          "null_pointer": 12
+        },
+        "entry_reaches": {
+          "return": 10302,
+          "index_bounds": 277,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 5,
+          "pointer_alignment": 8,
+          "null_pointer": 8
+        },
+        "kernel_obligations": {
+          "bounds": 12835,
+          "ranks": 533
+        }
+      }
+    },
+    "index-guards": {
+      "builds": {
+        "pricing-numerics": {
+          "index_assertions": 12,
+          "literal": 2,
+          "remainder": 0,
+          "other_fixed": 0,
+          "other_guard": 10
+        },
+        "pricing": {
+          "index_assertions": 3476,
+          "literal": 815,
+          "remainder": 1,
+          "other_fixed": 423,
+          "other_guard": 2237
+        },
+        "pricing-python": {
+          "index_assertions": 1315,
+          "literal": 1315,
+          "remainder": 0,
+          "other_fixed": 0,
+          "other_guard": 0
+        },
+        "pricing-numerics-unit": {
+          "index_assertions": 30,
+          "literal": 2,
+          "remainder": 0,
+          "other_fixed": 0,
+          "other_guard": 28
+        },
+        "pricing-unit": {
+          "index_assertions": 4362,
+          "literal": 1107,
+          "remainder": 4,
+          "other_fixed": 757,
+          "other_guard": 2494
+        },
+        "pricing-python-unit": {
+          "index_assertions": 1315,
+          "literal": 1315,
+          "remainder": 0,
+          "other_fixed": 0,
+          "other_guard": 0
+        }
+      },
+      "distinct_kernel_cases": 193,
+      "checked_guard_sites": 4561,
+      "total_guard_sites": 10510,
+      "inventory_sha256": "8d583a4eb8f06ee866a909ca65cf43d1d6db630888969b1080ad82bd6c9925ba",
+      "obligations": [
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 1,
+          "occurrences": 94
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 2,
+          "occurrences": 558
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 3,
+          "occurrences": 210
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 4,
+          "occurrences": 139
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 5,
+          "occurrences": 92
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 6,
+          "occurrences": 44
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 7,
+          "occurrences": 34
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 8,
+          "occurrences": 18
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 9,
+          "occurrences": 20
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 10,
+          "occurrences": 11
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 17,
+          "occurrences": 12
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 0,
+          "length": 32,
+          "occurrences": 3
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 2,
+          "occurrences": 541
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 3,
+          "occurrences": 237
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 4,
+          "occurrences": 134
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 5,
+          "occurrences": 95
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 6,
+          "occurrences": 46
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 7,
+          "occurrences": 36
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 8,
+          "occurrences": 18
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 9,
+          "occurrences": 20
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 10,
+          "occurrences": 12
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 16,
+          "occurrences": 7
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 1,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 3,
+          "occurrences": 191
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 4,
+          "occurrences": 129
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 5,
+          "occurrences": 75
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 6,
+          "occurrences": 40
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 7,
+          "occurrences": 34
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 8,
+          "occurrences": 18
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 9,
+          "occurrences": 20
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 10,
+          "occurrences": 11
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 2,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 4,
+          "occurrences": 160
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 5,
+          "occurrences": 75
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 6,
+          "occurrences": 40
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 7,
+          "occurrences": 36
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 8,
+          "occurrences": 18
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 9,
+          "occurrences": 20
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 10,
+          "occurrences": 11
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 3,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 5,
+          "occurrences": 120
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 6,
+          "occurrences": 42
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 7,
+          "occurrences": 34
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 8,
+          "occurrences": 18
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 9,
+          "occurrences": 20
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 10,
+          "occurrences": 11
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 4,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 6,
+          "occurrences": 43
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 7,
+          "occurrences": 36
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 8,
+          "occurrences": 18
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 9,
+          "occurrences": 20
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 10,
+          "occurrences": 11
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 5,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 7,
+          "occurrences": 34
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 8,
+          "occurrences": 18
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 9,
+          "occurrences": 20
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 10,
+          "occurrences": 12
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 6,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 8,
+          "occurrences": 20
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 9,
+          "occurrences": 20
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 10,
+          "occurrences": 11
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 7,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 9,
+          "occurrences": 20
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 10,
+          "occurrences": 11
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 8,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 9,
+          "length": 10,
+          "occurrences": 11
+        },
+        {
+          "kind": "literal",
+          "operand": 9,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 9,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 9,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 9,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 9,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 9,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 9,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 9,
+          "length": 18,
+          "occurrences": 3
+        },
+        {
+          "kind": "literal",
+          "operand": 9,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 10,
+          "length": 11,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 10,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 10,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 10,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 10,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 10,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 10,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 10,
+          "length": 18,
+          "occurrences": 3
+        },
+        {
+          "kind": "literal",
+          "operand": 10,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 11,
+          "length": 12,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 11,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 11,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 11,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 11,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 11,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 11,
+          "length": 18,
+          "occurrences": 3
+        },
+        {
+          "kind": "literal",
+          "operand": 11,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 12,
+          "length": 13,
+          "occurrences": 14
+        },
+        {
+          "kind": "literal",
+          "operand": 12,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 12,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 12,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 12,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 12,
+          "length": 18,
+          "occurrences": 4
+        },
+        {
+          "kind": "literal",
+          "operand": 12,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 13,
+          "length": 14,
+          "occurrences": 10
+        },
+        {
+          "kind": "literal",
+          "operand": 13,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 13,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 13,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 13,
+          "length": 18,
+          "occurrences": 4
+        },
+        {
+          "kind": "literal",
+          "operand": 13,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 14,
+          "length": 15,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 14,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 14,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 14,
+          "length": 18,
+          "occurrences": 3
+        },
+        {
+          "kind": "literal",
+          "operand": 14,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 15,
+          "length": 16,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 15,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 15,
+          "length": 18,
+          "occurrences": 3
+        },
+        {
+          "kind": "literal",
+          "operand": 15,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 16,
+          "length": 17,
+          "occurrences": 6
+        },
+        {
+          "kind": "literal",
+          "operand": 16,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 16,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 17,
+          "length": 18,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 17,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "literal",
+          "operand": 18,
+          "length": 19,
+          "occurrences": 2
+        },
+        {
+          "kind": "remainder",
+          "operand": 2,
+          "length": 2,
+          "occurrences": 3
+        },
+        {
+          "kind": "remainder",
+          "operand": 3,
+          "length": 3,
+          "occurrences": 2
+        }
+      ]
+    },
+    "python": {
+      "files": 41,
+      "code_objects": 577,
+      "instructions": 63303,
+      "entry_reaches": {
+        "return": 575,
+        "explicit_raise": 324,
+        "conditional_jump": 403,
+        "back_edge": 318,
+        "call": 508,
+        "exception_handler": 312
+      },
+      "kernel_obligations": {
+        "bounds": 50460,
+        "ranks": 6235
+      }
+    },
+    "schema": {
+      "documents": 43,
+      "unique_kernel_cases": 691,
+      "required_lists": 1778,
+      "closed_object_keys": 1519,
+      "reference_occurrences": 1638,
+      "disjoint_one_of": 215,
+      "enum_domains": 334,
+      "reference_key_groups": 44,
+      "document_ids": 1,
+      "reference_document_ids": 1
+    },
+    "risk": {
+      "scanned_json_files": 246,
+      "recorded_sweeps": 1484,
+      "distinct_kernel_cases": 1484,
+      "groups": {
+        "design/validation/escrowed-dividends-observations.json:risk_sweeps": {
+          "recorded_pass": 738
+        },
+        "design/validation/extended-model-risk-observations.json:initial_probe": {
+          "recorded_fail": 8
+        },
+        "design/validation/extended-model-risk-observations.json:sweeps": {
+          "recorded_pass": 738
+        }
+      }
+    },
+    "philox": {
+      "kernel_blocks": 180,
+      "native_words": 720,
+      "native_midpoints": 720
+    },
+    "fields": {
+      "eligible_getters": 194,
+      "kernel_cases": 194,
+      "source_files": 50
+    },
+    "catalog": {
+      "named_theorems": 132,
+      "rust_files": 413,
+      "python_files": 41,
+      "rust_source_declarations": 6268,
+      "python_source_declarations": 295,
+      "production_rust_files": 381,
+      "unit_rust_files": 413,
+      "compiled_rust_files": 413,
+      "uncompiled_rust_files": [],
+      "files_with_mapped_contracts": 32,
+      "files_with_getter_contracts": 50,
+      "files_with_direct_or_mapped_contracts": 68,
+      "source_contract_links": 56,
+      "matched_source_variants": {
+        "quintic_binary64_tail": "Witness.repaired_weight_pair"
+      }
+    },
+    "numerical-oracles": {
+      "complex_quotients": 12849,
+      "complex_max_component_ulp": 1,
+      "black_pairs": 145,
+      "black_max_normal_relative_error": 1.3589129821411916e-13,
+      "failures": 0
+    }
+  },
+  "native_output": {
+    "native-debug": [
+      "Numeric wrappers: 20480 bit patterns, three public constructors each",
+      "Gregorian public API: 3652059 valid dates checked",
+      "Black-76 Call sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true rounding_cell=true",
+      "Black-76 Put sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true rounding_cell=true",
+      "Black-76 Call sigma=8.673617379884035e-19 price=3.46027269686043692e-19 bits=3c19884533d43651 positive=true rounding_cell=true",
+      "Black-76 Put sigma=8.673617379884035e-19 price=3.46027269686043692e-19 bits=3c19884533d43651 positive=true rounding_cell=true",
+      "Complex division x=1e0 re=1e0 im=0e0 reconstructed=true",
+      "Complex division x=1.7976931348623157e308 re=1.7976931348623157e308 im=0e0 reconstructed=true",
+      "Disagreements with exact contracts: 0"
+    ],
+    "native-release": [
+      "Numeric wrappers: 20480 bit patterns, three public constructors each",
+      "Gregorian public API: 3652059 valid dates checked",
+      "Black-76 Call sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true rounding_cell=true",
+      "Black-76 Put sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true rounding_cell=true",
+      "Black-76 Call sigma=8.673617379884035e-19 price=3.46027269686043692e-19 bits=3c19884533d43651 positive=true rounding_cell=true",
+      "Black-76 Put sigma=8.673617379884035e-19 price=3.46027269686043692e-19 bits=3c19884533d43651 positive=true rounding_cell=true",
+      "Complex division x=1e0 re=1e0 im=0e0 reconstructed=true",
+      "Complex division x=1.7976931348623157e308 re=1.7976931348623157e308 im=0e0 reconstructed=true",
+      "Disagreements with exact contracts: 0"
+    ]
+  },
+  "previous_tail_contracts": [
+    "x=0.99999997019767761, H=1.00000000000000000 (0x3ff0000000000000), safety=3.3087223762564014e-23, log(safety)=-51.76289501303343",
+    "volatility=0, endpoint price=Ok(1.0947643763139838e-44)",
+    "volatility=0.2, endpoint price=Ok(1.0187807038403976e-55)",
+    "cash=64, F=7.105427357601002e-15, pre=64, post from coordinate=3.552713678800501e-15, validator=Ok(3.552713678800501e-15)",
+    "Tail contract discrepancies: 0"
+  ],
+  "ordinary_regressions": {
+    "rust_workspace": {
+      "command": "cargo test --locked --workspace -- --test-threads=3",
+      "profile": "default test profile, debug assertions enabled",
+      "passed": 1196,
+      "failed": 0,
+      "ignored": 91,
+      "target_replay": {
+        "completed_targets_before_restart": 88,
+        "targets_replayed": 32,
+        "commands": [
+          [
+            "cargo",
+            "test",
+            "--locked",
+            "-j",
+            "1",
+            "-p",
+            "pricing",
+            "--test",
+            "rough_family_aad_lsv",
+            "--test",
+            "rough_family_gamma_bump",
+            "--test",
+            "rough_family_lsv_spot_delta",
+            "--test",
+            "rough_family_market_iv",
+            "--test",
+            "rough_lsv",
+            "--test",
+            "rough_lsv_calibration_reference",
+            "--test",
+            "rough_volatility_families",
+            "--test",
+            "rough_volatility_pricing_reference",
+            "--test",
+            "rough_volatility_refinement",
+            "--test",
+            "smoothing_range",
+            "--test",
+            "statistical_acceptance",
+            "--test",
+            "stochastic_dividend_barrier_reference",
+            "--test",
+            "stochastic_dividend_bergomi_risk",
+            "--test",
+            "stochastic_dividend_correlation_risk",
+            "--test",
+            "stochastic_dividend_gamma",
+            "--test",
+            "stochastic_dividend_hull_white",
+            "--test",
+            "stochastic_dividend_hull_white_correlation_risk",
+            "--test",
+            "stochastic_dividend_hull_white_gamma",
+            "--test",
+            "stochastic_dividend_hull_white_refinement",
+            "--test",
+            "stochastic_dividend_hull_white_risk",
+            "--test",
+            "stochastic_dividend_refinement",
+            "--test",
+            "stochastic_dividend_risk",
+            "--test",
+            "stochastic_dividend_rough_lsv",
+            "--test",
+            "stochastic_dividends",
+            "--test",
+            "task_validation_pointers",
+            "--test",
+            "time_grid_resources",
+            "--test",
+            "valuation_report_validation",
+            "--",
+            "--test-threads=3"
+          ],
+          [
+            "cargo",
+            "test",
+            "--locked",
+            "-j",
+            "1",
+            "-p",
+            "pricing-numerics",
+            "-p",
+            "pricing-python",
+            "--lib",
+            "--",
+            "--test-threads=3"
+          ],
+          [
+            "cargo",
+            "test",
+            "--locked",
+            "-j",
+            "1",
+            "--workspace",
+            "--doc",
+            "--",
+            "--test-threads=3"
+          ]
+        ],
+        "passed": 1196,
+        "failed": 0,
+        "ignored": 91
+      }
+    },
+    "backtesting_python": {
+      "passed": 330,
+      "failed": 0
+    },
+    "repaired_python_extension": {
+      "passed": 740,
+      "failed": 0,
+      "completed_modules": 133,
+      "evidence": "binding-completion.json#repaired_run",
+      "extension_sha256": "9d0d42ac5edbdf5df7c2dc7e82bc1234f3d81704d9512a515b68082bdef6aca2"
+    },
+    "baseline_python_extension": {
+      "passed": 740,
+      "failed": 0,
+      "evidence": "binding-completion.json",
+      "source_revision": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    }
+  },
+  "instantiated_kernel_cases": 2742,
+  "index_guard_site_inventory": {
+    "file": "repair-index-guards.tsv.gz",
+    "uncompressed_sha256": "8d583a4eb8f06ee866a909ca65cf43d1d6db630888969b1080ad82bd6c9925ba",
+    "rows": 10510
+  },
+  "binding_harness_retry": {
+    "original_exit": 1,
+    "first_log_sha256": "a626b8f3fc85e7b008a0359f53cb693ec960ed4929affa244a9043abc6f4577e",
+    "reason": "The original test rejected an existing native-replay output directory before running the calculation.",
+    "replay_exit": 0,
+    "replay_log_sha256": "7bf0439c20660ee0424b75ea47b37b57af5381af0e3bf335819033effd87b9f6",
+    "replay_seconds": 928.276,
+    "source_revision": "0764ddcb6d957d60b4b6b6f9dab2e3125beb4a7c"
+  },
+  "source_archive": {
+    "checked_tree": "8a782a5da5be67925c02a3d32162602571ed6cc1",
+    "original_source_revision": "0764ddcb6d957d60b4b6b6f9dab2e3125beb4a7c",
+    "original_ci_job": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44650216487/job/136032086356",
+    "original_error": "archive contains unexpected source files",
+    "archive_exit": 0,
+    "lean_archive_members": 56,
+    "negative_controls": {
+      "omitted-proof": 1,
+      "lake-cache": 1
+    },
+    "packaging_revision": "7c020932ecf0f203adfbfc252ee73518cfc60174",
+    "archive_regression_tests": 16,
+    "windows_ci": {
+      "id": 136061076236,
+      "name": "Wheel / x86_64-pc-windows-msvc",
+      "head_sha": "7c020932ecf0f203adfbfc252ee73518cfc60174",
+      "html_url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136061076236",
+      "status": "completed",
+      "conclusion": "success",
+      "source_archive_step": "success"
+    }
+  },
+  "development_checks": {
+    "rustfmt": [
+      "workspace",
+      "rust-probes"
+    ],
+    "clippy": "all workspace targets and features, warnings denied",
+    "index_extractor_unit_tests": 3
+  },
+  "negative_controls": {
+    "numerical": {
+      "atm_witness_rounding_cell": {
+        "true": 0,
+        "mutated": 1
+      },
+      "repaired_max_division": {
+        "true": 0,
+        "mutated": 1
+      }
+    },
+    "index_guards": {
+      "guard-literal-2-3": 0,
+      "guard-literal-3-3": 1,
+      "guard-remainder-2-3": 0,
+      "guard-remainder-0-3": 1,
+      "guard-remainder-4-3": 1
+    }
+  },
+  "exceptional_complex_regression": {
+    "complex_nonfinite_or_zero_denominator_cases": 2209,
+    "component_class_or_bits_differences": 0
+  },
+  "scope": "MIR and CPython structural obligations, fixed-length MIR index safety on matched guard sites, explicitly matched source contracts, and the two numerical oracle families. Real-arithmetic identities, kernel-evaluated witnesses and sampled binary64 comparisons have distinct scopes.",
+  "cross_platform_observations": {
+    "linux_binding_methods_passed": 740,
+    "wheel_jobs": {
+      "linux": "success",
+      "windows_x86_64": "success",
+      "macos_arm64": "success",
+      "run": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812"
+    },
+    "macos_arm64_installed_wheel_failure": {
+      "revision": "7c020932ecf0f203adfbfc252ee73518cfc60174",
+      "selection": "custom-basis-weighted_time_hats-4-put-arithmetic_asian",
+      "status": "native abort",
+      "job": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44663686812/job/136098303915",
+      "observed": "The Darwin allocator reported an invalid free on a terminating workqueue thread. The stopped stack includes _dispatch_cache_cleanup and _pthread_tsd_cleanup.",
+      "prior_revision": "9966d8053aa2951ed86248722c1d78cb4a25884b",
+      "prior_selection_with_matching_stack": "custom-basis-coupled_row_hats-4-call-fixed_lookback",
+      "prior_job": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300504",
+      "earlier_analysis": "design/validation/lldb-launch-review-2026-10-26.md",
+      "cause": "undetermined",
+      "merge_status": "open blocker",
+      "same_selection_linux_exit": 0
+    }
+  }
+}

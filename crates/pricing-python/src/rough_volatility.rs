@@ -681,3 +681,107 @@ impl PyQuadraticHestonMcParameterRisk {
         self.inner.risk_fingerprint.to_string()
     }
 }
+
+/// The native measures of a direct rough-volatility source, from a
+/// `measures` task. Each risk is its dedicated API's result unchanged.
+#[pyclass(frozen, name = "RoughVolatilityMeasureRisk")]
+#[derive(Clone, Debug)]
+pub struct PyRoughVolatilityMeasureRisk {
+    pub(super) inner: pricing::rough_volatility::RoughVolatilityMeasureRisk,
+}
+#[pymethods]
+impl PyRoughVolatilityMeasureRisk {
+    #[getter]
+    fn price(&self) -> PyHullWhitePrice {
+        PyHullWhitePrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn delta(&self) -> Option<PyRoughVolatilityDelta> {
+        self.inner
+            .delta
+            .clone()
+            .map(|inner| PyRoughVolatilityDelta { inner })
+    }
+    #[getter]
+    fn gamma(&self) -> Option<PyRoughVolatilityGamma> {
+        self.inner
+            .gamma
+            .clone()
+            .map(|inner| PyRoughVolatilityGamma { inner })
+    }
+    #[getter]
+    fn model_parameters(&self) -> Option<PyRoughVolatilityModelParameterRisk> {
+        self.inner
+            .model_parameters
+            .clone()
+            .map(|inner| PyRoughVolatilityModelParameterRisk { inner })
+    }
+}
+
+/// A fixed-model parameter risk with the label of each native coordinate.
+/// Exactly the runs the listed parameters needed are present, each the
+/// dedicated API's result unchanged.
+#[pyclass(frozen, name = "RoughVolatilityModelParameterRisk")]
+#[derive(Clone, Debug)]
+pub struct PyRoughVolatilityModelParameterRisk {
+    inner: pricing::rough_volatility::RoughVolatilityModelParameterRisk,
+}
+#[pymethods]
+impl PyRoughVolatilityModelParameterRisk {
+    /// Parameter labels in the native order.
+    #[getter]
+    fn parameters(&self) -> Vec<String> {
+        self.inner.parameters.iter().map(|p| p.label()).collect()
+    }
+    /// Rough or lifted Heston: `evaluate_heston_parameter_risk`.
+    #[getter]
+    fn heston(&self) -> Option<PyHestonMcParameterRisk> {
+        use pricing::rough_volatility::RoughVolatilityParameterRisk as R;
+        match &self.inner.risk {
+            R::Heston {
+                parameters: Some(inner),
+                ..
+            } => Some(PyHestonMcParameterRisk {
+                inner: (**inner).clone(),
+            }),
+            _ => None,
+        }
+    }
+    /// Rough Heston: `evaluate_hurst_risk`.
+    #[getter]
+    fn hurst(&self) -> Option<PyRoughHestonMcHurstRisk> {
+        use pricing::rough_volatility::RoughVolatilityParameterRisk as R;
+        match &self.inner.risk {
+            R::Heston {
+                hurst: Some(inner), ..
+            } => Some(PyRoughHestonMcHurstRisk {
+                inner: (**inner).clone(),
+            }),
+            _ => None,
+        }
+    }
+    /// Quadratic rough Heston: `evaluate_quadratic_heston_parameter_risk`.
+    #[getter]
+    fn quadratic_heston(&self) -> Option<PyQuadraticHestonMcParameterRisk> {
+        use pricing::rough_volatility::RoughVolatilityParameterRisk as R;
+        match &self.inner.risk {
+            R::QuadraticHeston(inner) => Some(PyQuadraticHestonMcParameterRisk {
+                inner: inner.clone(),
+            }),
+            _ => None,
+        }
+    }
+    /// Mixed rough Bergomi: `evaluate_mixed_bergomi_parameter_risk[_with_hurst]`.
+    #[getter]
+    fn mixed_bergomi(&self) -> Option<PyMixedBergomiMcParameterRisk> {
+        use pricing::rough_volatility::RoughVolatilityParameterRisk as R;
+        match &self.inner.risk {
+            R::MixedBergomi(inner) => Some(PyMixedBergomiMcParameterRisk {
+                inner: inner.clone(),
+            }),
+            _ => None,
+        }
+    }
+}

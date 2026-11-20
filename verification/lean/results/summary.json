@@ -1,0 +1,437 @@
+{
+  "source_revision": "9966d8053aa2951ed86248722c1d78cb4a25884b",
+  "date_utc": "2026-11-19",
+  "versions": {
+    "lean": "4.19.0",
+    "mathlib": "c44e0c8ee63ca166450922a373c7409c5d26b00b",
+    "rustc": "1.98.1 (48a229cea)",
+    "cpython": "3.12.14",
+    "target": "x86_64-unknown-linux-gnu"
+  },
+  "stages": {
+    "lean": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "mir": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "mir-unit": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "python": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "schema": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "risk": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "philox": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "fields": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "catalog": {
+      "exit_code": 0,
+      "status": "passed"
+    },
+    "native-debug": {
+      "exit_code": 1,
+      "counterexamples": 3,
+      "status": "counterexample"
+    },
+    "native-release": {
+      "exit_code": 1,
+      "counterexamples": 3,
+      "status": "counterexample"
+    }
+  },
+  "results": {
+    "mir": {
+      "pricing-numerics": {
+        "body_kinds": {
+          "function": 149,
+          "constant_or_static": 14,
+          "ctfe_function": 16
+        },
+        "blocks": 1300,
+        "edges": 1728,
+        "event_sites": {
+          "return": 179,
+          "index_bounds": 12,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 82,
+          "pointer_alignment": 1,
+          "null_pointer": 1
+        },
+        "entry_reaches": {
+          "return": 179,
+          "index_bounds": 6,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 13,
+          "pointer_alignment": 1,
+          "null_pointer": 1
+        },
+        "kernel_obligations": {
+          "bounds": 780,
+          "ranks": 308
+        }
+      },
+      "pricing": {
+        "body_kinds": {
+          "function": 11780,
+          "ctfe_function": 865,
+          "constant_or_static": 2059
+        },
+        "blocks": 191153,
+        "edges": 290476,
+        "event_sites": {
+          "return": 14700,
+          "index_bounds": 3476,
+          "integer_zero_divisor": 56,
+          "integer_overflow": 3740,
+          "pointer_alignment": 480,
+          "null_pointer": 445
+        },
+        "entry_reaches": {
+          "return": 14700,
+          "index_bounds": 828,
+          "integer_zero_divisor": 28,
+          "integer_overflow": 847,
+          "pointer_alignment": 185,
+          "null_pointer": 162
+        },
+        "kernel_obligations": {
+          "bounds": 87445,
+          "ranks": 3505
+        }
+      },
+      "pricing-python": {
+        "body_kinds": {
+          "function": 6120,
+          "constant_or_static": 4124,
+          "ctfe_function": 17
+        },
+        "blocks": 60401,
+        "edges": 75306,
+        "event_sites": {
+          "return": 10261,
+          "index_bounds": 1315,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 10,
+          "pointer_alignment": 12,
+          "null_pointer": 12
+        },
+        "entry_reaches": {
+          "return": 10261,
+          "index_bounds": 277,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 5,
+          "pointer_alignment": 8,
+          "null_pointer": 8
+        },
+        "kernel_obligations": {
+          "bounds": 12706,
+          "ranks": 510
+        }
+      }
+    },
+    "mir-unit": {
+      "pricing-numerics": {
+        "body_kinds": {
+          "function": 199,
+          "constant_or_static": 73,
+          "ctfe_function": 16
+        },
+        "blocks": 2231,
+        "edges": 2837,
+        "event_sites": {
+          "return": 288,
+          "index_bounds": 30,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 90,
+          "pointer_alignment": 46,
+          "null_pointer": 46
+        },
+        "entry_reaches": {
+          "return": 288,
+          "index_bounds": 14,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 15,
+          "pointer_alignment": 12,
+          "null_pointer": 12
+        },
+        "kernel_obligations": {
+          "bounds": 1421,
+          "ranks": 417
+        }
+      },
+      "pricing": {
+        "body_kinds": {
+          "function": 13661,
+          "ctfe_function": 873,
+          "constant_or_static": 4150
+        },
+        "blocks": 242273,
+        "edges": 366261,
+        "event_sites": {
+          "return": 18678,
+          "index_bounds": 4362,
+          "integer_zero_divisor": 88,
+          "integer_overflow": 4113,
+          "pointer_alignment": 1186,
+          "null_pointer": 1141
+        },
+        "entry_reaches": {
+          "return": 18678,
+          "index_bounds": 1056,
+          "integer_zero_divisor": 49,
+          "integer_overflow": 968,
+          "pointer_alignment": 467,
+          "null_pointer": 439
+        },
+        "kernel_obligations": {
+          "bounds": 112017,
+          "ranks": 4325
+        }
+      },
+      "pricing-python": {
+        "body_kinds": {
+          "function": 6135,
+          "constant_or_static": 4150,
+          "ctfe_function": 17
+        },
+        "blocks": 60693,
+        "edges": 75677,
+        "event_sites": {
+          "return": 10302,
+          "index_bounds": 1315,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 10,
+          "pointer_alignment": 12,
+          "null_pointer": 12
+        },
+        "entry_reaches": {
+          "return": 10302,
+          "index_bounds": 277,
+          "integer_zero_divisor": 0,
+          "integer_overflow": 5,
+          "pointer_alignment": 8,
+          "null_pointer": 8
+        },
+        "kernel_obligations": {
+          "bounds": 12835,
+          "ranks": 533
+        }
+      }
+    },
+    "python": {
+      "files": 41,
+      "code_objects": 577,
+      "instructions": 63303,
+      "entry_reaches": {
+        "return": 575,
+        "explicit_raise": 324,
+        "conditional_jump": 403,
+        "back_edge": 318,
+        "call": 508,
+        "exception_handler": 312
+      },
+      "kernel_obligations": {
+        "bounds": 50460,
+        "ranks": 6235
+      }
+    },
+    "schema": {
+      "documents": 43,
+      "unique_kernel_cases": 691,
+      "required_lists": 1778,
+      "closed_object_keys": 1519,
+      "reference_occurrences": 1638,
+      "disjoint_one_of": 215,
+      "enum_domains": 334,
+      "reference_key_groups": 44,
+      "document_ids": 1,
+      "reference_document_ids": 1
+    },
+    "risk": {
+      "scanned_json_files": 246,
+      "recorded_sweeps": 1484,
+      "distinct_kernel_cases": 1484,
+      "groups": {
+        "design/validation/escrowed-dividends-observations.json:risk_sweeps": {
+          "recorded_pass": 738
+        },
+        "design/validation/extended-model-risk-observations.json:initial_probe": {
+          "recorded_fail": 8
+        },
+        "design/validation/extended-model-risk-observations.json:sweeps": {
+          "recorded_pass": 738
+        }
+      }
+    },
+    "philox": {
+      "kernel_blocks": 180,
+      "native_words": 720,
+      "native_midpoints": 720
+    },
+    "fields": {
+      "eligible_getters": 194,
+      "kernel_cases": 194,
+      "source_files": 50
+    },
+    "catalog": {
+      "named_theorems": 117,
+      "rust_files": 412,
+      "python_files": 41,
+      "rust_source_declarations": 6256,
+      "python_source_declarations": 295,
+      "production_rust_files": 380,
+      "unit_rust_files": 412,
+      "compiled_rust_files": 412,
+      "uncompiled_rust_files": [],
+      "files_with_mapped_contracts": 31,
+      "files_with_getter_contracts": 50,
+      "files_with_direct_or_mapped_contracts": 67,
+      "source_contract_links": 46,
+      "matched_source_variants": {
+        "quintic_binary64_tail": "Witness.repaired_weight_pair"
+      }
+    }
+  },
+  "previous_tail_contracts": [
+    "x=0.99999997019767761, H=1.00000000000000000 (0x3ff0000000000000), safety=3.3087223762564014e-23, log(safety)=-51.76289501303343",
+    "volatility=0, endpoint price=Ok(1.0947643763139838e-44)",
+    "volatility=0.2, endpoint price=Ok(1.0187807038403976e-55)",
+    "cash=64, F=7.105427357601002e-15, pre=64, post from coordinate=3.552713678800501e-15, validator=Ok(3.552713678800501e-15)",
+    "Tail contract discrepancies: 0"
+  ],
+  "native_output": {
+    "debug": [
+      "Numeric wrappers: 20480 bit patterns, three public constructors each",
+      "IDs: all 65536 CurrencyId values and boundaries of the other six ID types",
+      "Gregorian public API: 3652059 valid dates checked",
+      "Black-76 Call sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true",
+      "Black-76 Put sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true",
+      "Black-76 Call sigma=8.673617379884035e-19 price=0.00000000000000000e0 bits=0000000000000000 positive=false",
+      "Black-76 Put sigma=8.673617379884035e-19 price=-0.00000000000000000e0 bits=8000000000000000 positive=false",
+      "Complex division x=1e0 re=1e0 im=0e0 reconstructed=true",
+      "Complex division x=1.7976931348623157e308 re=inf im=0e0 reconstructed=false",
+      "Disagreements with exact contracts: 3"
+    ],
+    "release": [
+      "Numeric wrappers: 20480 bit patterns, three public constructors each",
+      "IDs: all 65536 CurrencyId values and boundaries of the other six ID types",
+      "Gregorian public API: 3652059 valid dates checked",
+      "Black-76 Call sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true",
+      "Black-76 Put sigma=2e-1 price=7.96556745540579758e-2 bits=3fb4645075268710 positive=true",
+      "Black-76 Call sigma=8.673617379884035e-19 price=0.00000000000000000e0 bits=0000000000000000 positive=false",
+      "Black-76 Put sigma=8.673617379884035e-19 price=-0.00000000000000000e0 bits=8000000000000000 positive=false",
+      "Complex division x=1e0 re=1e0 im=0e0 reconstructed=true",
+      "Complex division x=1.7976931348623157e308 re=inf im=0e0 reconstructed=false",
+      "Disagreements with exact contracts: 3"
+    ]
+  },
+  "negative_controls": {
+    "wrong_field": "rejected",
+    "flipped_philox_word": "rejected",
+    "flipped_risk_verdict": "rejected",
+    "duplicate_wire_tag": "rejected"
+  },
+  "supplementary_regressions": {
+    "workspace": {
+      "passed": 1184,
+      "failed": 0,
+      "ignored": 91
+    },
+    "python-crate": {
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0
+    },
+    "backtesting_python": {
+      "passed": 330,
+      "failed": 0
+    },
+    "python_type_stub_static": {
+      "top_level_symbols": 190,
+      "classes": 182,
+      "class_members": 1608
+    },
+    "python_bindings_release": {
+      "status": "supplementary partial run",
+      "discovered_test_methods": 740,
+      "completed_test_methods": 635,
+      "passed": 635,
+      "failed": 0,
+      "skipped": 0,
+      "completed_modules": 114,
+      "discovered_modules": 133,
+      "modules_without_a_final_verdict": [
+        "test_vega_kt_coupled_basis_provider",
+        "test_vega_kt_custom_basis_provider",
+        "test_vega_kt_extension_provider",
+        "test_vega_kt_extension_put_provider",
+        "test_vega_kt_gamma_recovery",
+        "test_vega_kt_initial_measure",
+        "test_vega_kt_initial_smile",
+        "test_vega_kt_initial_three",
+        "test_vega_kt_joint_portfolio",
+        "test_vega_kt_joint_replay",
+        "test_vega_kt_joint_smile",
+        "test_vega_kt_lookback_fixing_day",
+        "test_vega_kt_middle_smile",
+        "test_vega_kt_multi_step",
+        "test_vega_kt_multi_step_provider",
+        "test_vega_kt_nonflat_gamma",
+        "test_vega_kt_path_chain",
+        "test_vega_kt_path_ledger",
+        "test_vega_kt_rqmc_replay"
+      ]
+    }
+  },
+  "historical_failed_probes": [
+    {
+      "case": "joint_Rough_hw_true",
+      "parameter": "basket_market_iv_1"
+    },
+    {
+      "case": "joint_Rough_hw_true",
+      "parameter": "basket_market_iv_2"
+    },
+    {
+      "case": "joint_Rough_hw_true",
+      "parameter": "asset_0_market_iv_1"
+    },
+    {
+      "case": "joint_Rough_hw_true",
+      "parameter": "asset_0_market_iv_4"
+    },
+    {
+      "case": "joint_Rough_hw_true",
+      "parameter": "asset_0_market_iv_parallel"
+    },
+    {
+      "case": "joint_Two_hw_true",
+      "parameter": "basket_market_iv_1"
+    },
+    {
+      "case": "joint_Two_hw_true",
+      "parameter": "basket_market_iv_parallel"
+    },
+    {
+      "case": "deterministic_One",
+      "parameter": "effective_variance_direction_1"
+    }
+  ]
+}

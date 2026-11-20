@@ -840,3 +840,23 @@ CLASSES = {'StochasticDividendAadRisk': {'bases': [],
                                          'standard_error': {'kind': 'property'},
                                          'uncertainty_scope': {'kind': 'property'},
                                          'value': {'kind': 'property'}}}}
+
+# Native Spot measures of a measures task on stochastic dividends (ADR 0043,
+# phase 3 steps D1 to D3).
+CLASSES['StochasticDividendMeasureRisk'] = {'bases': [], 'members': {
+    'price': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'delta': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'gamma': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'correlations': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'model_parameters': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'dividend_cash': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'discount_curve': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+}}
+CLASSES['StochasticDividendModelParameterRisk'] = {'bases': [], 'members': {
+    'parameters': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'risk': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+}}
+CLASSES['StochasticDividendCorrelationRisk'] = {'bases': [], 'members': {
+    'correlations': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+    'risk': {'kind': 'property', 'signature': {'keyword_only': [], 'keyword_only_defaults': {}, 'positional': ['self'], 'positional_defaults': {}, 'required_keyword_only': []}},
+}}

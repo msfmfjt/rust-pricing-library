@@ -627,7 +627,7 @@ fn unsupported_ignored_or_malformed_inputs_are_rejected() {
     );
     let good = wire(&s);
     for (pointer, value) in [
-        ("/schema_version", json!(3)),
+        ("/schema_version", json!(99)),
         ("/document_kind", json!("pricing_request")),
         ("/numerics/worker_threads", json!(0)),
         ("/numerics/maximum_step", json!(0)),

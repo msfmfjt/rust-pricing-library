@@ -177,9 +177,19 @@ impl BergomiDividendKernel {
         times: &[f64],
         z: &[f64],
     ) -> Result<Vec<BuehlerDividendState>, StochasticDividendError> {
+        self.evolve_with_volatilities(model, sigma0, times, z, None)
+    }
+    pub(super) fn evolve_with_volatilities(
+        &self,
+        model: BuehlerDividendModel,
+        sigma0: f64,
+        times: &[f64],
+        z: &[f64],
+        volatilities: Option<&mut Vec<f64>>,
+    ) -> Result<Vec<BuehlerDividendState>, StochasticDividendError> {
         match self {
-            Self::One(k) => k.evolve(model, sigma0, times, z),
-            Self::Two(k) => k.evolve(model, sigma0, times, z),
+            Self::One(k) => k.evolve(model, sigma0, times, z, volatilities),
+            Self::Two(k) => k.evolve(model, sigma0, times, z, volatilities),
         }
     }
 
@@ -286,6 +296,7 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
         sigma0: f64,
         times: &[f64],
         normals: &[f64],
+        mut volatilities: Option<&mut Vec<f64>>,
     ) -> Result<Vec<BuehlerDividendState>, StochasticDividendError> {
         let mut x = [0.0; N];
         let mut state = BuehlerDividendState::initial();
@@ -320,6 +331,9 @@ impl<const N: usize, const D: usize> Kernel<N, D> {
                 positive(sigma, "bergomi_volatility")?;
                 sigma
             };
+            if let Some(v) = &mut volatilities {
+                v.push(sigma);
+            }
             // Freeze variance at the LEFT endpoint. Correlating the updated OU
             // state with this same equity increment would destroy its mean.
             state = model.evolve(state, sigma, times[i + 1] - times[i], [z[0], z[1]])?;

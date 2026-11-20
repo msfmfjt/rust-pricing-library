@@ -16,6 +16,42 @@ use std::{error::Error, fmt};
 
 #[cfg(test)]
 mod innovation_contracts;
+#[cfg(test)]
+mod reanchor_tests {
+    use super::LsvLeverageSurface;
+
+    /// A re-anchored surface reads the same leverage at every absolute level.
+    #[test]
+    fn reanchored_surface_keeps_leverage_by_absolute_level() {
+        let surface = LsvLeverageSurface::new(
+            vec![0.0, 0.5, 1.0],
+            vec![-0.6, 0.0, 0.6],
+            vec![0.9, 1.0, 1.2, 0.8, 1.0, 1.3, 0.7, 1.0, 1.4],
+            100.0,
+        )
+        .unwrap();
+        assert_eq!(
+            surface.reanchored(100.0).unwrap().log_nodes(),
+            surface.log_nodes()
+        );
+        let moved = surface.reanchored(101.0).unwrap();
+        assert_eq!(moved.initial_f(), 101.0);
+        assert_eq!(moved.squared_leverage(), surface.squared_leverage());
+        for time in [0.0, 0.3, 0.75] {
+            for f in [40.0, 80.0, 99.0, 100.0, 101.0, 130.0, 300.0] {
+                let (a, b) = (
+                    surface.lookup(time, f).unwrap().value,
+                    moved.lookup(time, f).unwrap().value,
+                );
+                assert!((a - b).abs() <= 1e-12, "t={time} f={f}: {a} vs {b}");
+            }
+        }
+        // In moneyness the leverage moves: the same ln(f/F0) reads elsewhere.
+        let a = surface.lookup(0.75, 110.0).unwrap().value;
+        let b = moved.lookup(0.75, 110.0 * 1.01).unwrap().value;
+        assert!((a - b).abs() > 1e-6);
+    }
+}
 
 pub const BERGOMI_LSV_SCHEME: &str = "bergomi-lsv-log-euler-exact-ou-v1";
 pub const BERGOMI_TWO_FACTOR_LSV_SCHEME: &str = "bergomi-two-factor-lsv-log-euler-exact-ou-v1";
@@ -317,6 +353,23 @@ impl LsvLeverageSurface {
     pub const fn initial_f(&self) -> f64 {
         self.initial_f
     }
+    /// The same leverage as a function of the absolute state level, read from
+    /// an anchor at `initial_f`: every node moves by `ln(old / new)` so that
+    /// `ln(f / initial_f)` lands where `ln(f / old)` did. Values are unchanged.
+    /// An unchanged anchor returns an exact copy.
+    pub(crate) fn reanchored(&self, initial_f: f64) -> Result<Self, LsvError> {
+        if initial_f.to_bits() == self.initial_f.to_bits() {
+            return Ok(self.clone());
+        }
+        valid(initial_f, "initial_f", 0, true)?;
+        let shift = (self.initial_f / initial_f).ln();
+        Self::new(
+            self.times.to_vec(),
+            self.log_nodes.iter().map(|x| x + shift).collect(),
+            self.values.to_vec(),
+            initial_f,
+        )
+    }
 
     pub(in crate::engine) fn lookup(&self, time: f64, f: f64) -> Result<Lookup, LsvError> {
         valid(time, "lookup_time", 0, false)?;
@@ -538,6 +591,27 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
         shocks: &[f64],
         states: &mut Vec<f64>,
     ) -> Result<(), LsvError> {
+        self.evolve_with_rate_carry(initial_f, shocks, states, None)
+    }
+
+    pub(in crate::engine) fn evolve_with_rate_carry(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+        log_carry: Option<&[f64]>,
+    ) -> Result<(), LsvError> {
+        self.evolve_with_variances(initial_f, shocks, states, log_carry, None)
+    }
+
+    pub(in crate::engine) fn evolve_with_variances(
+        &self,
+        initial_f: f64,
+        shocks: &[f64],
+        states: &mut Vec<f64>,
+        log_carry: Option<&[f64]>,
+        mut variances: Option<&mut Vec<f64>>,
+    ) -> Result<(), LsvError> {
         let n = self.transitions.len();
         length("shocks", (1 + F::FACTOR_COUNT) * n, shocks.len())?;
         for (i, &z) in shocks.iter().enumerate() {
@@ -553,10 +627,13 @@ impl<F: BergomiDynamics> BergomiLsvPlan<F> {
             let dt = self.times[i + 1] - self.times[i];
             let lookup = self.surface.lookup_row_from(
                 self.rows[i],
-                (f / self.surface.initial_f).ln(),
+                (f / self.surface.initial_f).ln() + log_carry.map_or(0., |carry| carry[i]),
                 &mut cell,
             );
             let variance = lookup.value * self.factor.multiplier_squared(factor_state);
+            if let Some(v) = &mut variances {
+                v.push(variance);
+            }
             f = advance(f, variance, dt, shocks[i], i, 0)?;
             factor_state = self.factor.evolve_normals(
                 self.transitions[i],

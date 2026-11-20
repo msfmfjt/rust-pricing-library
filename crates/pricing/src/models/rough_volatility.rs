@@ -447,6 +447,49 @@ model_from!(
 );
 
 impl RoughVolatilityModel {
+    /// The parameters the native parameter risks (direct and rough-family
+    /// LSV) differentiate for this model, in the native estimator's order, and whether it can add
+    /// Hurst (power kernels only; a finite lift has none). `None` when the
+    /// model has no native parameter risk.
+    #[must_use]
+    pub(crate) fn native_parameters(&self) -> Option<(Vec<crate::ModelParameterId>, bool)> {
+        use crate::ModelParameterId as P;
+        let heston = || {
+            vec![
+                P::InitialVariance,
+                P::MeanReversion,
+                P::LongRunVariance,
+                P::VolOfVol,
+                P::Correlation,
+            ]
+        };
+        match self {
+            Self::RoughHeston(_) => Some((heston(), true)),
+            Self::LiftedHeston(_) => Some((heston(), false)),
+            Self::QuadraticRoughHeston(_) => Some((
+                vec![
+                    P::InitialState,
+                    P::MeanReversion,
+                    P::VolOfVol,
+                    P::Quadratic,
+                    P::Shift,
+                    P::VarianceFloor,
+                ],
+                true,
+            )),
+            Self::MixedRoughBergomi(m) => {
+                let mut ids = (0..m.weights.len())
+                    .map(|i| P::ComponentVolOfVol {
+                        component: u16::try_from(i).unwrap_or(u16::MAX),
+                    })
+                    .collect::<Vec<_>>();
+                ids.push(P::Correlation);
+                Some((ids, true))
+            }
+            Self::RoughSabr(_) | Self::Rfsv(_) => None,
+        }
+    }
+
     #[must_use]
     pub const fn name(&self) -> &'static str {
         match self {
