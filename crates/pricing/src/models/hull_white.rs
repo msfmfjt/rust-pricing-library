@@ -3,8 +3,8 @@
 //! discount curve; no numerical differentiation of that curve is needed.
 
 use super::rates::{GaussianDiscount, RateDiscount};
+use crate::black_price::{black_price, log_forward_over_strike};
 use crate::market::{DiscountCurve, LogLinearDiscountCurve, MarketError};
-use pricing_numerics::standard_normal_cdf;
 use std::{error::Error, fmt};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -318,16 +318,14 @@ pub fn black_value(
     checked_positive(strike, "strike")?;
     checked_positive(discount, "discount")?;
     hw_valid(variance, "total_variance", 0, true)?;
-    let sign = if is_call { 1.0 } else { -1.0 };
-    if variance == 0.0 {
-        return Ok(discount * (sign * (forward - strike)).max(0.0));
-    }
-    let root = variance.sqrt();
-    let d1 = (forward / strike).ln() / root + 0.5 * root;
-    let d2 = d1 - root;
     let value = discount
-        * sign
-        * (forward * standard_normal_cdf(sign * d1) - strike * standard_normal_cdf(sign * d2));
+        * black_price(
+            forward,
+            strike,
+            log_forward_over_strike(forward, strike),
+            variance.sqrt(),
+            is_call,
+        );
     hw_valid(value, "option_price", 0, false)?;
     Ok(value)
 }

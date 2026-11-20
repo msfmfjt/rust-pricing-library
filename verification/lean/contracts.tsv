@@ -1,0 +1,58 @@
+source_path	source_anchor	lean_module	representative_theorem	contract	variant
+crates/pricing-numerics/src/reduction.rs	CenteredMoment	Numerics	welford_fold	Welford count, first and second raw moments over an arbitrary list	-
+crates/pricing-numerics/src/reduction.rs	fn merged	Numerics	chan_conserves_raw_moments	Chan merge of positive-sized samples and covariance cross correction	-
+crates/pricing-numerics/src/reduction.rs	NeumaierSum	Numerics	compensated_residual	Exact residual split conditional on the rounded update; accumulation in exact arithmetic	-
+crates/pricing-numerics/src/complex.rs	impl Div	Numerics	equal_components_div_one_i	Division, reconstruction and norm product; native overflow witness	-
+crates/pricing-numerics/src/fractional.rs	adaptive_simpson	Numerics	simpson_cubic	Cubic quadrature identity and cancellation of a fourth-order error term	-
+crates/pricing-numerics/src/least_squares.rs	cholesky_solve	Numerics	least_squares_normal_direction	One damped normal-equation coordinate	-
+crates/pricing-numerics/src/correlation.rs	Correlation	Numerics	correlation_pivot	Two-driver PSD pivot and three-driver determinant	-
+crates/pricing/src/core/date.rs	fn ordinal	Discrete	gregorian_next_year	Leap cycle and ordinal count; all valid dates compared to the native API	-
+crates/pricing/src/core/date.rs	year_fraction	Discrete	actual_daycount_additive	Signed ACT/365F and ACT/360 additivity	-
+crates/pricing/src/core/number.rs	PositiveF64	Binary64	numeric_wrapper_guards	Finite positive and nonnegative encodings including both zeros, subnormals and NaN payloads	-
+crates/pricing/src/core/ids.rs	checked_next	Discrete	checked_id_exhaustion	ID range and first overflowing increment	-
+crates/pricing/src/market/dividend.rs	compile_reserve	Dividends	funded_sweep_zero	Arbitrary finite cash/proportional schedules, reserve settlement and positive post-event spot	-
+crates/pricing/src/market/dividend.rs	compile_reserve	Witness	dividend_routes_disagree	Exact dyadic rounding trace for two floating-point routes	-
+crates/pricing/src/market/forward.rs	forward	Market	forward_carry	Spot, carry and positive discount factor identity	-
+crates/pricing/src/market/pchip.rs	ThetaPchip	Market	pchip_reproduces_affine	Hermite basis at knots and interpolation of affine slices	-
+crates/pricing/src/market/ssvi.rs	total_variance_derivatives	Market	ssvi_atm_variance	SSVI ATM variance and the flat-slice Durrleman expression	-
+crates/pricing/src/engine/analytic/closed_form.rs	regular_forward_formula	Market	black_price_and_delta_parity	Price/delta parity and vega/gamma identity	-
+crates/pricing/src/engine/analytic/closed_form.rs	evaluate_black_forward	TailBounds	black_witness_is_normal_scale	Positive, quantitatively bounded unit ATM value; both native option sides probed	-
+crates/pricing-numerics/src/complex.rs	impl Div	Discrete	complex_numerator_exceeds_binary64	Binary64 exponent overflow in numerator with representable exact quotient	-
+crates/pricing/src/models/bergomi_two_factor.rs	normalized_weights	Market	bergomi_degeneracy	Normalization and precise singularity of two-factor weights	-
+crates/pricing/src/models/hull_white.rs	relative_bond	Dynamics	hull_white_loading_composes	Composition and positivity of exponential affine bond loading, including zero reversion	-
+crates/pricing/src/engine/processes/hull_white.rs	covariance_loading	Dynamics	ou_loadings	Variance/covariance recovery for the two residual Gaussian loadings under PSD	-
+crates/pricing/src/engine/calibration/lsv.rs	conditional	Dynamics	lsv_local_variance	Leverage times conditional variance reproduces the local target	-
+crates/pricing/src/product/smoothing.rs	pub fn indicator(self	Barrier	indicator_complement	Quintic bounds, symmetry and strictly positive complementary weight in the interior	-
+crates/pricing/src/product/smoothing.rs	let value = u3 * (10.0 + u * (-15.0 + 6.0 * u))	Witness	rounded_safety	Exact negative complement in the original directly evaluated barrier tail	quintic_binary64_tail
+crates/pricing/src/product/smoothing.rs	indicator_with_complement	Witness	repaired_weight_pair	Exact rounding of the repaired small-tail witness	quintic_binary64_tail
+crates/pricing/src/product/smoothing.rs	pub fn indicator(self	Repair	quintic_hasDerivAt	Quintic derivative and zero-volatility smoothed up-and-out delta	-
+crates/pricing/src/engine/payoff/barrier.rs	survival	Barrier	survival_product	Path bounds, absorbing hit and product of finite survival weights	-
+crates/pricing/src/engine/payoff/barrier_bridge.rs	log_survival	Dynamics	bridge_survival_range	Brownian-bridge survival bounds, monotonicity and log accumulation	-
+crates/pricing/src/product/graph.rs	SourceOpcode	Graph	reverse_is_derivative	Unfolded finite graph of smoothly composed scalar opcodes	-
+crates/pricing/src/engine/payoff/tape.rs	evaluate_output_with_observation_adjoints	Graph	pullback_tangent	Accumulation of repeated spot occurrences for arithmetic, exp and log	-
+crates/pricing/src/engine/sampling/random.rs	Philox4x32	Sampling	philox_rounds_injective	Bit-level inverse, injectivity, standard test vector and address partition	-
+crates/pricing/src/engine/sampling/random.rs	open_unit_interval	Discrete	midpoint_has_exact_short_significand	All u32 midpoint numerators fit exactly; 720 native bit comparisons	-
+crates/pricing/src/engine/sampling/bridge.rs	BrownianBridge	Sampling	bridge_reverse_duality	Positive bridge weights and transpose of the linear update	-
+crates/pricing/src/engine/sampling/random.rs	antithetic_normal	Sampling	antithetic_linear_cancellation	Affine contributions cancel across a normal/antithetic pair in real arithmetic	-
+crates/pricing/src/engine/processes/rough_volatility/mod.rs	lifted_variance	Rough	lifted_nonexpansive	Semi-implicit lifted factor with fixed common increment contracts distances weakly	-
+crates/pricing/src/engine/processes/rough_volatility/mod.rs	quadratic_variance	Rough	quadratic_derivative	Quadratic variance floor and derivative; positivity under full truncation	-
+crates/pricing/src/engine/processes/rough_volatility/mod.rs	mixed_variance	Rough	mixed_flat_vol_of_vol	Mixture is nonnegative and recovers the input curve for zero vol-of-vol	-
+crates/pricing/src/engine/processes/rough_volatility/mod.rs	sabr_variance	Rough	scalar_variance_positive	Positivity of the scalar lognormal variance update in exact arithmetic	-
+crates/pricing/src/engine/risk/gamma_bump.rs	BumpGrid	Dynamics	gamma_quartic_bias	Centered second-difference price stencil on quadratic and quartic payoffs	-
+crates/pricing/src/engine/mc/lsm.rs	should_exercise	Dynamics	exercise_envelope	Immediate-versus-continuation choice and exercise tie	-
+crates/pricing/src/engine/risk/dual.rs	fn observe	Scenarios	dual_upper_above_policy	Max-gap envelope from the first exercise, including an empty prior history	-
+crates/pricing/src/engine/mc/execution.rs	NeumaierSum	Scenarios	mean_square_error	Finite-scenario mean-square error under centered diagonal second moments	-
+crates/pricing/src/engine/mc/execution.rs	NeumaierSum	Scenarios	tail_mass_bound	Weighted squared-error tail bound for nonnegative masses	-
+backtesting/rust_pricing_backtest/greeks.py	def explain	Dynamics	greek_pnl_exact_quadratic	Delta/gamma Taylor attribution on a quadratic price	-
+backtesting/rust_pricing_backtest/pnl.py	def attribute_pnl	Dynamics	pnl_reconciliation	Algebraic reconciliation of explained P&L and residual	-
+crates/pricing/tests/extended_risk_acceptance.rs	required_bump_indices	Evidence	gate_requires_both_bumps	Absolute/relative AAD-vs-FD tolerance and two-bump plateau	-
+crates/pricing/src/black_price.rs	fn small_time_value	NumericalRepair	black_integrand_relative_error	Uniform real-arithmetic Taylor integrand bound at the small-deviation branch cutoff	-
+crates/pricing/src/black_price.rs	fn small_time_value	NumericalRepair	vega_factorization	Vega factorization underlying the out-of-the-money time-value integral	-
+crates/pricing-numerics/src/complex.rs	fn scaled_dot	NumericalRepair	align_dot	Alignment of two signed products with arbitrary integer exponents over the reals	-
+crates/pricing-numerics/src/complex.rs	fn scale_binary	NumericalRepair	restore_quotient	Real quotient restored from independently scaled numerator and denominator	-
+crates/pricing-numerics/src/complex.rs	fn scale_binary	NumericalRepair	repaired_max_division	Binary64 normal-range rounding trace for largest finite components	-
+crates/pricing/src/black_price.rs	fn small_time_value	NumericalRepair	atm_witness_rounding_cell	Exact unit ATM price strictly inside the two binary64 midpoints around 0x3c19884533d43651	-
+crates/pricing-numerics/src/complex.rs	fn quotient(self	NumericalRepair	quotient_residual	Residual for the quotient of two high/low expansions	-
+crates/pricing/src/black_price.rs	fn small_time_value	NumericalRepair	black_vega_derivative	Black vega integral follows by differentiating the Gaussian call in total standard deviation	-
+crates/pricing/src/black_price.rs	fn tail_time_value	NumericalRepair	tiny_tail_below_half_subnormal	Exact OTM Gaussian tail below half of the minimum subnormal for any finite positive input scale when the lower tail argument is at least 56	-
+crates/pricing/src/black_price.rs	fn tail_time_value	NumericalRepair	mills_divided_step	Cancellation-free recurrence for a divided difference of two Laplace fraction convergents	-

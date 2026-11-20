@@ -4,6 +4,7 @@
 
 mod api;
 pub mod bass_lv;
+mod black_price;
 pub use engine::multi_asset::cross_currency;
 mod engine;
 use api::{error, request, result};
