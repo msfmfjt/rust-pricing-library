@@ -186,7 +186,7 @@ pub(in crate::engine) enum SmoothedBarrierHitKind {
 pub(in crate::engine) struct SmoothedBarrierHitFactor {
     pub(in crate::engine) kind: SmoothedBarrierHitKind,
     pub(in crate::engine) state_index: Option<usize>,
-    pub(in crate::engine) hit_weight: f64,
+    pub(in crate::engine) safety_weight: f64,
     pub(in crate::engine) state_derivative: f64,
 }
 

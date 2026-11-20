@@ -191,6 +191,76 @@ fn continuous_barrier() -> ProductSpec {
     barrier(BarrierMonitoring::Continuous)
 }
 
+#[test]
+fn continuous_barrier_tail_survives_in_price_and_pathwise_delta() {
+    let expiry = "2027-09-04".parse().unwrap();
+    let level = 99.0 + 2.0_f64.powi(-25);
+    let product = ProductSpec::Barrier(
+        BarrierSpec::new(
+            UnderlyingId::new(1),
+            CurrencyId::new(1),
+            expiry,
+            90.0,
+            level,
+            1.0,
+            OptionSide::Call,
+            BarrierDirection::Up,
+            BarrierStyle::KnockOut,
+            BarrierMonitoring::Continuous,
+            vec![expiry],
+            None,
+            expiry,
+        )
+        .unwrap(),
+    );
+    let risk = RiskRequest::new(
+        true,
+        None,
+        true,
+        None,
+        SmileDynamics::StickyLogMoneyness,
+        None,
+        None,
+    )
+    .unwrap()
+    .with_payoff_smoothing(PayoffSmoothing::compact_c2(1.0).unwrap());
+    for vol in [0.0, 0.2] {
+        let engine = pseudo_engine(7, 16, false);
+        let price = price_monte_carlo(
+            &request(product.clone(), smoothed_price_only(1.0), engine, vol),
+            policy(),
+        )
+        .unwrap()
+        .pricing_result
+        .value
+        .value()
+        .get();
+        let result = price_monte_carlo(
+            &request(product.clone(), risk.clone(), engine, vol),
+            policy(),
+        )
+        .unwrap()
+        .pricing_result;
+        let delta = result.risks.delta.unwrap().raw().value().get();
+        let vega = result.risks.vega.unwrap().raw().value().get();
+        println!(
+            "continuous barrier tail vol={vol} PV={price:.16e} delta={delta:.16e} vega={vega:.16e}"
+        );
+        assert!(price > 0.0 && price.is_finite());
+        assert_eq!(price, result.value.value().get());
+        assert!(delta.is_finite() && vega.is_finite());
+        if vol == 0.0 {
+            // Both endpoints are at the initial spot. PV(S) = (S - K) * q(S)^2.
+            let q = f64::from_bits(0x3b43_ffff_f880_0001);
+            let v = 2.0_f64.powi(-26);
+            let dq = -15.0 * v.powi(2) * (1.0 - v).powi(2);
+            let expected_delta = q * q + 20.0 * q * dq;
+            assert!((price / (10.0 * q * q) - 1.0).abs() < 5e-13);
+            assert!((delta / expected_delta - 1.0).abs() < 5e-13);
+        }
+    }
+}
+
 fn barrier(monitoring: BarrierMonitoring) -> ProductSpec {
     let expiry = "2027-09-04".parse().expect("expiry");
     ProductSpec::Barrier(

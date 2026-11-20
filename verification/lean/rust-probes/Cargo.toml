@@ -1,0 +1,15 @@
+[package]
+name = "pricing-lean-probes"
+version = "0.1.0"
+edition = "2024"
+publish = false
+default-run = "pricing-lean-probes"
+
+[dependencies]
+pricing = { path = "../../../crates/pricing" }
+pricing-numerics = { path = "../../../crates/pricing-numerics" }
+
+syn = { version = "=3.0.5", features = ["full", "visit"] }
+proc-macro2 = { version = "=1.0.107", features = ["span-locations"] }
+
+[workspace]

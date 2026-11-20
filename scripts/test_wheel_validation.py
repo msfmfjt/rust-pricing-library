@@ -250,6 +250,19 @@ class FrozenContractTests(unittest.TestCase):
 
 
 class ArchiveIntegrationTests(unittest.TestCase):
+    def test_lean_sources_and_evidence_are_packaged_without_build_caches(self):
+        prefix = 'verification/lean/'
+        files = archive.REQUIRED_FILES | archive.repository_source_files()
+        for name in ('lakefile.toml', 'lean-toolchain', 'PricingAudit/IndexGuards.lean',
+                     'rust-probes/src/bin/numerical_oracles.rs', 'tools/index_guards.py',
+                     'results/repair-summary.json', 'results/repair-index-guards.tsv.gz'):
+            with self.subTest(name=name):
+                self.assertIn(prefix + name, files)
+        for name in ('.lake/packages/mathlib/Mathlib.lean', 'rust-probes/target/debug/probe'):
+            with self.subTest(name=name):
+                self.assertNotIn(prefix + name, files)
+                self.assertTrue(archive.has_forbidden_part(prefix + name))
+
     @staticmethod
     def sources():
         paths = set(archive.REQUIRED_WHEEL_SMOKE_SNIPPETS)

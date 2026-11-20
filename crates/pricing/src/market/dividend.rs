@@ -559,10 +559,13 @@ impl AffineDividendTransform {
         f_value: f64,
     ) -> Result<f64, MarketError> {
         let event = self.events[event_index];
-        let before = self.coordinate_before_event(event_index)?;
-        let pre_spot = before.reconstruct_spot(self.spot, f_value);
-        let post_spot = event.post_spot(pre_spot, self.spot);
+        // Adding an escrowed dividend to a tiny residual can round the entire
+        // residual away before the cash is subtracted again.
+        let after = self.coordinate_after_time(event.ex_time)?;
+        let post_spot = after.reconstruct_spot(self.spot, f_value);
         if !post_spot.is_finite() || post_spot <= 0.0 {
+            let before = self.coordinate_before_event(event_index)?;
+            let pre_spot = before.reconstruct_spot(self.spot, f_value);
             return Err(MarketError::NonPositivePostDividendSpot {
                 underlying: self.underlying,
                 event: event.event,
@@ -892,6 +895,39 @@ mod tests {
                 && event == EventId::new(1)
                 && path == PathIndex::new(12)
         ));
+    }
+
+    #[test]
+    fn funded_tail_is_validated_in_post_dividend_coordinates() {
+        let id = EventId::new(1);
+        let event =
+            DividendEvent::new(id, 0.5, DividendQuote::fixed_cash(64.0, id).unwrap()).unwrap();
+        let initial = spot(128.0);
+        let transform =
+            AffineDividendTransform::new(UnderlyingId::new(1), initial, vec![event]).unwrap();
+        let path = PathIndex::new(7);
+        let f = 2.0_f64.powi(-47);
+        let before = transform
+            .coordinate_before_event(0)
+            .unwrap()
+            .reconstruct_spot(initial, f);
+        assert_eq!(before, 64.0);
+        let after = transform
+            .coordinate_after_time(0.5)
+            .unwrap()
+            .reconstruct_spot(initial, f);
+        assert_eq!(after, 2.0_f64.powi(-48));
+        assert_eq!(
+            transform.validate_post_event_f_state(0, path, f).unwrap(),
+            after
+        );
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(
+                matches!(transform.validate_post_event_f_state(0, path, bad),
+                Err(MarketError::NonPositivePostDividendSpot { event, path: p, .. })
+                    if event == id && p == path)
+            );
+        }
     }
 
     #[test]

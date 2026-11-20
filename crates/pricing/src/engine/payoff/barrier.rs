@@ -87,7 +87,7 @@ impl SmoothedContinuousBarrierPath {
         }
         let log_hit_survival = hit_factors
             .iter()
-            .fold(0.0, |total, factor| total + factor.safety_weight().ln());
+            .fold(0.0, |total, factor| total + factor.safety_weight.ln());
         Self {
             intervals: intervals.into_boxed_slice(),
             hit_factors: hit_factors.into_boxed_slice(),
@@ -121,10 +121,10 @@ impl SmoothedContinuousBarrierPath {
             .hit_factors
             .iter()
             .map(|factor| {
-                let derivative = if factor.safety_weight() == 0.0 {
+                let derivative = if factor.safety_weight == 0.0 {
                     0.0
                 } else {
-                    -log_survival_adjoint * factor.state_derivative / factor.safety_weight()
+                    -log_survival_adjoint * factor.state_derivative / factor.safety_weight
                 };
                 (factor.state_index, derivative)
             })
@@ -138,7 +138,7 @@ impl SmoothedContinuousBarrierPath {
                 .hit_factors
                 .iter()
                 .filter(|factor| factor.kind == kind)
-                .fold(1.0, |survival, factor| survival * factor.safety_weight())
+                .fold(1.0, |survival, factor| survival * factor.safety_weight)
         };
         BarrierPathDiagnosticValues {
             endpoint_hit: component_hit(SmoothedBarrierHitKind::Endpoint),
@@ -150,12 +150,6 @@ impl SmoothedContinuousBarrierPath {
             survival_underflow_count: f64::from(self.survival_underflow_count),
             certain_survival_count: f64::from(self.certain_survival_count),
         }
-    }
-}
-
-impl SmoothedBarrierHitFactor {
-    pub(in crate::engine) fn safety_weight(self) -> f64 {
-        1.0 - self.hit_weight
     }
 }
 
@@ -276,7 +270,7 @@ pub(in crate::engine) fn smoothed_endpoint_hit_factor(
     SmoothedBarrierHitFactor {
         kind,
         state_index,
-        hit_weight: endpoint.hit_weight(),
+        safety_weight: endpoint.safety_weight(),
         state_derivative: endpoint.reverse(1.0, 0.0).state,
     }
 }
@@ -299,13 +293,13 @@ pub(in crate::engine) fn smoothed_jump_hit_factor(
     let pre_distance = direction_sign * (pre_spot - barrier);
     let post_distance = direction_sign * (post_spot - barrier);
     let score = smoothing.maximum(pre_distance, post_distance);
-    let hit = smoothing.indicator(score.value);
+    let (hit, safety_weight) = smoothing.indicator_with_complement(score.value);
     let score_state_derivative = direction_sign
         * (score.left_first * pre_affine_scale + score.right_first * post_affine_scale);
     SmoothedBarrierHitFactor {
         kind: SmoothedBarrierHitKind::DividendJump,
         state_index,
-        hit_weight: hit.value,
+        safety_weight,
         state_derivative: hit.first * score_state_derivative,
     }
 }
@@ -357,5 +351,50 @@ pub(in crate::engine) fn continuous_barrier_payoff_terms(
             terminal_derivative: (1.0 - survival) * vanilla_derivative,
             survival_derivative: barrier.rebate - vanilla,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dividend_jump_tail_reaches_survival_and_its_state_adjoint() {
+        let smoothing = CompactC2Smoothing::new(1.0).unwrap();
+        let q = f64::from_bits(0x3b43_ffff_f880_0001);
+        let v = 2.0_f64.powi(-26);
+        let slope = 15.0 * v.powi(2) * (1.0 - v).powi(2);
+        for (direction, pre, post, barrier, expected_derivative) in [
+            (
+                BarrierDirection::Up,
+                100.0,
+                98.0,
+                99.0 + 2.0_f64.powi(-25),
+                -slope,
+            ),
+            (
+                BarrierDirection::Down,
+                102.0,
+                100.0,
+                101.0 - 2.0_f64.powi(-25),
+                0.5 * slope,
+            ),
+        ] {
+            let factor = smoothed_jump_hit_factor(
+                direction,
+                pre,
+                post,
+                1.0,
+                0.5,
+                barrier,
+                smoothing,
+                Some(3),
+            );
+            let path = SmoothedContinuousBarrierPath::evaluate(vec![], vec![factor]);
+            assert!((path.survival() / q - 1.0).abs() < 2e-14);
+            let (_, adjoints) = path.reverse(1.0);
+            assert_eq!(adjoints[0].0, Some(3));
+            assert!((adjoints[0].1 / expected_derivative - 1.0).abs() < 2e-14);
+        }
     }
 }

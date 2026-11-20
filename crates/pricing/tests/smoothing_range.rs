@@ -5,6 +5,51 @@ use pricing::product::{
 };
 
 #[test]
+fn compact_tail_weights_remain_positive_between_representable_endpoints() {
+    use pricing::mc::{
+        BarrierBridgeDirection, SmoothedBarrierBridgeEndpoint, SmoothedBarrierBridgeEndpointInput,
+    };
+
+    let smoothing = CompactC2Smoothing::new(1.0).unwrap();
+    let x = 1.0 - 2.0_f64.powi(-25);
+    // Exact P(2^-26) rounded to binary64, independently checked in Lean.
+    let expected = f64::from_bits(0x3b43_ffff_f880_0001);
+    for direction in [BarrierBridgeDirection::Up, BarrierBridgeDirection::Down] {
+        let barrier = match direction {
+            BarrierBridgeDirection::Up => 100.0 - x,
+            BarrierBridgeDirection::Down => 100.0 + x,
+        };
+        let endpoint =
+            SmoothedBarrierBridgeEndpoint::evaluate(SmoothedBarrierBridgeEndpointInput {
+                direction,
+                state: 100.0,
+                transformed_barrier: barrier,
+                affine_scale: 1.0,
+                smoothing,
+            })
+            .unwrap();
+        assert_eq!(endpoint.hit_weight(), 1.0);
+        assert_eq!(endpoint.safety_weight(), expected);
+    }
+    let nearest = 1.0_f64.next_down();
+    let upper = smoothing.indicator(nearest);
+    let lower = smoothing.indicator(-nearest);
+    assert!(lower.value > 0.0 && lower.first > 0.0);
+    assert_eq!(upper.first, lower.first);
+    assert_eq!(upper.second, -lower.second);
+    assert_eq!(smoothing.positive_part(nearest).first, upper.value);
+    assert_eq!(smoothing.maximum(nearest, 0.0).right_first, lower.value);
+    assert_eq!(smoothing.minimum(nearest, 0.0).left_first, lower.value);
+
+    let h = f64::MAX;
+    let v = 0.5 * ((h - h.next_down()) / h);
+    let expected = v.powi(3) * (10.0 + v * (-15.0 + 6.0 * v));
+    let wide = CompactC2Smoothing::new(h).unwrap();
+    assert!(expected > 0.0);
+    assert_eq!(wide.indicator(-h.next_down()).value, expected);
+}
+
+#[test]
 fn exterior_extrema_select_the_original_operand_without_cancellation() {
     let smoothing = CompactC2Smoothing::new(2.0).unwrap();
     for (a, b) in [
