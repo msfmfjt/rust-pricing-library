@@ -1,0 +1,1057 @@
+{
+  "summary": {
+    "previously_passed": 635,
+    "additional_passed": 105,
+    "without_a_final_verdict": 0,
+    "total_passed": 740,
+    "complete_modules": 19,
+    "provider_cases": 179,
+    "jobs_completed": 51,
+    "jobs_total": 51
+  },
+  "results": {
+    "test_vega_kt_coupled_basis_provider.CoupledBasisProviderTests.test_a_native_panels": {
+      "status": "passed",
+      "jobs": [
+        "coupled-basis-coupled_row_hats-4-panels",
+        "coupled-basis-coupled_row_hats-6"
+      ]
+    },
+    "test_vega_kt_coupled_basis_provider.CoupledBasisProviderTests.test_b_dated_ledgers": {
+      "status": "passed",
+      "jobs": [
+        "coupled-basis-coupled_row_hats-4-call-arithmetic_asian",
+        "coupled-basis-coupled_row_hats-4-call-fixed_lookback",
+        "coupled-basis-coupled_row_hats-4-put-arithmetic_asian",
+        "coupled-basis-coupled_row_hats-4-put-fixed_lookback",
+        "coupled-basis-coupled_row_hats-6"
+      ]
+    },
+    "test_vega_kt_coupled_basis_provider.CoupledBasisProviderTests.test_c_failed_risk_and_wrong_basis_never_release_orders": {
+      "status": "passed",
+      "jobs": [
+        "coupled-basis-contracts"
+      ]
+    },
+    "test_vega_kt_coupled_basis_provider.CoupledBasisProviderTests.test_d_scope_and_sampling_gates": {
+      "status": "passed",
+      "jobs": [
+        "coupled-basis-contracts"
+      ]
+    },
+    "test_vega_kt_coupled_basis_provider.CoupledBasisProviderTests.test_e_cli_selects_named_policy": {
+      "status": "passed",
+      "jobs": [
+        "coupled-basis-contracts"
+      ]
+    },
+    "test_vega_kt_custom_basis_provider.CustomBasisProviderTests.test_a_native_panels": {
+      "status": "passed",
+      "jobs": [
+        "custom-basis-coupled_row_hats-4-panels",
+        "custom-basis-coupled_row_hats-6",
+        "custom-basis-row_hats-4-panels",
+        "custom-basis-row_hats-6",
+        "custom-basis-weighted_time_hats-4-panels",
+        "custom-basis-weighted_time_hats-6"
+      ]
+    },
+    "test_vega_kt_custom_basis_provider.CustomBasisProviderTests.test_b_dated_ledgers": {
+      "status": "passed",
+      "jobs": [
+        "custom-basis-coupled_row_hats-4-call-arithmetic_asian",
+        "custom-basis-coupled_row_hats-4-call-fixed_lookback",
+        "custom-basis-coupled_row_hats-4-put-arithmetic_asian",
+        "custom-basis-coupled_row_hats-4-put-fixed_lookback",
+        "custom-basis-coupled_row_hats-6",
+        "custom-basis-row_hats-4-call-arithmetic_asian",
+        "custom-basis-row_hats-4-call-fixed_lookback",
+        "custom-basis-row_hats-4-put-arithmetic_asian",
+        "custom-basis-row_hats-4-put-fixed_lookback",
+        "custom-basis-row_hats-6",
+        "custom-basis-weighted_time_hats-4-call-arithmetic_asian",
+        "custom-basis-weighted_time_hats-4-call-fixed_lookback",
+        "custom-basis-weighted_time_hats-4-put-arithmetic_asian",
+        "custom-basis-weighted_time_hats-4-put-fixed_lookback",
+        "custom-basis-weighted_time_hats-6"
+      ]
+    },
+    "test_vega_kt_custom_basis_provider.CustomBasisProviderTests.test_c_failed_risk_and_wrong_basis_never_release_orders": {
+      "status": "passed",
+      "jobs": [
+        "custom-basis-contracts"
+      ]
+    },
+    "test_vega_kt_custom_basis_provider.CustomBasisProviderTests.test_d_scope_and_sampling_gates": {
+      "status": "passed",
+      "jobs": [
+        "custom-basis-contracts"
+      ]
+    },
+    "test_vega_kt_custom_basis_provider.CustomBasisProviderTests.test_e_cli_selects_named_policy": {
+      "status": "passed",
+      "jobs": [
+        "custom-basis-contracts"
+      ]
+    },
+    "test_vega_kt_extension_provider.ExtensionProviderTests.test_a_native_panels_and_covariance": {
+      "status": "passed",
+      "jobs": [
+        "extension-all_rows-4",
+        "extension-all_rows-6",
+        "extension-linear_time-4",
+        "extension-linear_time-6"
+      ]
+    },
+    "test_vega_kt_extension_provider.ExtensionProviderTests.test_b_fixing_day_ledgers": {
+      "status": "passed",
+      "jobs": [
+        "extension-all_rows-4",
+        "extension-linear_time-4"
+      ]
+    },
+    "test_vega_kt_extension_provider.ExtensionProviderTests.test_c_six_interval_ledgers": {
+      "status": "passed",
+      "jobs": [
+        "extension-all_rows-6",
+        "extension-linear_time-6"
+      ]
+    },
+    "test_vega_kt_extension_provider.ExtensionProviderTests.test_d_policy_scope_and_failed_risks_are_not_cached": {
+      "status": "passed",
+      "jobs": [
+        "extension-contracts"
+      ]
+    },
+    "test_vega_kt_extension_provider.ExtensionProviderTests.test_e_native_resource_limit_stops_before_trading": {
+      "status": "passed",
+      "jobs": [
+        "extension-contracts"
+      ]
+    },
+    "test_vega_kt_extension_provider.ExtensionProviderTests.test_f_cli_selects_explicit_extension": {
+      "status": "passed",
+      "jobs": [
+        "extension-contracts"
+      ]
+    },
+    "test_vega_kt_extension_put_provider.PutExtensionProviderTests.test_a_native_put_panels": {
+      "status": "passed",
+      "jobs": [
+        "put-extension-all_rows-4",
+        "put-extension-all_rows-6",
+        "put-extension-linear_time-4",
+        "put-extension-linear_time-6"
+      ]
+    },
+    "test_vega_kt_extension_put_provider.PutExtensionProviderTests.test_b_fixing_day_mixed_ledgers": {
+      "status": "passed",
+      "jobs": [
+        "put-extension-all_rows-4",
+        "put-extension-linear_time-4"
+      ]
+    },
+    "test_vega_kt_extension_put_provider.PutExtensionProviderTests.test_c_six_interval_mixed_ledgers": {
+      "status": "passed",
+      "jobs": [
+        "put-extension-all_rows-6",
+        "put-extension-linear_time-6"
+      ]
+    },
+    "test_vega_kt_extension_put_provider.PutExtensionProviderTests.test_d_scope_and_failed_native_risk_do_not_release_orders": {
+      "status": "passed",
+      "jobs": [
+        "put-extension-contracts"
+      ]
+    },
+    "test_vega_kt_extension_put_provider.PutExtensionProviderTests.test_e_cli_put_scope_is_explicit": {
+      "status": "passed",
+      "jobs": [
+        "put-extension-contracts"
+      ]
+    },
+    "test_vega_kt_gamma_recovery.GammaRecoveryTests.test_asian_fixed_history_lookback_and_vanilla_use_actual_compiled_ad": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_gamma_recovery"
+      ]
+    },
+    "test_vega_kt_gamma_recovery.GammaRecoveryTests.test_matrix_matches_independent_svd_and_residual_statistics": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_gamma_recovery"
+      ]
+    },
+    "test_vega_kt_gamma_recovery.GammaRecoveryTests.test_notional_scales_means_and_variances_without_fake_independence": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_gamma_recovery"
+      ]
+    },
+    "test_vega_kt_gamma_recovery.GammaRecoveryTests.test_rejects_nonflat_carry_indicators_rqmc_and_invalid_inverse": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_gamma_recovery"
+      ]
+    },
+    "test_vega_kt_initial_measure.InitialMeasureTests.test_actual_payoff_ad_price_and_worker_replay": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_measure"
+      ]
+    },
+    "test_vega_kt_initial_measure.InitialMeasureTests.test_affine_history_has_zero_gamma_without_zeroing_mc_noise": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_measure"
+      ]
+    },
+    "test_vega_kt_initial_measure.InitialMeasureTests.test_binning_never_relocates_gamma_or_drops_tails": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_measure"
+      ]
+    },
+    "test_vega_kt_initial_measure.InitialMeasureTests.test_brownian_bridge_and_independent_paths_match_reference": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_measure"
+      ]
+    },
+    "test_vega_kt_initial_measure.InitialMeasureTests.test_notional_statistics_and_put_affine_remainder": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_measure"
+      ]
+    },
+    "test_vega_kt_initial_measure.InitialMeasureTests.test_one_interval_is_an_exact_dirac_at_the_boundary": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_measure"
+      ]
+    },
+    "test_vega_kt_initial_measure.InitialMeasureTests.test_scope_and_invalid_boundaries": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_measure"
+      ]
+    },
+    "test_vega_kt_initial_measure.InitialMeasureTests.test_valuation_date_observation_remains_fixed_history": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_measure"
+      ]
+    },
+    "test_vega_kt_initial_smile.InitialSmileGammaTests.test_bin_sums_and_tail_bounds_are_explicit_and_do_not_erase_signed_error": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_smile"
+      ]
+    },
+    "test_vega_kt_initial_smile.InitialSmileGammaTests.test_brownian_bridge_and_unpaired_sampling_leave_deterministic_gamma_unchanged": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_smile"
+      ]
+    },
+    "test_vega_kt_initial_smile.InitialSmileGammaTests.test_coarse_grid_and_too_strict_tolerance_withhold_estimate": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_smile"
+      ]
+    },
+    "test_vega_kt_initial_smile.InitialSmileGammaTests.test_flat_limit_matches_black_total_variance_and_is_not_reported_as_mc": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_smile"
+      ]
+    },
+    "test_vega_kt_initial_smile.InitialSmileGammaTests.test_native_mc_failure_withholds_even_a_converged_gamma_estimate": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_smile"
+      ]
+    },
+    "test_vega_kt_initial_smile.InitialSmileGammaTests.test_negative_gamma_atom_at_variance_slope_jump_is_retained": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_smile"
+      ]
+    },
+    "test_vega_kt_initial_smile.InitialSmileGammaTests.test_scope_and_precision_requests_rejected": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_smile"
+      ]
+    },
+    "test_vega_kt_initial_smile.InitialSmileGammaTests.test_workers_notional_and_native_price_replay": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_smile"
+      ]
+    },
+    "test_vega_kt_initial_three.InitialThreeGammaTests.test_all_eleven_market_coordinates_and_component_gates": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_three"
+      ]
+    },
+    "test_vega_kt_initial_three.InitialThreeGammaTests.test_all_histories_match_independent_continuation_Delta_integrals": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_three"
+      ]
+    },
+    "test_vega_kt_initial_three.InitialThreeGammaTests.test_failed_refinement_or_MC_withholds_initial_estimate": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_three"
+      ]
+    },
+    "test_vega_kt_initial_three.InitialThreeGammaTests.test_flat_limit_equals_three_transition_Black_variance_derivative": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_three"
+      ]
+    },
+    "test_vega_kt_initial_three.InitialThreeGammaTests.test_invalid_scope_and_unresolved_transition_fail_before_acceptance": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_three"
+      ]
+    },
+    "test_vega_kt_initial_three.InitialThreeGammaTests.test_variance_slope_cusp_preserves_negative_initial_Gamma": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_three"
+      ]
+    },
+    "test_vega_kt_initial_three.InitialThreeGammaTests.test_workers_notional_and_normal_pricing_are_unchanged": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_initial_three"
+      ]
+    },
+    "test_vega_kt_joint_portfolio.JointPortfolioTests.test_failure_does_not_publish_partial_portfolio": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_portfolio"
+      ]
+    },
+    "test_vega_kt_joint_portfolio.JointPortfolioTests.test_identical_opposite_instruments_cancel_risk_and_error": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_portfolio"
+      ]
+    },
+    "test_vega_kt_joint_portfolio.JointPortfolioTests.test_mixed_rqmc_resolutions_pair_by_scramble": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_portfolio"
+      ]
+    },
+    "test_vega_kt_joint_portfolio.JointPortfolioTests.test_readouts_leave_existing_audit_unchanged_and_are_ordered": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_portfolio"
+      ]
+    },
+    "test_vega_kt_joint_portfolio.JointPortfolioTests.test_rqmc_covariance_uses_scramble_means_not_points": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_portfolio"
+      ]
+    },
+    "test_vega_kt_joint_replay.NativeJointReplayTests.test_actual_ledger_joint_covariance_saved_pnl_and_resume": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_replay"
+      ]
+    },
+    "test_vega_kt_joint_smile.JointGammaTests.test_companion_validates_quotes_compiles_same_payload_and_keeps_scope": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_smile"
+      ]
+    },
+    "test_vega_kt_joint_smile.JointGammaTests.test_component_readout_and_worker_price_replay": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_smile"
+      ]
+    },
+    "test_vega_kt_joint_smile.JointGammaTests.test_dependent_readouts_full_covariance_and_cross_maturity_terms": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_smile"
+      ]
+    },
+    "test_vega_kt_joint_smile.JointGammaTests.test_initial_or_second_failure_withholds_joint_estimate": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_smile"
+      ]
+    },
+    "test_vega_kt_joint_smile.JointGammaTests.test_invalid_readouts_and_dependent_constraint_basis_rejected": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_smile"
+      ]
+    },
+    "test_vega_kt_joint_smile.JointGammaTests.test_joint_native_readout_matches_same_path_two_row_price_bumps": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_smile"
+      ]
+    },
+    "test_vega_kt_joint_smile.JointGammaTests.test_unconserved_readout_failure_retains_raw_joint_statistics": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_smile"
+      ]
+    },
+    "test_vega_kt_joint_smile.JointGammaTests.test_unpaired_brownian_bridge_and_notional_scaling": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_joint_smile"
+      ]
+    },
+    "test_vega_kt_lookback_fixing_day.LookbackFixingDayTests.test_fixed_observation_matches_cash_plus_effective_strike_vanilla": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_lookback_fixing_day"
+      ]
+    },
+    "test_vega_kt_lookback_fixing_day.LookbackFixingDayTests.test_fixing_date_value_and_schema_validation": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_lookback_fixing_day"
+      ]
+    },
+    "test_vega_kt_lookback_fixing_day.LookbackFixingDayTests.test_fixing_day_ledgers_settle_and_resume_with_atomic_failure": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_lookback_fixing_day"
+      ]
+    },
+    "test_vega_kt_lookback_fixing_day.LookbackFixingDayTests.test_four_six_interval_today_only_and_past_histories_pass_gamma": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_lookback_fixing_day"
+      ]
+    },
+    "test_vega_kt_lookback_fixing_day.LookbackFixingDayTests.test_fully_fixed_today_has_zero_risks_while_legacy_today_tracks_spot": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_lookback_fixing_day"
+      ]
+    },
+    "test_vega_kt_middle_smile.MiddleGammaTests.test_conditional_Gamma_matches_independent_integration_by_parts_for_all_payoffs": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_middle_smile"
+      ]
+    },
+    "test_vega_kt_middle_smile.MiddleGammaTests.test_joint_market_wrapper_keeps_independent_failure_gates": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_middle_smile"
+      ]
+    },
+    "test_vega_kt_middle_smile.MiddleGammaTests.test_numerical_and_statistical_failures_withhold_estimates": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_middle_smile"
+      ]
+    },
+    "test_vega_kt_middle_smile.MiddleGammaTests.test_scope_and_precision_fail_explicitly": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_middle_smile"
+      ]
+    },
+    "test_vega_kt_middle_smile.MiddleGammaTests.test_terminal_dependent_readouts_preserve_pathwise_variance_and_zero": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_middle_smile"
+      ]
+    },
+    "test_vega_kt_middle_smile.MiddleGammaTests.test_variance_slope_cusp_retains_negative_gamma_atom": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_middle_smile"
+      ]
+    },
+    "test_vega_kt_middle_smile.MiddleGammaTests.test_worker_replay_and_notional_preserve_measure": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_middle_smile"
+      ]
+    },
+    "test_vega_kt_multi_step.MultiStepGammaTests.test_actual_recursive_source_and_nonflat_first_reporting_maturity": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step"
+      ]
+    },
+    "test_vega_kt_multi_step.MultiStepGammaTests.test_conditioning_preserves_native_prices_and_reduces_cancellation_noise": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step"
+      ]
+    },
+    "test_vega_kt_multi_step.MultiStepGammaTests.test_invalid_scope_precision_and_conservation_rejected": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step"
+      ]
+    },
+    "test_vega_kt_multi_step.MultiStepGammaTests.test_same_path_direction_conservation_for_all_histories": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step"
+      ]
+    },
+    "test_vega_kt_multi_step.MultiStepGammaTests.test_unpaired_bridge_and_failure_withholding": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step"
+      ]
+    },
+    "test_vega_kt_multi_step.MultiStepGammaTests.test_workers_notional_and_normal_pricing": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step"
+      ]
+    },
+    "test_vega_kt_multi_step_provider.MultiStepProviderTests.test_all_four_strategies_fill_settle_serialize_and_resume_exactly": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step_provider"
+      ]
+    },
+    "test_vega_kt_multi_step_provider.MultiStepProviderTests.test_cache_eviction_preserves_native_gamma_audit_and_covariance": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step_provider"
+      ]
+    },
+    "test_vega_kt_multi_step_provider.MultiStepProviderTests.test_calibrated_call_put_risks_match_exact_market_vega_oracle": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step_provider"
+      ]
+    },
+    "test_vega_kt_multi_step_provider.MultiStepProviderTests.test_cli_selects_the_new_explicit_scope": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step_provider"
+      ]
+    },
+    "test_vega_kt_multi_step_provider.MultiStepProviderTests.test_failed_native_gate_releases_no_risk_or_orders_and_retries_cleanly": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step_provider"
+      ]
+    },
+    "test_vega_kt_multi_step_provider.MultiStepProviderTests.test_scope_coordinates_and_calibration_fail_closed": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step_provider"
+      ]
+    },
+    "test_vega_kt_multi_step_provider.MultiStepProviderTests.test_shared_local_grid_and_detached_audit": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step_provider"
+      ]
+    },
+    "test_vega_kt_multi_step_provider.MultiStepProviderTests.test_sparse_tail_precision_failure_stops_real_native_replay": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_multi_step_provider"
+      ]
+    },
+    "test_vega_kt_nonflat_gamma.NonflatGammaTests.test_exact_node_variance_ad_agrees_with_same_path_price_bumps": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_nonflat_gamma"
+      ]
+    },
+    "test_vega_kt_nonflat_gamma.NonflatGammaTests.test_heldout_failure_does_not_reselect": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_nonflat_gamma"
+      ]
+    },
+    "test_vega_kt_nonflat_gamma.NonflatGammaTests.test_independent_operator_inverse_and_same_path_projection_variance": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_nonflat_gamma"
+      ]
+    },
+    "test_vega_kt_nonflat_gamma.NonflatGammaTests.test_invalid_directions_and_old_volatility_flags_rejected": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_nonflat_gamma"
+      ]
+    },
+    "test_vega_kt_nonflat_gamma.NonflatGammaTests.test_no_feasible_pilot_withholds_estimate": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_nonflat_gamma"
+      ]
+    },
+    "test_vega_kt_nonflat_gamma.NonflatGammaTests.test_no_flat_initial_or_legacy_nonflat_fallback": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_nonflat_gamma"
+      ]
+    },
+    "test_vega_kt_nonflat_gamma.NonflatGammaTests.test_unconstrained_call_and_non_antithetic_sampling_remain_explicit": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_nonflat_gamma"
+      ]
+    },
+    "test_vega_kt_nonflat_gamma.NonflatGammaTests.test_worker_replay_signed_scaling_and_price_preservation": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_nonflat_gamma"
+      ]
+    },
+    "test_vega_kt_path_chain.PathGammaChainTests.test_dependent_readout_uses_joint_same_path_statistics": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_path_chain"
+      ]
+    },
+    "test_vega_kt_path_chain.PathGammaChainTests.test_four_six_intervals_and_complete_market_coordinate_order": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_path_chain"
+      ]
+    },
+    "test_vega_kt_path_chain.PathGammaChainTests.test_history_payoffs_notional_workers_and_unchanged_native_price": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_path_chain"
+      ]
+    },
+    "test_vega_kt_path_chain.PathGammaChainTests.test_precision_shapes_and_work_budget_are_explicit": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_path_chain"
+      ]
+    },
+    "test_vega_kt_path_chain.PathGammaChainTests.test_unpaired_bridge_and_failure_gates": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_path_chain"
+      ]
+    },
+    "test_vega_kt_path_ledger.PathLedgerTests.test_native_contract_mismatch_and_old_scope_are_rejected": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_path_ledger"
+      ]
+    },
+    "test_vega_kt_path_ledger.PathLedgerTests.test_native_rolls_histories_and_all_strategies_settle_resume": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_path_ledger"
+      ]
+    },
+    "test_vega_kt_path_ledger.PathLedgerTests.test_six_interval_known_histories_use_the_same_native_price_and_delta": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_path_ledger"
+      ]
+    },
+    "test_vega_kt_rqmc_replay.RqmcReplayTests.test_actual_path_ledger_covariance_resume_and_failure": {
+      "status": "passed",
+      "jobs": [
+        "test_vega_kt_rqmc_replay"
+      ]
+    }
+  },
+  "job_evidence": {
+    "coupled-basis-contracts": {
+      "job": "coupled-basis-contracts",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300150",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "coupled-basis-coupled_row_hats-4-call-arithmetic_asian": {
+      "job": "coupled-basis-coupled_row_hats-4-call-arithmetic_asian",
+      "exit": 0,
+      "seconds": 4925.44,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "bf3632f5f0cd0e95d65c6aa70e91d62be93143e52f761f1feca0d8b41407aef3",
+      "unittest_method_invocations": 1
+    },
+    "coupled-basis-coupled_row_hats-4-call-fixed_lookback": {
+      "job": "coupled-basis-coupled_row_hats-4-call-fixed_lookback",
+      "exit": 0,
+      "seconds": 3848.512,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "9b975908f4fac953e4c9ba6d090dd9c44540b5fcf61e3b37a903cde5cb7cb908",
+      "unittest_method_invocations": 1
+    },
+    "coupled-basis-coupled_row_hats-4-panels": {
+      "job": "coupled-basis-coupled_row_hats-4-panels",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300170",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "coupled-basis-coupled_row_hats-4-put-arithmetic_asian": {
+      "job": "coupled-basis-coupled_row_hats-4-put-arithmetic_asian",
+      "exit": 0,
+      "seconds": 5024.974,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "5628fd4ce9331cc53124f99e94e5a1e8eeb2a504936c1f7887ff3de591e1815e",
+      "unittest_method_invocations": 1
+    },
+    "coupled-basis-coupled_row_hats-4-put-fixed_lookback": {
+      "job": "coupled-basis-coupled_row_hats-4-put-fixed_lookback",
+      "exit": 0,
+      "seconds": 3888.311,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "8e0d182628ad81ecd9c4b3a2864c5abf2454ff9656fa392c4aa1d8888f517227",
+      "unittest_method_invocations": 1
+    },
+    "coupled-basis-coupled_row_hats-6": {
+      "job": "coupled-basis-coupled_row_hats-6",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300342",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-contracts": {
+      "job": "custom-basis-contracts",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300077",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-coupled_row_hats-4-call-arithmetic_asian": {
+      "job": "custom-basis-coupled_row_hats-4-call-arithmetic_asian",
+      "exit": 0,
+      "seconds": 4879.357,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "19a69d0e437c246af099e47cd83df0c3c43d55964003bd038121e012c7510dc9",
+      "unittest_method_invocations": 1
+    },
+    "custom-basis-coupled_row_hats-4-call-fixed_lookback": {
+      "job": "custom-basis-coupled_row_hats-4-call-fixed_lookback",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300202",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-coupled_row_hats-4-panels": {
+      "job": "custom-basis-coupled_row_hats-4-panels",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300133",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-coupled_row_hats-4-put-arithmetic_asian": {
+      "job": "custom-basis-coupled_row_hats-4-put-arithmetic_asian",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300242",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-coupled_row_hats-4-put-fixed_lookback": {
+      "job": "custom-basis-coupled_row_hats-4-put-fixed_lookback",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300142",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-coupled_row_hats-6": {
+      "job": "custom-basis-coupled_row_hats-6",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300099",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-row_hats-4-call-arithmetic_asian": {
+      "job": "custom-basis-row_hats-4-call-arithmetic_asian",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300143",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-row_hats-4-call-fixed_lookback": {
+      "job": "custom-basis-row_hats-4-call-fixed_lookback",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300106",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-row_hats-4-panels": {
+      "job": "custom-basis-row_hats-4-panels",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300224",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-row_hats-4-put-arithmetic_asian": {
+      "job": "custom-basis-row_hats-4-put-arithmetic_asian",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300037",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-row_hats-4-put-fixed_lookback": {
+      "job": "custom-basis-row_hats-4-put-fixed_lookback",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300048",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-row_hats-6": {
+      "job": "custom-basis-row_hats-6",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300074",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-weighted_time_hats-4-call-arithmetic_asian": {
+      "job": "custom-basis-weighted_time_hats-4-call-arithmetic_asian",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300161",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-weighted_time_hats-4-call-fixed_lookback": {
+      "job": "custom-basis-weighted_time_hats-4-call-fixed_lookback",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300156",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-weighted_time_hats-4-panels": {
+      "job": "custom-basis-weighted_time_hats-4-panels",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300174",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-weighted_time_hats-4-put-arithmetic_asian": {
+      "job": "custom-basis-weighted_time_hats-4-put-arithmetic_asian",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300081",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-weighted_time_hats-4-put-fixed_lookback": {
+      "job": "custom-basis-weighted_time_hats-4-put-fixed_lookback",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300140",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "custom-basis-weighted_time_hats-6": {
+      "job": "custom-basis-weighted_time_hats-6",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300068",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "extension-all_rows-4": {
+      "job": "extension-all_rows-4",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300255",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "extension-all_rows-6": {
+      "job": "extension-all_rows-6",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300324",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "extension-contracts": {
+      "job": "extension-contracts",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300285",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "extension-linear_time-4": {
+      "job": "extension-linear_time-4",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300349",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "extension-linear_time-6": {
+      "job": "extension-linear_time-6",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300308",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "put-extension-all_rows-4": {
+      "job": "put-extension-all_rows-4",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300769",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "put-extension-all_rows-6": {
+      "job": "put-extension-all_rows-6",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300393",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "put-extension-contracts": {
+      "job": "put-extension-contracts",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300423",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "put-extension-linear_time-4": {
+      "job": "put-extension-linear_time-4",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300410",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "put-extension-linear_time-6": {
+      "job": "put-extension-linear_time-6",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300439",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "test_vega_kt_gamma_recovery": {
+      "job": "test_vega_kt_gamma_recovery",
+      "exit": 0,
+      "seconds": 0.257,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "7cf76d61ebed48c7bdd74e25789a276b56f3b7bc60a9d64ca99731f50dca9965",
+      "unittest_method_invocations": 4
+    },
+    "test_vega_kt_initial_measure": {
+      "job": "test_vega_kt_initial_measure",
+      "exit": 0,
+      "seconds": 0.24,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "7a2f8222d4dd570a2631454cfa5a873d5a6146473fbe8883176781ccd38bec82",
+      "unittest_method_invocations": 8
+    },
+    "test_vega_kt_initial_smile": {
+      "job": "test_vega_kt_initial_smile",
+      "exit": 0,
+      "seconds": 1.17,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "02eb5fa4401c46ffe8dd3b06e090f0fe689631f98b9e02361e3635c9f84fa9a9",
+      "unittest_method_invocations": 8
+    },
+    "test_vega_kt_initial_three": {
+      "job": "test_vega_kt_initial_three",
+      "exit": 0,
+      "seconds": 550.046,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "6a43c3df55bc193081963c81d5b489819be3f69f4856278ea0b4fe371db2f7f5",
+      "unittest_method_invocations": 7
+    },
+    "test_vega_kt_joint_portfolio": {
+      "job": "test_vega_kt_joint_portfolio",
+      "exit": 0,
+      "seconds": 135.426,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "cee7a0c193dfe3924a4d2afed620daebb63695eb6aa85ac238313e175927fbad",
+      "unittest_method_invocations": 5
+    },
+    "test_vega_kt_joint_replay": {
+      "job": "test_vega_kt_joint_replay",
+      "exit": 0,
+      "seconds": 1141.072,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "2072d80be10f9fac9e92aaabde05db162bec2c21b96421d21979e83561666c76",
+      "unittest_method_invocations": 1
+    },
+    "test_vega_kt_joint_smile": {
+      "job": "test_vega_kt_joint_smile",
+      "exit": 0,
+      "seconds": 5.55,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "c7bb728b79e04b43ffdfe51e4ab27e41d447f5c907b44bba0bb2f778adcc9d2f",
+      "unittest_method_invocations": 8
+    },
+    "test_vega_kt_lookback_fixing_day": {
+      "job": "test_vega_kt_lookback_fixing_day",
+      "exit": 0,
+      "seconds": 3536.948,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "75b3e94fd32f7defde56b882dd9f795df272e750ab6c6b802edfb3e6590dfd30",
+      "unittest_method_invocations": 5
+    },
+    "test_vega_kt_middle_smile": {
+      "job": "test_vega_kt_middle_smile",
+      "exit": 0,
+      "seconds": 1213.37,
+      "source": "local CPython 3.12.14 release extension",
+      "log_sha256": "d4c883f7ffa0fb9a178e1258ee314e52dcfc15bc14471b4eda857dab20de04e7",
+      "unittest_method_invocations": 7
+    },
+    "test_vega_kt_multi_step": {
+      "job": "test_vega_kt_multi_step",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300327",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "test_vega_kt_multi_step_provider": {
+      "job": "test_vega_kt_multi_step_provider",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300327",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "test_vega_kt_nonflat_gamma": {
+      "job": "test_vega_kt_nonflat_gamma",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300382",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "test_vega_kt_path_chain": {
+      "job": "test_vega_kt_path_chain",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300327",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "test_vega_kt_path_ledger": {
+      "job": "test_vega_kt_path_ledger",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300331",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    },
+    "test_vega_kt_rqmc_replay": {
+      "job": "test_vega_kt_rqmc_replay",
+      "exit": 0,
+      "source": "GitHub Actions Linux",
+      "url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373/job/135975300366",
+      "head_sha": "9966d8053aa2951ed86248722c1d78cb4a25884b"
+    }
+  },
+  "native_source_revision": "9966d8053aa2951ed86248722c1d78cb4a25884b",
+  "verification_branch_revision": "f4415c7af0c5a293a9ff409ecb0babc0906ef1de",
+  "crates_tree": "e725eb750105a72a02afedb614b85aed015310df",
+  "previous_evidence": "summary.json#supplementary_regressions.python_bindings_release",
+  "local_extension_sha256": "4c0f0bcec174817f851efc3f331f1aa6cc824bf570195a4186bd4e516193bcf0",
+  "remote_run_url": "https://github.com/msfmfjt/rust-pricing-library/actions/runs/44622294373"
+}
