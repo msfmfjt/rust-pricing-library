@@ -5,8 +5,10 @@ import PricingAudit.Discrete
 import PricingAudit.Dividends
 import PricingAudit.Dynamics
 import PricingAudit.Evidence
+import PricingAudit.IndexGuards
 import PricingAudit.Graph
 import PricingAudit.Market
+import PricingAudit.NumericalRepair
 import PricingAudit.Numerics
 import PricingAudit.Projection
 import PricingAudit.Repair
@@ -86,6 +88,10 @@ run_cmd
     ``PricingAudit.Graph.tangent_hasDerivAt,
     ``PricingAudit.Graph.pullback_tangent,
     ``PricingAudit.Graph.reverse_is_derivative,
+    -- IndexGuards
+    ``PricingAudit.IndexGuards.copies_preserve_index,
+    ``PricingAudit.IndexGuards.literal_in_bounds,
+    ``PricingAudit.IndexGuards.remainder_in_bounds,
     -- Market
     ``PricingAudit.Market.forward_carry,
     ``PricingAudit.Market.intrinsic_parity,
@@ -99,6 +105,19 @@ run_cmd
     ``PricingAudit.Market.bergomi_weight_variance,
     ``PricingAudit.Market.bergomi_normalized,
     ``PricingAudit.Market.bergomi_degeneracy,
+    -- NumericalRepair
+    ``PricingAudit.NumericalRepair.vega_factorization,
+    ``PricingAudit.NumericalRepair.black_vega_derivative,
+    ``PricingAudit.NumericalRepair.tiny_tail_below_half_subnormal,
+    ``PricingAudit.NumericalRepair.mills_divided_step,
+    ``PricingAudit.NumericalRepair.exp_quadratic_remainder,
+    ``PricingAudit.NumericalRepair.black_integrand_relative_error,
+    ``PricingAudit.NumericalRepair.atm_density_bounds,
+    ``PricingAudit.NumericalRepair.atm_witness_rounding_cell,
+    ``PricingAudit.NumericalRepair.align_dot,
+    ``PricingAudit.NumericalRepair.restore_quotient,
+    ``PricingAudit.NumericalRepair.quotient_residual,
+    ``PricingAudit.NumericalRepair.repaired_max_division,
     -- Numerics
     ``PricingAudit.Numerics.welford_push,
     ``PricingAudit.Numerics.welford_fold,

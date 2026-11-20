@@ -1005,6 +1005,18 @@ REQUIRED_FILES = {
     "CONTRIBUTING.md",
     "rust-toolchain.toml",
     "rustfmt.toml",
+    "verification/lean/.gitignore",
+    "verification/lean/MirCheck.lean",
+    "verification/lean/PricingAudit.lean",
+    "verification/lean/README.md",
+    "verification/lean/contracts.tsv",
+    "verification/lean/lake-manifest.json",
+    "verification/lean/lakefile.toml",
+    "verification/lean/lean-toolchain",
+    "verification/lean/rust-probes/Cargo.lock",
+    "verification/lean/rust-probes/Cargo.toml",
+    "verification/lean/tools/black-reference.tsv",
+    "verification/lean/results/repair-index-guards.tsv.gz",
     "pyproject.toml",
     ".github/dependabot.yml",
     ".github/workflows/ci.yml",
@@ -1674,6 +1686,7 @@ REQUIRED_LOCAL_VOL_DIAGNOSTICS_SNIPPETS = {
 
 FORBIDDEN_PARTS = {
     ".git",
+    ".lake",
     "target",
     "dist",
     "wheelhouse",
@@ -1698,10 +1711,12 @@ FORBIDDEN_SUFFIXES = {
 TEXT_SOURCE_SUFFIXES = {
     ".csv",
     ".json",
+    ".lean",
     ".md",
     ".py",
     ".rs",
     ".toml",
+    ".tsv",
     ".txt",
     ".yaml",
     ".yml",
@@ -1709,6 +1724,7 @@ TEXT_SOURCE_SUFFIXES = {
 TEXT_SOURCE_NAMES = {
     ".gitattributes",
     ".gitignore",
+    "lean-toolchain",
 }
 
 JOE_KUO_DIRECTION_DATA = "crates/pricing/data/joe-kuo-6.21201-u32be.bin"
@@ -1881,6 +1897,11 @@ def repository_source_files() -> set[str]:
         ("schemas", "*.json"),
         ("tests/python", "*.py"),
         ("scripts", "*.py"),
+        ("verification/lean/PricingAudit", "*.lean"),
+        ("verification/lean/rust-probes/src", "*.rs"),
+        ("verification/lean/tools", "*.py"),
+        ("verification/lean/results", "*.json"),
+        ("verification/lean/results", "*.tsv"),
     ]
     files: set[str] = set()
     for root, pattern in patterns:

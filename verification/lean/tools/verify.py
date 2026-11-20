@@ -34,19 +34,21 @@ def main():
         ('lean', ['lake','build']),
         ('mir', [sys.executable,'tools/mir_coverage.py']),
         ('mir-unit', [sys.executable,'tools/mir_coverage.py','--build','unit']),
+        ('index-guards', [sys.executable,'tools/index_guards.py']),
         ('python', [sys.executable,'tools/python_coverage.py']),
         ('schema', [sys.executable,'tools/schema_coverage.py']),
         ('risk', [sys.executable,'tools/risk_evidence.py']),
         ('philox', [sys.executable,'tools/philox_vectors.py']),
         ('fields', [sys.executable,'tools/field_coverage.py']),
         ('catalog', [sys.executable,'tools/catalog.py']),
+        ('numerical-oracles', [sys.executable,'tools/numerical_oracles.py']),
         ('native-debug', ['cargo','run','--locked','--manifest-path',MANIFEST,'--','--strict']),
         ('native-release', ['cargo','run','--locked','--release','--manifest-path',MANIFEST,'--','--strict']),
     ]
     stages = {}
     summaries = {}
     for name, command in commands:
-        if name in ('fields','catalog') and any(stages[k]['status'] != 'passed' for k in ('mir','mir-unit')):
+        if name in ('index-guards','fields','catalog') and any(stages[k]['status'] != 'passed' for k in ('mir','mir-unit')):
             stages[name] = dict(status='blocked', reason='Rust dependency maps unavailable')
             continue
         if name == 'catalog' and stages['fields']['status'] != 'passed':

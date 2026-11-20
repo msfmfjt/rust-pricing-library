@@ -391,3 +391,14 @@ fn fourier_refinement_and_continuous_time_mc_comparison() {
         "finite MC grid comparison failures: {failures:?}"
     );
 }
+
+#[test]
+fn deterministic_heston_control_preserves_tiny_atm_time_value() {
+    let variance = 2.0_f64.powi(-120);
+    let model = RoughHeston::new(0.1, variance, 0.0, variance, 0.0, 0.0).unwrap();
+    let plan = HestonFourierPlan::compile(model.into(), 1.0, cfg(32, 32, 32.0)).unwrap();
+    let price = plan.price(1.0, 1.0, 1.0).unwrap();
+    for value in [price.call, price.put] {
+        assert_eq!(value.to_bits(), 0x3c19_8845_33d4_3651);
+    }
+}

@@ -21,9 +21,11 @@ fn main() {
             };
             let result = evaluate_black_forward(inputs).expect("finite inputs and finite Greeks");
             let positive = result.price > 0.0;
-            violations += usize::from(!positive);
+            let matches_cell =
+                volatility != 2.0_f64.powi(-60) || result.price.to_bits() == 0x3c19_8845_33d4_3651;
+            violations += usize::from(!positive || !matches_cell);
             println!(
-                "Black-76 {side:?} sigma={volatility:e} price={:.17e} bits={:016x} positive={positive}",
+                "Black-76 {side:?} sigma={volatility:e} price={:.17e} bits={:016x} positive={positive} rounding_cell={matches_cell}",
                 result.price,
                 result.price.to_bits()
             );
