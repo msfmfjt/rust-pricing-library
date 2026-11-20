@@ -5,6 +5,7 @@ import PricingAudit.Discrete
 import PricingAudit.Dividends
 import PricingAudit.Dynamics
 import PricingAudit.Evidence
+import PricingAudit.IndexGuards
 import PricingAudit.Graph
 import PricingAudit.Market
 import PricingAudit.NumericalRepair
@@ -87,6 +88,10 @@ run_cmd
     ``PricingAudit.Graph.tangent_hasDerivAt,
     ``PricingAudit.Graph.pullback_tangent,
     ``PricingAudit.Graph.reverse_is_derivative,
+    -- IndexGuards
+    ``PricingAudit.IndexGuards.copies_preserve_index,
+    ``PricingAudit.IndexGuards.literal_in_bounds,
+    ``PricingAudit.IndexGuards.remainder_in_bounds,
     -- Market
     ``PricingAudit.Market.forward_carry,
     ``PricingAudit.Market.intrinsic_parity,

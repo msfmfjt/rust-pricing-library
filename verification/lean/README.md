@@ -2,11 +2,22 @@
 
 ## Numerical repairs
 
-At unit forward, strike, discount, notional and maturity with volatility `2^-60`, Lean places the exact call and put strictly inside the rounding cell of binary64 `0x3c19884533d43651`. The native debug and release probes require those exact bits. The central small-deviation pricing branch integrates Black vega. Deep out-of-the-money values use a difference propagated through the continued fraction for the normal Mills ratio. Lean verifies the vega derivative, Gaussian factorization, continued-fraction difference identity and Gaussian cutoff. It bounds the relative truncation error of the quadratic exponential approximation by `2^-59` throughout the branch. Rounding of the continued fraction and other floating-point operations is checked by independent numerical comparisons.
+At unit forward, strike, discount, notional and maturity with volatility `2^-60`, Lean places the exact call and put strictly inside the rounding cell of binary64 `0x3c19884533d43651`. The native debug and release probes require those exact bits. The central small-deviation pricing branch integrates Black vega. Deep out-of-the-money values use a difference propagated through the continued fraction for the normal Mills ratio. Lean verifies the vega derivative, Gaussian factorization, continued-fraction difference identity and Gaussian cutoff. At a lower tail argument of 56 or greater, the leading normal CDF term alone is below half of the smallest subnormal for every finite forward or strike, at any total standard deviation. It bounds the relative truncation error of the quadratic exponential approximation by `2^-59` throughout the branch. Rounding of the continued fraction and other floating-point operations is checked by independent numerical comparisons.
 
 Complex division aligns products by their binary exponents and retains their rounding residuals before dividing. Lean verifies the exact scaling and residual identities and the normal-range binary64 trace of the largest-finite example. The native oracle tests compare both quotient components against rounded exact rational results, including values next to overflow and in the subnormal range.
 
 Run `python3 tools/verify.py` from this directory. The numerical oracle stage uses the Python standard library. To reproduce the Black reference file with mpmath 1.3.0, run `python3 tools/numerical_oracles.py --generate-black` and compare its output with `tools/black-reference.tsv`. The reference uses the complementary error function at 180 decimal digits and the exact input bit patterns.
+
+## Fixed-length array index proofs
+
+For every emitted index assertion the verifier checks whether its actual unsigned comparison, Boolean register and index operand match an immediately preceding literal or unsigned remainder computation. It can follow adjacent register copies. For each matched operand and length, Lean proves that the assertion succeeds for every incoming register state and bit width that can encode that length. The remainder case quantifies over the dividend. The extractor stops at a block boundary, an intervening operation or an unresolved operand.
+
+| Rust build | Index assertions | Proven in bounds |
+| --- | ---: | ---: |
+| Production, all features | 4,803 | 2,133 |
+| Unit-test targets | 5,707 | 2,428 |
+
+The two builds overlap. Of 10,510 emitted assertions, 4,556 contain a certified literal index and five contain a certified remainder. There are 193 distinct operand/length obligations. The remaining 5,949 sites need more information about the index or array length. Every site's MIR body, block, line and classification is written to `.lake/audit/index-guards.tsv`. The verifier reconciles the denominator against the independent control-flow extractor for each of the six MIR files.
 
 ## Historical snapshots
 
@@ -86,11 +97,11 @@ The prior barrier and dividend contracts can be replayed on either revision with
 cargo run --locked --release --manifest-path rust-probes/Cargo.toml --bin repaired_tails
 ```
 
-To audit the same main revision, copy the verifier from the audit commit into a detached worktree. Run these commands from the root of a checkout that contains this directory.
+To reproduce the historical main results, copy the verifier at the recorded #217 revision into a detached worktree. Run these commands from the root of a checkout that contains this directory.
 
 ```sh
 git worktree add --detach ../pricing-main-audit 2fadb7352972ade46b42ed8cdc87a3a38bcf1a86
-git archive HEAD verification/lean | tar -x -C ../pricing-main-audit
+git archive f4415c7af0c5a293a9ff409ecb0babc0906ef1de verification/lean | tar -x -C ../pricing-main-audit
 cd ../pricing-main-audit/verification/lean
 lake exe cache get
 python3 tools/verify.py

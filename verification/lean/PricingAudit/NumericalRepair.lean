@@ -1,6 +1,8 @@
 import PricingAudit.TailBounds
 import PricingAudit.Discrete
 import Mathlib.Analysis.Calculus.Deriv.MeanValue
+import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
+import Mathlib.Analysis.SpecialFunctions.ImproperIntegrals
 import Mathlib.Data.Complex.ExponentialBounds
 
 noncomputable section
@@ -43,20 +45,49 @@ theorem black_vega_derivative (cdf : ℝ → ℝ)
   rw [← mul_assoc, plus, ← mul_assoc, minus]
   ring
 
-/-- At or beyond 56 standard deviations on this branch the Gaussian scale times
-any finite forward is below half the smallest binary64 subnormal. -/
-theorem tiny_tail_below_half_subnormal (q s f : ℝ) (hq : 56 ≤ q) (hs : s ≤ 1/256)
-    (hf : f ≤ (2:ℝ)^1024) :
-    f * Real.exp ((q*s-q^2)/2) < (2:ℝ)^(-1075:ℤ) := by
-  have z : 0 ≤ q := by linarith
-  have harg : (q*s-q^2)/2 < -((2099:ℝ) * Real.log 2) := by
-    nlinarith [mul_nonneg z (sub_nonneg.mpr hs), mul_nonneg (sub_nonneg.mpr hq)
-      (show 0 ≤ q+56-1/256 by linarith), Real.log_two_lt_d9]
+/-- If the lower tail argument is at least 56, even the leading normal CDF term
+of the OTM Black value is below half the smallest binary64 subnormal. Subtracting
+its nonnegative second term preserves the bound for every total standard deviation. -/
+theorem tiny_tail_below_half_subnormal (a low sub : ℝ) (ha : 56 ≤ a) (hlo : 0 ≤ low)
+    (hmax : low ≤ (2:ℝ)^1024) (hsub : 0 ≤ sub) :
+    low * (∫ x : ℝ in Set.Ioi a, Real.exp (-x^2/2) / Real.sqrt (2*Real.pi)) - sub <
+      (2:ℝ)^(-1075:ℤ) := by
+  have hr : 1 ≤ Real.sqrt (2*Real.pi) := by
+    apply (Real.le_sqrt (by norm_num) (by positivity)).mpr
+    nlinarith [Real.pi_gt_three]
+  let k := Real.exp (a - a^2/2)
+  have hg : MeasureTheory.Integrable (fun x : ℝ => Real.exp (-x^2/2) / Real.sqrt (2*Real.pi)) := by
+    have h := (integrable_exp_neg_mul_sq (b := (1:ℝ)/2) (by norm_num)).div_const (Real.sqrt (2*Real.pi))
+    convert h using 1
+    ext x
+    congr 2
+    ring
+  -- Integrate the exponential envelope from a to infinity.
+  have hle := MeasureTheory.setIntegral_mono_on hg.integrableOn
+    ((integrableOn_exp_neg_Ioi a).const_mul k) measurableSet_Ioi (fun x (hx : a < x) => by
+      calc
+        Real.exp (-x^2/2) / Real.sqrt (2*Real.pi) ≤ Real.exp (-x^2/2) :=
+          div_le_self (Real.exp_pos _).le hr
+        _ ≤ k * Real.exp (-x) := by
+          dsimp [k]
+          rw [← Real.exp_add]
+          exact Real.exp_le_exp.mpr (by
+            nlinarith [mul_nonneg (sub_nonneg.mpr hx.le) (show 0 ≤ x+a-2 by linarith)]))
+  have hk : k * Real.exp (-a) = Real.exp (-a^2/2) := by
+    dsimp [k]
+    rw [← Real.exp_add]
+    congr 1
+    ring
+  rw [MeasureTheory.integral_const_mul, integral_exp_neg_Ioi, hk] at hle
+  have harg : -a^2/2 < -((2099:ℝ) * Real.log 2) := by
+    nlinarith [mul_nonneg (sub_nonneg.mpr ha) (show 0 ≤ a+56 by linarith), Real.log_two_lt_d9]
   have e := Real.exp_lt_exp.mpr harg
   rw [Real.exp_neg, show (2099:ℝ) = (2099:ℕ) by norm_num,
       Real.exp_nat_mul, Real.exp_log (by norm_num : (0:ℝ) < 2)] at e
   calc
-    f * _ ≤ (2:ℝ)^1024 * _ := mul_le_mul_of_nonneg_right hf (Real.exp_pos _).le
+    _ ≤ low * Real.exp (-a^2/2) :=
+      le_trans (sub_le_self _ hsub) (mul_le_mul_of_nonneg_left hle hlo)
+    _ ≤ (2:ℝ)^1024 * _ := mul_le_mul_of_nonneg_right hmax (Real.exp_pos _).le
     _ < (2:ℝ)^1024 * ((2:ℝ)^2099)⁻¹ := mul_lt_mul_of_pos_left e (by positivity)
     _ = _ := by norm_num
 
