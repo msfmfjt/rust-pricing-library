@@ -46,3 +46,10 @@ crates/pricing/src/engine/mc/execution.rs	NeumaierSum	Scenarios	tail_mass_bound	
 backtesting/rust_pricing_backtest/greeks.py	def explain	Dynamics	greek_pnl_exact_quadratic	Delta/gamma Taylor attribution on a quadratic price	-
 backtesting/rust_pricing_backtest/pnl.py	def attribute_pnl	Dynamics	pnl_reconciliation	Algebraic reconciliation of explained P&L and residual	-
 crates/pricing/tests/extended_risk_acceptance.rs	required_bump_indices	Evidence	gate_requires_both_bumps	Absolute/relative AAD-vs-FD tolerance and two-bump plateau	-
+crates/pricing/src/black_price.rs	fn small_time_value	NumericalRepair	black_integrand_relative_error	Uniform real-arithmetic Taylor integrand bound at the small-deviation branch cutoff	-
+crates/pricing/src/black_price.rs	fn small_time_value	NumericalRepair	vega_factorization	Vega factorization underlying the out-of-the-money time-value integral	-
+crates/pricing-numerics/src/complex.rs	fn scaled_dot	NumericalRepair	align_dot	Alignment of two signed products with arbitrary integer exponents over the reals	-
+crates/pricing-numerics/src/complex.rs	fn scale_binary	NumericalRepair	restore_quotient	Real quotient restored from independently scaled numerator and denominator	-
+crates/pricing-numerics/src/complex.rs	fn scale_binary	NumericalRepair	repaired_max_division	Binary64 normal-range rounding trace for largest finite components	-
+crates/pricing/src/black_price.rs	fn small_time_value	NumericalRepair	atm_witness_rounding_cell	Exact unit ATM price strictly inside the two binary64 midpoints around 0x3c19884533d43651	-
+crates/pricing-numerics/src/complex.rs	fn quotient(self	NumericalRepair	quotient_residual	Residual for the quotient of two high/low expansions	-

@@ -7,6 +7,7 @@ import PricingAudit.Dynamics
 import PricingAudit.Evidence
 import PricingAudit.Graph
 import PricingAudit.Market
+import PricingAudit.NumericalRepair
 import PricingAudit.Numerics
 import PricingAudit.Projection
 import PricingAudit.Repair
@@ -99,6 +100,16 @@ run_cmd
     ``PricingAudit.Market.bergomi_weight_variance,
     ``PricingAudit.Market.bergomi_normalized,
     ``PricingAudit.Market.bergomi_degeneracy,
+    -- NumericalRepair
+    ``PricingAudit.NumericalRepair.vega_factorization,
+    ``PricingAudit.NumericalRepair.exp_quadratic_remainder,
+    ``PricingAudit.NumericalRepair.black_integrand_relative_error,
+    ``PricingAudit.NumericalRepair.atm_density_bounds,
+    ``PricingAudit.NumericalRepair.atm_witness_rounding_cell,
+    ``PricingAudit.NumericalRepair.align_dot,
+    ``PricingAudit.NumericalRepair.restore_quotient,
+    ``PricingAudit.NumericalRepair.quotient_residual,
+    ``PricingAudit.NumericalRepair.repaired_max_division,
     -- Numerics
     ``PricingAudit.Numerics.welford_push,
     ``PricingAudit.Numerics.welford_fold,

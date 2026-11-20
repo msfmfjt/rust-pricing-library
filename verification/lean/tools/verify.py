@@ -40,6 +40,7 @@ def main():
         ('philox', [sys.executable,'tools/philox_vectors.py']),
         ('fields', [sys.executable,'tools/field_coverage.py']),
         ('catalog', [sys.executable,'tools/catalog.py']),
+        ('numerical-oracles', [sys.executable,'tools/numerical_oracles.py']),
         ('native-debug', ['cargo','run','--locked','--manifest-path',MANIFEST,'--','--strict']),
         ('native-release', ['cargo','run','--locked','--release','--manifest-path',MANIFEST,'--','--strict']),
     ]

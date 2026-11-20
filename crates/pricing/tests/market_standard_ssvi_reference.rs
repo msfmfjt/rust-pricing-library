@@ -96,3 +96,17 @@ fn standard_ssvi_matches_v1_reference_fixture() {
         );
     }
 }
+
+#[test]
+fn ssvi_forward_call_preserves_tiny_atm_time_value() {
+    let theta = 2.0_f64.powi(-120);
+    let surface = StandardSsvi::new(
+        ThetaPchip::new(vec![1.0, 2.0], vec![theta, 2.0 * theta], theta).unwrap(),
+        0.0,
+        PhiSpec::HestonLike { lambda: 1.0 },
+        SurfaceValidationTolerance::local_vol_vegakt_v1(),
+    )
+    .unwrap();
+    let call = surface.forward_call_evaluation(1.0, 0.0, 1.0).unwrap();
+    assert_eq!(call.undiscounted_price.to_bits(), 0x3c19_8845_33d4_3651);
+}

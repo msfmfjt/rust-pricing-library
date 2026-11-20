@@ -1,5 +1,15 @@
 # Lean verification of the pricing library
 
+## Numerical repairs
+
+At unit forward, strike, discount, notional and maturity with volatility `2^-60`, Lean places the exact call and put strictly inside the rounding cell of binary64 `0x3c19884533d43651`. The native debug and release probes require those exact bits. The small-deviation pricing branch integrates Black vega. Lean verifies the Gaussian factorization and bounds the relative truncation error of the quadratic exponential approximation by `2^-59` throughout the branch. Rounding of the continued fraction and other floating-point operations is checked by independent numerical comparisons.
+
+Complex division aligns products by their binary exponents and retains their rounding residuals before dividing. Lean verifies the exact scaling and residual identities and the normal-range binary64 trace of the largest-finite example. The native oracle tests compare both quotient components against rounded exact rational results, including values next to overflow and in the subnormal range.
+
+Run `python3 tools/verify.py` from this directory. The numerical oracle stage uses the Python standard library. To reproduce the Black reference file with mpmath 1.3.0, run `python3 tools/numerical_oracles.py --generate-black` and compare its output with `tools/black-reference.tsv`. The reference uses the complementary error function at 180 decimal digits and the exact input bit patterns.
+
+## Historical snapshots
+
 The audit covers main at `2fadb7352972ade46b42ed8cdc87a3a38bcf1a86` and PR #216 at `9966d8053aa2951ed86248722c1d78cb4a25884b`. Two additional defects in public numerical APIs reproduce on both revisions. All 117 named Lean theorems passed. The strict replay of the two new counterexamples returned exit code 1 in both debug and release builds.
 
 ## Reproduced numerical defects

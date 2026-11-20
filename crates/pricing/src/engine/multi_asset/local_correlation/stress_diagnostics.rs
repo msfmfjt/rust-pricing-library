@@ -181,12 +181,7 @@ fn black(x: f64, iv: f64) -> (f64, f64, f64) {
     let scale = 100.0 * (-0.01 * t).exp();
     let v = iv * t.sqrt();
     let d1 = -x / v + 0.5 * v;
-    let d2 = d1 - v;
-    let value = if x < 0.0 {
-        x.exp() * standard_normal_cdf(-d2) - standard_normal_cdf(-d1)
-    } else {
-        standard_normal_cdf(d1) - x.exp() * standard_normal_cdf(d2)
-    };
+    let value = crate::black_price::black_price(1.0, x.exp(), -x, v, x >= 0.0);
     (
         scale * value,
         scale * standard_normal_pdf(d1) * t.sqrt(),

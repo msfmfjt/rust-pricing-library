@@ -1,5 +1,6 @@
+use crate::black_price::black_price;
 use crate::market::{MarketError, ThetaPchip, ThetaRegion};
-use pricing_numerics::{standard_normal_cdf, standard_normal_pdf};
+use pricing_numerics::standard_normal_pdf;
 
 const SMALL_HESTON_Z: f64 = 1.0e-4;
 
@@ -291,7 +292,7 @@ fn evaluate_forward_call(
     let root_variance = total_variance.sqrt();
     let d2 = -log_moneyness / root_variance - root_variance / 2.0;
     let d1 = d2 + root_variance;
-    let undiscounted_price = forward * standard_normal_cdf(d1) - strike * standard_normal_cdf(d2);
+    let undiscounted_price = black_price(forward, strike, -log_moneyness, root_variance, true);
     let density_factor = durrleman_density_factor(time, log_moneyness, variance)?;
     let call_density = standard_normal_pdf(d2) / (strike * root_variance) * density_factor;
     let result = ForwardCallEvaluation {

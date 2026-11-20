@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use pricing::analytical::{
-    BlackScholesOracleInputs, BlackScholesOracleResult, black_76_oracle, black_scholes_oracle,
-    evaluate,
+    BlackForwardOracleInputs, BlackScholesOracleInputs, BlackScholesOracleResult, black_76_oracle,
+    black_scholes_oracle, evaluate, evaluate_black_forward,
 };
 use pricing::core::{CurrencyId, CurveId, EventId, PositiveF64, UnderlyingId};
 use pricing::market::{
@@ -283,6 +283,100 @@ fn affine_prices_match_simulation_and_greeks_match_rebuilt_market_bumps() {
                     6.0 * estimate.standard_error().get() + 1e-12,
                 );
             }
+        }
+    }
+}
+
+#[test]
+fn tiny_black_time_values_match_high_precision_on_both_sides() {
+    // Rounded from the Black formula evaluated with 110 decimal digits.
+    let near = 1.0 + f64::EPSILON;
+    for (forward, strike, sd, call, put) in [
+        (
+            1.0,
+            1.0,
+            2.0_f64.powi(-60),
+            3.460_272_696_860_437e-19,
+            3.460_272_696_860_437e-19,
+        ),
+        (
+            near,
+            1.0,
+            2.0_f64.powi(-51),
+            3.098_839_218_124_399e-16,
+            8.783_931_688_740_857e-17,
+        ),
+        (
+            1.0,
+            near,
+            2.0_f64.powi(-51),
+            8.783_931_688_740_857e-17,
+            3.098_839_218_124_399e-16,
+        ),
+        (
+            1.0,
+            1.0 + 16.0 * f64::EPSILON,
+            2.0_f64.powi(-51),
+            3.352_990_068_682_347e-32,
+            3.552_713_678_800_501e-15,
+        ),
+    ] {
+        for (side, expected) in [(OptionSide::Call, call), (OptionSide::Put, put)] {
+            let common = BlackForwardOracleInputs {
+                forward,
+                strike,
+                side,
+                volatility: sd,
+                time: 1.0,
+                discount: 1.0,
+                notional: 1.0,
+            };
+            let fwd = evaluate_black_forward(common).unwrap();
+            let spot = evaluate(BlackScholesOracleInputs {
+                spot: forward,
+                strike,
+                side,
+                time: 1.0,
+                volatility: sd,
+                notional: 1.0,
+                discount: 1.0,
+                dividend_discount: 1.0,
+            })
+            .unwrap();
+            let hw = pricing::models::hull_white::black_value(
+                forward,
+                strike,
+                sd * sd,
+                1.0,
+                side == OptionSide::Call,
+            )
+            .unwrap();
+            for price in [fwd.price, spot.price, hw] {
+                assert!(
+                    (price / expected - 1.0).abs() < 5e-14,
+                    "{forward} {strike} {sd:e} {side:?}: {price:e}, expected {expected:e}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn tiny_black_time_value_reaches_the_affine_request_oracles() {
+    for side in [OptionSide::Call, OptionSide::Put] {
+        // At expiry the paid cash dividend leaves forward 1 with flat carry.
+        let case = Case {
+            side,
+            spot: 2.0,
+            strike: 1.0,
+            volatility: 2.0_f64.powi(-60),
+            rate: 0.0,
+            repo: 0.0,
+            dividends: vec![(0.5, 1.0, 0.0)],
+        };
+        for black76 in [true, false] {
+            let p = case.oracle(black76).price;
+            assert!((p / 3.460_272_696_860_437e-19 - 1.0).abs() < 3e-15, "{p:e}");
         }
     }
 }
