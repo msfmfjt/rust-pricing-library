@@ -60,6 +60,307 @@ enum OperationV1 {
         gamma_relative_bump: Option<f64>,
     },
     LocalVarianceRisk {},
+    /// Task v3 only.
+    Measures {
+        measures: Vec<MeasureRequestV3>,
+    },
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MeasureRequestV3 {
+    measure: MeasureV3,
+    method: MeasureMethodV3,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum MeasureV3 {
+    Price {},
+    SpotDelta {},
+    SpotGamma {},
+    ParallelMarketIvVega {},
+    VegaKt { grid: VegaKtV1 },
+    ModelParameters { parameters: Vec<ModelParameterV3> },
+    Correlations { correlations: Vec<CorrelationV3> },
+    DividendCash {},
+    CrossGamma {},
+    DiscountCurve {},
+}
+/// A Brownian correlation, named by the roles of its drivers; a factor
+/// correlation carries the factor index.
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(tag = "name", rename_all = "snake_case", deny_unknown_fields)]
+pub(in crate::wire) enum CorrelationV3 {
+    EquityDividend {},
+    EquityRate {},
+    DividendRate {},
+    SpotVolatility { factor: u16 },
+    DividendVolatility { factor: u16 },
+    VolatilityFactors {},
+    AssetPair { first: u32, second: u32 },
+}
+impl From<crate::CorrelationId> for CorrelationV3 {
+    fn from(v: crate::CorrelationId) -> Self {
+        use crate::CorrelationId as C;
+        match v {
+            C::EquityDividend => Self::EquityDividend {},
+            C::EquityRate => Self::EquityRate {},
+            C::DividendRate => Self::DividendRate {},
+            C::SpotVolatility { factor } => Self::SpotVolatility { factor },
+            C::DividendVolatility { factor } => Self::DividendVolatility { factor },
+            C::VolatilityFactors => Self::VolatilityFactors {},
+            C::AssetPair { first, second } => Self::AssetPair { first, second },
+        }
+    }
+}
+impl From<CorrelationV3> for crate::CorrelationId {
+    fn from(v: CorrelationV3) -> Self {
+        use CorrelationV3 as W;
+        match v {
+            W::EquityDividend {} => Self::EquityDividend,
+            W::EquityRate {} => Self::EquityRate,
+            W::DividendRate {} => Self::DividendRate,
+            W::SpotVolatility { factor } => Self::SpotVolatility { factor },
+            W::DividendVolatility { factor } => Self::DividendVolatility { factor },
+            W::VolatilityFactors {} => Self::VolatilityFactors,
+            W::AssetPair { first, second } => Self::AssetPair { first, second },
+        }
+    }
+}
+/// A model parameter, named by its role; a component parameter carries its
+/// index.
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(tag = "name", rename_all = "snake_case", deny_unknown_fields)]
+pub(in crate::wire) enum ModelParameterV3 {
+    InitialVariance {},
+    InitialState {},
+    MeanReversion {},
+    LongRunVariance {},
+    VolOfVol {},
+    ComponentVolOfVol { component: u16 },
+    Correlation {},
+    Hurst {},
+    Quadratic {},
+    Shift {},
+    VarianceFloor {},
+    InitialVolatility {},
+    DividendMeanReversion {},
+    EquityLinkage {},
+    DividendVolatility {},
+    FactorMeanReversion { factor: u16 },
+    MixingWeight {},
+    RateMeanReversion {},
+    RateVolatility { knot: u16 },
+}
+impl From<crate::ModelParameterId> for ModelParameterV3 {
+    fn from(v: crate::ModelParameterId) -> Self {
+        use crate::ModelParameterId as P;
+        match v {
+            P::InitialVariance => Self::InitialVariance {},
+            P::InitialState => Self::InitialState {},
+            P::MeanReversion => Self::MeanReversion {},
+            P::LongRunVariance => Self::LongRunVariance {},
+            P::VolOfVol => Self::VolOfVol {},
+            P::ComponentVolOfVol { component } => Self::ComponentVolOfVol { component },
+            P::Correlation => Self::Correlation {},
+            P::Hurst => Self::Hurst {},
+            P::Quadratic => Self::Quadratic {},
+            P::Shift => Self::Shift {},
+            P::VarianceFloor => Self::VarianceFloor {},
+            P::InitialVolatility => Self::InitialVolatility {},
+            P::DividendMeanReversion => Self::DividendMeanReversion {},
+            P::EquityLinkage => Self::EquityLinkage {},
+            P::DividendVolatility => Self::DividendVolatility {},
+            P::FactorMeanReversion { factor } => Self::FactorMeanReversion { factor },
+            P::MixingWeight => Self::MixingWeight {},
+            P::RateMeanReversion => Self::RateMeanReversion {},
+            P::RateVolatility { knot } => Self::RateVolatility { knot },
+        }
+    }
+}
+impl From<ModelParameterV3> for crate::ModelParameterId {
+    fn from(v: ModelParameterV3) -> Self {
+        use ModelParameterV3 as W;
+        match v {
+            W::InitialVariance {} => Self::InitialVariance,
+            W::InitialState {} => Self::InitialState,
+            W::MeanReversion {} => Self::MeanReversion,
+            W::LongRunVariance {} => Self::LongRunVariance,
+            W::VolOfVol {} => Self::VolOfVol,
+            W::ComponentVolOfVol { component } => Self::ComponentVolOfVol { component },
+            W::Correlation {} => Self::Correlation,
+            W::Hurst {} => Self::Hurst,
+            W::Quadratic {} => Self::Quadratic,
+            W::Shift {} => Self::Shift,
+            W::VarianceFloor {} => Self::VarianceFloor,
+            W::InitialVolatility {} => Self::InitialVolatility,
+            W::DividendMeanReversion {} => Self::DividendMeanReversion,
+            W::EquityLinkage {} => Self::EquityLinkage,
+            W::DividendVolatility {} => Self::DividendVolatility,
+            W::FactorMeanReversion { factor } => Self::FactorMeanReversion { factor },
+            W::MixingWeight {} => Self::MixingWeight,
+            W::RateMeanReversion {} => Self::RateMeanReversion,
+            W::RateVolatility { knot } => Self::RateVolatility { knot },
+        }
+    }
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum MeasureMethodV3 {
+    Native {},
+    NativeSpotBump {
+        bump: SpotBumpV1,
+    },
+    NativeCalibrated {
+        calibration: BumpCalibrationV3,
+    },
+    NativeSpotBumpCalibrated {
+        bump: SpotBumpV1,
+        calibration: BumpCalibrationV3,
+    },
+    BumpAndRevalue {
+        size: SpotBumpV1,
+        calibration: BumpCalibrationV3,
+    },
+}
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(in crate::wire) enum BumpCalibrationV3 {
+    NotApplicable,
+    Fixed,
+    Recalibrated,
+}
+impl From<crate::BumpCalibration> for BumpCalibrationV3 {
+    fn from(v: crate::BumpCalibration) -> Self {
+        match v {
+            crate::BumpCalibration::NotApplicable => Self::NotApplicable,
+            crate::BumpCalibration::Fixed => Self::Fixed,
+            crate::BumpCalibration::Recalibrated => Self::Recalibrated,
+        }
+    }
+}
+impl From<BumpCalibrationV3> for crate::BumpCalibration {
+    fn from(v: BumpCalibrationV3) -> Self {
+        match v {
+            BumpCalibrationV3::NotApplicable => Self::NotApplicable,
+            BumpCalibrationV3::Fixed => Self::Fixed,
+            BumpCalibrationV3::Recalibrated => Self::Recalibrated,
+        }
+    }
+}
+pub(in crate::wire) fn bump_size_to_wire(size: crate::BumpSize) -> SpotBumpV1 {
+    match size {
+        crate::BumpSize::Absolute(h) => SpotBumpV1::Absolute(h.get()),
+        crate::BumpSize::Relative(h) => SpotBumpV1::Relative(h.get()),
+    }
+}
+pub(in crate::wire) fn bump_size_from_wire(
+    size: SpotBumpV1,
+) -> Result<crate::BumpSize, crate::core::CoreError> {
+    match size {
+        SpotBumpV1::Absolute(h) => crate::BumpSize::absolute(h),
+        SpotBumpV1::Relative(h) => crate::BumpSize::relative(h),
+    }
+}
+impl From<&crate::MeasureMethod> for MeasureMethodV3 {
+    fn from(v: &crate::MeasureMethod) -> Self {
+        match *v {
+            crate::MeasureMethod::Native => Self::Native {},
+            crate::MeasureMethod::NativeSpotBump { bump } => {
+                Self::NativeSpotBump { bump: bump.into() }
+            }
+            crate::MeasureMethod::NativeCalibrated { calibration } => Self::NativeCalibrated {
+                calibration: calibration.into(),
+            },
+            crate::MeasureMethod::NativeSpotBumpCalibrated { bump, calibration } => {
+                Self::NativeSpotBumpCalibrated {
+                    bump: bump.into(),
+                    calibration: calibration.into(),
+                }
+            }
+            crate::MeasureMethod::BumpAndRevalue { size, calibration } => Self::BumpAndRevalue {
+                size: bump_size_to_wire(size),
+                calibration: calibration.into(),
+            },
+        }
+    }
+}
+impl From<&crate::MeasureRequest> for MeasureRequestV3 {
+    fn from(v: &crate::MeasureRequest) -> Self {
+        use crate::Measure as M;
+        Self {
+            measure: match &v.measure {
+                M::Price => MeasureV3::Price {},
+                M::SpotDelta => MeasureV3::SpotDelta {},
+                M::SpotGamma => MeasureV3::SpotGamma {},
+                M::ParallelMarketIvVega => MeasureV3::ParallelMarketIvVega {},
+                M::VegaKt(grid) => MeasureV3::VegaKt { grid: grid.into() },
+                M::ModelParameters(selection) => MeasureV3::ModelParameters {
+                    parameters: selection.parameters().iter().map(|&p| p.into()).collect(),
+                },
+                M::Correlations(selection) => MeasureV3::Correlations {
+                    correlations: selection.correlations().iter().map(|&c| c.into()).collect(),
+                },
+                M::DividendCash => MeasureV3::DividendCash {},
+                M::CrossGamma => MeasureV3::CrossGamma {},
+                M::DiscountCurve => MeasureV3::DiscountCurve {},
+            },
+            method: (&v.method).into(),
+        }
+    }
+}
+impl MeasureRequestV3 {
+    fn into_domain(self, index: usize) -> Result<crate::MeasureRequest, WireError> {
+        use crate::Measure as M;
+        let at = |field: &str| format!("/operation/measures/{index}/{field}");
+        let measure = match self.measure {
+            MeasureV3::Price {} => M::Price,
+            MeasureV3::SpotDelta {} => M::SpotDelta,
+            MeasureV3::SpotGamma {} => M::SpotGamma,
+            MeasureV3::ParallelMarketIvVega {} => M::ParallelMarketIvVega,
+            MeasureV3::VegaKt { grid } => {
+                M::VegaKt(vega_kt_from_wire_at(grid, &at("measure/grid"))?)
+            }
+            MeasureV3::ModelParameters { parameters } => M::ModelParameters(
+                crate::ModelParameterSelection::new(
+                    parameters.into_iter().map(Into::into).collect(),
+                )
+                .map_err(|e| domain_at(at("measure/parameters"), e))?,
+            ),
+            MeasureV3::Correlations { correlations } => M::Correlations(
+                crate::CorrelationSelection::new(
+                    correlations.into_iter().map(Into::into).collect(),
+                )
+                .map_err(|e| domain_at(at("measure/correlations"), e))?,
+            ),
+            MeasureV3::DividendCash {} => M::DividendCash,
+            MeasureV3::CrossGamma {} => M::CrossGamma,
+            MeasureV3::DiscountCurve {} => M::DiscountCurve,
+        };
+        let method = match self.method {
+            MeasureMethodV3::Native {} => crate::MeasureMethod::Native,
+            MeasureMethodV3::NativeSpotBump { bump } => crate::MeasureMethod::NativeSpotBump {
+                bump: spot_bump_from_wire(bump).map_err(|e| domain_at(at("method/bump"), e))?,
+            },
+            MeasureMethodV3::NativeCalibrated { calibration } => {
+                crate::MeasureMethod::NativeCalibrated {
+                    calibration: calibration.into(),
+                }
+            }
+            MeasureMethodV3::NativeSpotBumpCalibrated { bump, calibration } => {
+                crate::MeasureMethod::NativeSpotBumpCalibrated {
+                    bump: spot_bump_from_wire(bump).map_err(|e| domain_at(at("method/bump"), e))?,
+                    calibration: calibration.into(),
+                }
+            }
+            MeasureMethodV3::BumpAndRevalue { size, calibration } => {
+                crate::MeasureMethod::BumpAndRevalue {
+                    size: bump_size_from_wire(size).map_err(|e| domain_at(at("method/size"), e))?,
+                    calibration: calibration.into(),
+                }
+            }
+        };
+        Ok(crate::MeasureRequest::new(measure, method))
+    }
 }
 impl From<PricingOperation> for OperationV1 {
     fn from(v: PricingOperation) -> Self {
@@ -71,20 +372,33 @@ impl From<PricingOperation> for OperationV1 {
                 gamma_relative_bump,
             },
             PricingOperation::LocalVarianceRisk => Self::LocalVarianceRisk {},
+            PricingOperation::Measures(set) => Self::Measures {
+                measures: set.requests().iter().map(Into::into).collect(),
+            },
         }
     }
 }
-impl From<OperationV1> for PricingOperation {
-    fn from(v: OperationV1) -> Self {
-        match v {
-            OperationV1::Evaluate {} => Self::Evaluate,
+impl OperationV1 {
+    fn into_domain(self) -> Result<PricingOperation, WireError> {
+        Ok(match self {
+            OperationV1::Evaluate {} => PricingOperation::Evaluate,
             OperationV1::Aad {
                 gamma_relative_bump,
-            } => Self::Aad {
+            } => PricingOperation::Aad {
                 gamma_relative_bump,
             },
-            OperationV1::LocalVarianceRisk {} => Self::LocalVarianceRisk,
-        }
+            OperationV1::LocalVarianceRisk {} => PricingOperation::LocalVarianceRisk,
+            OperationV1::Measures { measures } => PricingOperation::Measures(
+                crate::MeasureSet::new(
+                    measures
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, m)| m.into_domain(i))
+                        .collect::<Result<_, _>>()?,
+                )
+                .map_err(|e| domain_at("/operation/measures", e))?,
+            ),
+        })
     }
 }
 #[derive(Serialize, Deserialize)]
@@ -469,7 +783,15 @@ impl From<&PricingTask> for TaskV1 {
         };
         Self {
             document_kind: TASK_KIND.into(),
-            schema_version: if source.requires_v2() { 2 } else { 1 },
+            // The oldest version that can express the task, so that a task
+            // written before a version existed keeps its bytes and fingerprint.
+            schema_version: if t.measures().is_some() {
+                3
+            } else if source.requires_v2() {
+                2
+            } else {
+                1
+            },
             operation: t.operation().into(),
             source,
         }
@@ -572,7 +894,7 @@ impl TaskV1 {
                 )
             }
         };
-        PricingTask::new(source, self.operation.into()).map_err(source_error)
+        PricingTask::new(source, self.operation.into_domain()?).map_err(source_error)
     }
 }
 pub fn parse_pricing_task_json(input: &[u8], limits: JsonLimits) -> Result<PricingTask, WireError> {
@@ -584,7 +906,7 @@ pub fn parse_pricing_task_json(input: &[u8], limits: JsonLimits) -> Result<Prici
             actual: header.document_kind,
         });
     }
-    if !matches!(header.schema_version, 1 | 2) {
+    if !matches!(header.schema_version, 1..=3) {
         return Err(WireError::UnsupportedSchemaVersion(header.schema_version));
     }
     let task: TaskV1 = serde_json::from_str(text).map_err(json)?;
@@ -592,6 +914,12 @@ pub fn parse_pricing_task_json(input: &[u8], limits: JsonLimits) -> Result<Prici
         return Err(WireError::UnsupportedSchemaFeature {
             feature: "contract operations require pricing_task v2",
             schema_version: 1,
+        });
+    }
+    if task.schema_version < 3 && matches!(task.operation, OperationV1::Measures { .. }) {
+        return Err(WireError::UnsupportedSchemaFeature {
+            feature: "the measures operation requires pricing_task v3",
+            schema_version: task.schema_version,
         });
     }
     task.into_domain()
@@ -603,17 +931,18 @@ pub fn pricing_task_to_pretty_json(task: &PricingTask) -> Result<String, WireErr
     serialize(&TaskV1::from(task), true)
 }
 pub fn fingerprint_pricing_task(task: &PricingTask) -> Result<Fingerprint, WireError> {
-    let value = serde_json::to_value(TaskV1::from(task)).map_err(json)?;
-    let mut bytes = if TaskV1::from(task).schema_version == 1 {
-        b"pricing/task/v1\0".to_vec()
-    } else {
-        b"pricing/task/v2\0".to_vec()
+    let document = TaskV1::from(task);
+    let mut bytes = match document.schema_version {
+        1 => b"pricing/task/v1\0".to_vec(),
+        2 => b"pricing/task/v2\0".to_vec(),
+        _ => b"pricing/task/v3\0".to_vec(),
     };
+    let value = serde_json::to_value(document).map_err(json)?;
     encode_value(&value, &mut bytes)?;
     Ok(Fingerprint::from_bytes(*blake3::hash(&bytes).as_bytes()))
 }
 pub fn current_pricing_task_schema() -> &'static str {
-    include_str!("../../../../../schemas/task-v2/pricing_task.schema.json")
+    include_str!("../../../../../schemas/task-v3/pricing_task.schema.json")
 }
 
 #[derive(Serialize, Deserialize)]

@@ -333,6 +333,7 @@ impl BassRuntime {
                 )
             })
             .collect();
+        crate::engine::mc::execution::record_units(&rows.iter().map(|r| r[0]).collect::<Vec<_>>());
         let estimate = estimate_from_statistics(statistics[0], n, 1.0, estimator)?;
         let risk_estimate = |j, scale, raw, scaled| -> Result<RiskEstimate, MonteCarloError> {
             Ok(RiskEstimate::new(

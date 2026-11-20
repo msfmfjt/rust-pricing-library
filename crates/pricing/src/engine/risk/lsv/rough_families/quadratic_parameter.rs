@@ -37,9 +37,7 @@ impl ParameterReverse<'_> {
         let weight = 1.0 / signs.len() as f64;
         for &sign in signs {
             let shocks = z.iter().map(|a| a * sign).collect::<Vec<_>>();
-            let path_record = core
-                .path_plan
-                .evolve_path(core.calibration.surface().initial_f(), &shocks)?;
+            let path_record = core.path_plan.evolve_path(core.initial_f, &shocks)?;
             let (value, seeds) =
                 core.base
                     .lsv_payoff(path_record.states(), PathIndex::new(path), true)?;

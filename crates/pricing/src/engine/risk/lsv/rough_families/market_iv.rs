@@ -38,6 +38,20 @@ impl RoughFamilyLsvPricingPlan {
         &self,
         surface: MarketIvSurface,
     ) -> Result<RoughFamilyLsvMarketIvRiskPlan, MonteCarloError> {
+        let fingerprint = self.market_iv_fingerprint(&surface)?;
+        Ok(RoughFamilyLsvMarketIvRiskPlan {
+            pricing: self.clone(),
+            surface,
+            fingerprint,
+        })
+    }
+
+    /// The binding checks of `market_iv_risk_plan` and the risk fingerprint
+    /// they produce. Never calibrates or runs paths.
+    pub(crate) fn market_iv_fingerprint(
+        &self,
+        surface: &MarketIvSurface,
+    ) -> Result<Fingerprint, MonteCarloError> {
         if !self.core.risk_supported {
             return Err(MonteCarloError::UnsupportedRiskForModel {
                 model: "rough-family market IV requires pathwise payoff or explicit smoothing",
@@ -73,10 +87,44 @@ impl RoughFamilyLsvPricingPlan {
                 hash.update(&v.to_le_bytes());
             }
         }
-        Ok(RoughFamilyLsvMarketIvRiskPlan {
-            pricing: self.clone(),
-            surface,
-            fingerprint: Fingerprint::from_bytes(*hash.finalize().as_bytes()),
+        Ok(Fingerprint::from_bytes(*hash.finalize().as_bytes()))
+    }
+
+    /// The market-IV risk of a surface `market_iv_fingerprint` accepted.
+    pub(crate) fn evaluate_market_iv_risk(
+        &self,
+        surface: &MarketIvSurface,
+        fingerprint: Fingerprint,
+    ) -> Result<RoughFamilyLsvMarketIvRisk, MonteCarloError> {
+        let core = &self.core;
+        let count = surface.implied_volatilities().len();
+        let (price, risks) = core.run_projected::<Recalibrated>(count + 1, |a| {
+            let mut quotes = surface.local_variance_pullback(&core.original_target, &a)?;
+            let parallel = quotes.iter().copied().collect::<NeumaierSum>().total();
+            if !parallel.is_finite() {
+                return Err(LsvError::InvalidInput {
+                    field: "rough_lsv_market_iv_parallel",
+                    index: 0,
+                }
+                .into());
+            }
+            quotes.push(parallel);
+            Ok(quotes)
+        })?;
+        let (mut values, mut errors) = risks.expect("recalibrated risk requested");
+        let parallel_vega = values.pop().expect("parallel direction retained");
+        let parallel_standard_error = errors.as_mut().and_then(Vec::pop);
+        Ok(RoughFamilyLsvMarketIvRisk {
+            price,
+            maturity_nodes: surface.maturity_nodes().into(),
+            log_moneyness_nodes: surface.log_moneyness_nodes().into(),
+            implied_volatilities: surface.implied_volatilities().into(),
+            quote_adjoints: values.into(),
+            standard_errors: errors.map(Vec::into_boxed_slice),
+            parallel_vega,
+            parallel_standard_error,
+            risk_fingerprint: fingerprint,
+            method: RoughFamilyLsvMarketIvRiskPlan::METHOD,
         })
     }
 }
@@ -94,37 +142,7 @@ impl RoughFamilyLsvMarketIvRiskPlan {
     }
 
     pub fn evaluate(&self) -> Result<RoughFamilyLsvMarketIvRisk, MonteCarloError> {
-        let core = &self.pricing.core;
-        let count = self.surface.implied_volatilities().len();
-        let (price, risks) = core.run_projected::<Recalibrated>(count + 1, |a| {
-            let mut quotes = self
-                .surface
-                .local_variance_pullback(&core.original_target, &a)?;
-            let parallel = quotes.iter().copied().collect::<NeumaierSum>().total();
-            if !parallel.is_finite() {
-                return Err(LsvError::InvalidInput {
-                    field: "rough_lsv_market_iv_parallel",
-                    index: 0,
-                }
-                .into());
-            }
-            quotes.push(parallel);
-            Ok(quotes)
-        })?;
-        let (mut values, mut errors) = risks.expect("recalibrated risk requested");
-        let parallel_vega = values.pop().expect("parallel direction retained");
-        let parallel_standard_error = errors.as_mut().and_then(Vec::pop);
-        Ok(RoughFamilyLsvMarketIvRisk {
-            price,
-            maturity_nodes: self.surface.maturity_nodes().into(),
-            log_moneyness_nodes: self.surface.log_moneyness_nodes().into(),
-            implied_volatilities: self.surface.implied_volatilities().into(),
-            quote_adjoints: values.into(),
-            standard_errors: errors.map(Vec::into_boxed_slice),
-            parallel_vega,
-            parallel_standard_error,
-            risk_fingerprint: self.fingerprint,
-            method: Self::METHOD,
-        })
+        self.pricing
+            .evaluate_market_iv_risk(&self.surface, self.fingerprint)
     }
 }

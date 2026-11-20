@@ -1418,3 +1418,159 @@ impl PyStochasticDividendGammaRisk {
         "sampling_only_fixed_bump_grid_and_smoothing"
     }
 }
+
+/// The native Spot measures of a stochastic-dividend source, from a
+/// `measures` task. Each risk is its dedicated API's result unchanged.
+#[pyclass(frozen, name = "StochasticDividendMeasureRisk")]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendMeasureRisk {
+    pub(super) inner: pricing::stochastic_dividends::StochasticDividendMeasureRisk,
+}
+#[pymethods]
+impl PyStochasticDividendMeasureRisk {
+    #[getter]
+    fn price(&self) -> PyStochasticDividendPrice {
+        PyStochasticDividendPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    /// `StochasticDividendAadRisk` (its Delta is the first coordinate) or,
+    /// on a residual-equity LSV, `StochasticDividendLsvSpotRisk`.
+    #[getter]
+    fn delta(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        use pricing::stochastic_dividends::StochasticDividendDelta as D;
+        Ok(match &self.inner.delta {
+            None => None,
+            Some(D::Aad(inner)) => Some(
+                Py::new(
+                    py,
+                    PyStochasticDividendAadRisk {
+                        inner: (**inner).clone(),
+                    },
+                )?
+                .into_any(),
+            ),
+            Some(D::Lsv(inner)) => Some(
+                Py::new(
+                    py,
+                    PyStochasticDividendLsvSpotRisk {
+                        inner: inner.clone(),
+                    },
+                )?
+                .into_any(),
+            ),
+            Some(_) => None,
+        })
+    }
+    #[getter]
+    fn gamma(&self) -> Option<PyStochasticDividendGammaRisk> {
+        self.inner
+            .gamma
+            .clone()
+            .map(|inner| PyStochasticDividendGammaRisk { inner })
+    }
+    #[getter]
+    fn correlations(&self) -> Option<PyStochasticDividendCorrelationRisk> {
+        self.inner
+            .correlations
+            .clone()
+            .map(|inner| PyStochasticDividendCorrelationRisk { inner })
+    }
+    /// `StochasticDividendAadRisk` (the cash means are its `cash_mean`
+    /// coordinates) or, on a residual-equity LSV,
+    /// `StochasticDividendLsvMarketRisk`; `None` unless `dividend_cash` was
+    /// listed.
+    #[getter]
+    fn dividend_cash(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        market_risk(py, self.inner.dividend_cash.as_ref())
+    }
+    /// The run `dividend_cash` reports (its `discount_log_df` coordinates);
+    /// `None` unless `discount_curve` was listed.
+    #[getter]
+    fn discount_curve(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        market_risk(py, self.inner.discount_curve.as_ref())
+    }
+    /// `evaluate_aad`, or the model's extended reverse, with its parameters
+    /// identified; `None` unless `model_parameters` was listed.
+    #[getter]
+    fn model_parameters(&self) -> Option<PyStochasticDividendModelParameterRisk> {
+        self.inner
+            .model_parameters
+            .clone()
+            .map(|inner| PyStochasticDividendModelParameterRisk { inner })
+    }
+}
+
+/// The dividend AAD run a `model_parameters` measure selected, with the
+/// label of each parameter it identifies; `risk` holds every coordinate.
+#[pyclass(frozen, name = "StochasticDividendModelParameterRisk")]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendModelParameterRisk {
+    inner: pricing::stochastic_dividends::StochasticDividendModelParameterRisk,
+}
+#[pymethods]
+impl PyStochasticDividendModelParameterRisk {
+    /// Parameter labels in the native order.
+    #[getter]
+    fn parameters(&self) -> Vec<String> {
+        self.inner.parameters.iter().map(|p| p.label()).collect()
+    }
+    #[getter]
+    fn risk(&self) -> PyStochasticDividendAadRisk {
+        PyStochasticDividendAadRisk {
+            inner: self.inner.risk.clone(),
+        }
+    }
+}
+
+/// `evaluate_correlation_aad` with the label of each correlation it
+/// differentiates; `risk` holds every coordinate of the joint reverse.
+#[pyclass(frozen, name = "StochasticDividendCorrelationRisk")]
+#[derive(Clone, Debug)]
+pub struct PyStochasticDividendCorrelationRisk {
+    inner: pricing::stochastic_dividends::StochasticDividendCorrelationRisk,
+}
+#[pymethods]
+impl PyStochasticDividendCorrelationRisk {
+    /// Correlation labels in the native order.
+    #[getter]
+    fn correlations(&self) -> Vec<String> {
+        self.inner.correlations.iter().map(|c| c.label()).collect()
+    }
+    #[getter]
+    fn risk(&self) -> PyStochasticDividendAadRisk {
+        PyStochasticDividendAadRisk {
+            inner: self.inner.risk.clone(),
+        }
+    }
+}
+
+/// The Python object of a stochastic-dividend market-input run.
+fn market_risk(
+    py: Python<'_>,
+    risk: Option<&pricing::stochastic_dividends::StochasticDividendMarketRisk>,
+) -> PyResult<Option<Py<PyAny>>> {
+    use pricing::stochastic_dividends::StochasticDividendMarketRisk as C;
+    Ok(match risk {
+        None => None,
+        Some(C::Aad(inner)) => Some(
+            Py::new(
+                py,
+                PyStochasticDividendAadRisk {
+                    inner: (**inner).clone(),
+                },
+            )?
+            .into_any(),
+        ),
+        Some(C::Lsv(inner)) => Some(
+            Py::new(
+                py,
+                PyStochasticDividendLsvMarketRisk {
+                    inner: (**inner).clone(),
+                },
+            )?
+            .into_any(),
+        ),
+        Some(_) => None,
+    })
+}

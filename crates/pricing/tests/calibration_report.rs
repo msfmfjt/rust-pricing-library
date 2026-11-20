@@ -126,7 +126,7 @@ fn diagnostic_reader_rejects_invalid_shapes_identities_units_and_versions() {
     let block = &original["calibration_diagnostics"][0];
     let metric = &block["metrics"][0];
     for (pointer, value) in [
-        ("/schema_version", json!(3)),
+        ("/schema_version", json!(4)),
         ("/calibration_diagnostics", Value::Null),
         ("/calibration_diagnostics", json!([block, block])),
         ("/calibration_diagnostics/0/kind", json!("unknown")),

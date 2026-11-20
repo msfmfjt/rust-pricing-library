@@ -245,3 +245,73 @@ impl RoughFamilyLsvPricingPlan {
         })
     }
 }
+
+/// The native measures of one `Measures` task on rough-family LSV: each entry
+/// is the dedicated API's result unchanged. The price is the Delta's price
+/// when a Delta was requested, else the market-IV risk's price, else the
+/// plan's price; all are the same evaluation.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct RoughFamilyLsvMeasureRisk {
+    pub price: LsvPrice,
+    pub delta: Option<RoughFamilyLsvDelta>,
+    pub gamma: Option<super::RoughFamilyLsvGamma>,
+    pub market_iv: Option<super::RoughFamilyLsvMarketIvRisk>,
+    pub model_parameters: Option<super::RoughFamilyLsvModelParameterRisk>,
+}
+
+impl RoughFamilyLsvPricingPlan {
+    /// Whether the native Spot estimators can run: they need a pathwise
+    /// payoff or explicit smoothing.
+    pub(crate) const fn supports_spot_risk(&self) -> bool {
+        self.core.risk_supported
+    }
+    /// The physical Spot the plan prices at.
+    pub(crate) const fn spot(&self) -> f64 {
+        self.core.base.spot
+    }
+    /// Runs the requested dedicated estimators. `gamma` carries the absolute
+    /// physical Spot bump; `market_iv` a surface `market_iv_fingerprint`
+    /// accepts; `model_parameters` whether Hurst is among the parameters.
+    pub(crate) fn evaluate_measure_risk(
+        &self,
+        delta: Option<RoughFamilyLsvDeltaConvention>,
+        gamma: Option<(f64, RoughFamilyLsvDeltaConvention)>,
+        market_iv: Option<&crate::market::MarketIvSurface>,
+        model_parameters: Option<bool>,
+    ) -> Result<RoughFamilyLsvMeasureRisk, MonteCarloError> {
+        let delta = delta.map(|c| self.spot_delta(c)).transpose()?;
+        let gamma = gamma
+            .map(|(bump, c)| match c {
+                RoughFamilyLsvDeltaConvention::FrozenLeverage => {
+                    self.evaluate_frozen_leverage_gamma_bump(bump)
+                }
+                RoughFamilyLsvDeltaConvention::StickyRelativeLocalVariance => {
+                    self.evaluate_sticky_moneyness_gamma_bump(bump)
+                }
+            })
+            .transpose()?;
+        let market_iv = market_iv
+            .map(|surface| {
+                let fingerprint = self.market_iv_fingerprint(surface)?;
+                self.evaluate_market_iv_risk(surface, fingerprint)
+            })
+            .transpose()?;
+        let model_parameters = model_parameters
+            .map(|hurst| self.evaluate_parameter_measure(hurst))
+            .transpose()?;
+        let price = match (&delta, &market_iv, &model_parameters) {
+            (Some(d), _, _) => d.price.clone(),
+            (None, Some(m), _) => m.price.clone(),
+            (None, None, Some(p)) => p.risk.price().clone(),
+            (None, None, None) => self.evaluate()?,
+        };
+        Ok(RoughFamilyLsvMeasureRisk {
+            price,
+            delta,
+            gamma,
+            market_iv,
+            model_parameters,
+        })
+    }
+}

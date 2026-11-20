@@ -141,6 +141,20 @@ pub struct StochasticDividendPathPlan {
     rough: Option<Arc<RoughDividendKernel>>,
 }
 impl StochasticDividendPathPlan {
+    /// The volatility factors driving the residual equity: none for
+    /// Black-Scholes, one for one-factor or rough Bergomi, two for
+    /// two-factor Bergomi.
+    /// Whether the residual equity follows rough Bergomi.
+    pub(crate) const fn is_rough(&self) -> bool {
+        self.rough.is_some()
+    }
+    pub(crate) fn volatility_factor_count(&self) -> u16 {
+        match (&self.bergomi, &self.rough) {
+            (Some(BergomiDividendKernel::Two(_)), _) => 2,
+            (Some(_), _) | (_, Some(_)) => 1,
+            (None, None) => 0,
+        }
+    }
     pub fn compile(
         market: &EquityForward,
         model: BuehlerDividendModel,

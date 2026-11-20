@@ -43,18 +43,23 @@ pub mod risk;
 pub use api::calibration_report::{
     CalibrationKind, CalibrationMetric, DiagnosticUnit, ReportedCalibration,
 };
+pub use api::measure::{
+    AvailableMeasure, BumpCalibration, BumpCost, BumpSize, CorrelationId, CorrelationSelection,
+    Measure, MeasureCapability, MeasureKind, MeasureMethod, MeasureMethodKind, MeasureRequest,
+    MeasureSet, ModelParameterId, ModelParameterSelection,
+};
 pub use api::source::{
     CapabilityReason, CapabilityStatus, MultiAssetModelSpec, MultiAssetSpecification,
-    PricingCapability, PricingOperation, PricingSource, PricingTask,
-    StochasticDividendSpecification,
+    PricingCapability, PricingOperation, PricingSource, PricingTask, SourceFamily,
+    StochasticDividendSpecification, measure_matrix_markdown, operation_matrix_markdown,
 };
 pub use api::specification::{
     EquityModelSpec, PricingModelSpec, PricingNumerics, PricingSpecification, RateModelSpec,
     SpecificationValidationError, VolatilityFactorSpec,
 };
 pub use api::valuation_report::{
-    CalibrationTreatment, ReportAxis, ReportedRisk, RiskParameterKind, SensitivityUnit,
-    UncertaintyScope, ValuationReport,
+    CalibrationTreatment, ReportAxis, ReportRecord, ReportedRisk, RiskParameterKind,
+    SensitivityUnit, UncertaintyScope, ValuationReport,
 };
 pub use engine::risk::source::{
     CompiledPricingTask, PricingTaskError, PricingTaskOutput, PricingTaskResult,

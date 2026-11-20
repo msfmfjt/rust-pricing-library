@@ -1666,33 +1666,14 @@ fn risk_from_wire(value: RiskV2) -> Result<RiskRequest, WireError> {
     let gamma = value
         .gamma
         .map(|item| {
-            let bump = match item.bump {
-                SpotBumpV1::Absolute(x) => SpotBump::absolute(x),
-                SpotBumpV1::Relative(x) => SpotBump::relative(x),
-            }
-            .map_err(|error| domain_at("/risk/gamma/bump", error))?;
+            let bump = spot_bump_from_wire(item.bump)
+                .map_err(|error| domain_at("/risk/gamma/bump", error))?;
             Ok::<_, WireError>(GammaConfig::new(bump))
         })
         .transpose()?;
     let vega_kt = value
         .vega_kt
-        .map(|item| {
-            let dates = item
-                .maturity_nodes
-                .iter()
-                .enumerate()
-                .map(|(index, date)| {
-                    parse_date_owned_at(date, format!("/risk/vega_kt/maturity_nodes/{index}"))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            VegaKtConfig::new(
-                dates,
-                item.log_forward_moneyness_nodes,
-                item.relative_density_threshold,
-                item.full_bucket_covariance,
-            )
-            .map_err(|error| domain_at("/risk/vega_kt", error))
-        })
+        .map(|item| vega_kt_from_wire_at(item, "/risk/vega_kt"))
         .transpose()?;
     let smile = match value.smile_dynamics {
         SmileDynamicsV1::LogMoneyness => SmileDynamics::StickyLogMoneyness,
@@ -1717,6 +1698,29 @@ fn risk_from_wire(value: RiskV2) -> Result<RiskRequest, WireError> {
         Some(ladder) => request.with_payoff_smoothing_width_ladder(ladder),
         None => request,
     })
+}
+
+fn spot_bump_from_wire(bump: SpotBumpV1) -> Result<SpotBump, crate::risk::RiskConfigError> {
+    match bump {
+        SpotBumpV1::Absolute(x) => SpotBump::absolute(x),
+        SpotBumpV1::Relative(x) => SpotBump::relative(x),
+    }
+}
+
+fn vega_kt_from_wire_at(item: VegaKtV1, pointer: &str) -> Result<VegaKtConfig, WireError> {
+    let dates = item
+        .maturity_nodes
+        .iter()
+        .enumerate()
+        .map(|(index, date)| parse_date_owned_at(date, format!("{pointer}/maturity_nodes/{index}")))
+        .collect::<Result<Vec<_>, _>>()?;
+    VegaKtConfig::new(
+        dates,
+        item.log_forward_moneyness_nodes,
+        item.relative_density_threshold,
+        item.full_bucket_covariance,
+    )
+    .map_err(|error| domain_at(pointer, error))
 }
 
 fn parse_date_at(value: &str, pointer: &'static str) -> Result<Date, WireError> {

@@ -54,9 +54,83 @@ def build():
         underlying_ids={**array(u32), 'uniqueItems': True}, seed=u64,
         axes=array(ref('report_axis'), 0), metrics=array(ref('calibration_metric'))), optional=('seed',))
     report_v2['properties']['calibration_diagnostics'] = array(ref('reported_calibration'), 0)
+    # Measures (ADR 0043). Task v3 extends the checked-in v2 schema; a
+    # measures operation is the only content that requires version 3.
+    measure_names = ['price', 'spot_delta', 'spot_gamma', 'parallel_market_iv_vega', 'vega_kt',
+                     'model_parameters', 'correlations', 'dividend_cash', 'cross_gamma',
+                     'discount_curve']
+    scalar_parameters = ['initial_variance', 'initial_state', 'mean_reversion',
+                         'long_run_variance', 'vol_of_vol', 'correlation', 'hurst',
+                         'quadratic', 'shift', 'variance_floor', 'initial_volatility',
+                         'dividend_mean_reversion', 'equity_linkage',
+                         'dividend_volatility', 'mixing_weight', 'rate_mean_reversion']
+    factor = {'type': 'integer', 'minimum': 0, 'maximum': 65535}
+    indexed_parameters = [('component_vol_of_vol', 'component'),
+                          ('factor_mean_reversion', 'factor'), ('rate_volatility', 'knot')]
+    model_parameter = {'oneOf': [
+        *(obj(dict(name={'const': n})) for n in scalar_parameters),
+        *(obj({'name': {'const': n}, field: dict(factor)})
+          for n, field in indexed_parameters)]}
+    correlation = {'oneOf': [
+        *(obj(dict(name={'const': n})) for n in
+          ['equity_dividend', 'equity_rate', 'dividend_rate', 'volatility_factors']),
+        *(obj(dict(name={'const': n}, factor=factor)) for n in
+          ['spot_volatility', 'dividend_volatility']),
+        obj(dict(name={'const': 'asset_pair'}, first=u32, second=u32))]}
+    calibration = {'enum': ['not_applicable', 'fixed', 'recalibrated']}
+    measure_method = {'oneOf': [
+        tag('native'), tag('native_spot_bump', dict(bump=ref('spot_bump'))),
+        tag('native_calibrated', dict(calibration=calibration)),
+        tag('native_spot_bump_calibrated', dict(bump=ref('spot_bump'), calibration=calibration)),
+        tag('bump_and_revalue', dict(size=ref('spot_bump'), calibration=calibration))]}
+    task_v3 = json.loads((ROOT / 'schemas/task-v2/pricing_task.schema.json').read_text())
+    task_v3['$id'] = 'https://rust-pricing-library.dev/schemas/task-v3/pricing_task.schema.json'
+    task_v3['title'] = 'Pricing task with measures'
+    task_v3['properties']['schema_version'] = {'enum': [1, 2, 3]}
+    task_v3['$defs']['measure_method'] = copy.deepcopy(measure_method)
+    task_v3['$defs']['model_parameter'] = copy.deepcopy(model_parameter)
+    task_v3['$defs']['correlation_id'] = copy.deepcopy(correlation)
+    task_v3['$defs']['measure'] = {'oneOf': [
+        *(tag(name) for name in measure_names
+          if name not in ('vega_kt', 'model_parameters', 'correlations')),
+        tag('vega_kt', dict(grid=ref('vega_kt'))),
+        tag('model_parameters', dict(parameters={
+            **array(ref('model_parameter')), 'uniqueItems': True})),
+        tag('correlations', dict(correlations={
+            **array(ref('correlation_id')), 'uniqueItems': True}))]}
+    task_v3['$defs']['measure_request'] = obj(dict(measure=ref('measure'), method=ref('measure_method')))
+    task_v3['$defs']['task_operation']['oneOf'].append(
+        tag('measures', dict(measures=array(ref('measure_request'), 0))))
+    task_v3['allOf'].append({
+        'if': {'properties': {'operation': {'properties': {'type': {'const': 'measures'}}}}},
+        'then': {'properties': {'schema_version': {'const': 3}}}})
+    report_v3 = copy.deepcopy(report_v2)
+    # The writer still emits version 2 for a report without typed rows, so
+    # the current schema accepts both; typed rows require version 3.
+    report_v3['properties']['schema_version'] = {'enum': [2, 3]}
+    report_v3['allOf'] = [{
+        'if': {'properties': {'schema_version': {'const': 2}}},
+        'then': {'properties': {'risks': {'items': {'properties': {
+            'measure': False, 'method_detail': False, 'model_parameter': False,
+            'correlation': False}}}}}}]
+    report_v3['$id'] = 'https://rust-pricing-library.dev/schemas/report-v3/valuation_report.schema.json'
+    report_v3['title'] = 'Common valuation report v3'
+    report_v3['$defs']['spot_bump'] = copy.deepcopy(task_v3['$defs']['spot_bump'])
+    report_v3['$defs']['measure_method'] = copy.deepcopy(measure_method)
+    risk_v3 = report_v3['$defs']['reported_risk']
+    risk_v3['properties']['measure'] = {'enum': measure_names}
+    risk_v3['properties']['method_detail'] = ref('measure_method')
+    report_v3['$defs']['model_parameter'] = copy.deepcopy(model_parameter)
+    risk_v3['properties']['model_parameter'] = ref('model_parameter')
+    report_v3['$defs']['correlation_id'] = copy.deepcopy(correlation)
+    risk_v3['properties']['correlation'] = ref('correlation_id')
+    risk_v3['dependentRequired'] = {'measure': ['method_detail'], 'method_detail': ['measure'],
+                                    'model_parameter': ['measure'], 'correlation': ['measure']}
     return {'schemas/task-v1/pricing_task.schema.json':task,
             'schemas/report-v1/valuation_report.schema.json':report,
-            'schemas/report-v2/valuation_report.schema.json':report_v2}
+            'schemas/report-v2/valuation_report.schema.json':report_v2,
+            'schemas/task-v3/pricing_task.schema.json':task_v3,
+            'schemas/report-v3/valuation_report.schema.json':report_v3}
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--check',action='store_true');args=parser.parse_args()

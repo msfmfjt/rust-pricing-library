@@ -30,7 +30,7 @@ impl<C: CalibratedModel> Evaluation<C> for PriceOnly {
         weight: f64,
         output: &mut [f64],
     ) -> Result<(), MonteCarloError> {
-        let initial_f = core.calibration.surface().initial_f();
+        let initial_f = core.initial_f;
         let mut states = Vec::new();
         core.path_plan
             .evolve_states(initial_f, shocks, &mut states)?;
@@ -60,7 +60,7 @@ where
         weight: f64,
         output: &mut [f64],
     ) -> Result<(), MonteCarloError> {
-        let initial_f = core.calibration.surface().initial_f();
+        let initial_f = core.initial_f;
         let recorded = core.path_plan.evolve_path(initial_f, shocks)?;
         let (price, seeds) =
             core.base

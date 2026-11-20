@@ -104,6 +104,18 @@ pub struct MultiAssetPrice {
     pub lsv_leverage_boundary_counts: Vec<f64>,
 }
 
+impl MultiAssetPricingPlan {
+    /// Whether an LSV marginal or the Local Correlation is calibrated.
+    pub(crate) fn is_calibrated(&self) -> bool {
+        self.assets.iter().any(Asset::has_lsv) || self.local_correlation.is_some()
+    }
+    /// Whether the basket shares Hull-White rates, the only basket whose AAD
+    /// differentiates the discount curve.
+    pub(crate) const fn has_hull_white(&self) -> bool {
+        self.hull_white.is_some()
+    }
+}
+
 impl Asset {
     fn has_lsv(&self) -> bool {
         self.lsv.is_some() || self.hw.as_ref().is_some_and(|a| a.calibration.is_some())

@@ -596,7 +596,7 @@ impl PyRoughFamilyLsvPlan {
 #[pyclass(frozen, name = "RoughFamilyLsvDelta")]
 #[derive(Clone, Debug)]
 pub struct PyRoughFamilyLsvDelta {
-    inner: pricing::rough_volatility::RoughFamilyLsvDelta,
+    pub(super) inner: pricing::rough_volatility::RoughFamilyLsvDelta,
 }
 #[pymethods]
 impl PyRoughFamilyLsvDelta {
@@ -649,7 +649,7 @@ impl PyRoughFamilyLsvMarketIvRiskPlan {
 #[pyclass(frozen, name = "RoughFamilyLsvMarketIvRisk")]
 #[derive(Clone, Debug)]
 pub struct PyRoughFamilyLsvMarketIvRisk {
-    inner: pricing::rough_volatility::RoughFamilyLsvMarketIvRisk,
+    pub(super) inner: pricing::rough_volatility::RoughFamilyLsvMarketIvRisk,
 }
 #[pymethods]
 impl PyRoughFamilyLsvMarketIvRisk {
@@ -712,7 +712,7 @@ impl PyRoughFamilyLsvMarketIvRisk {
 #[pyclass(frozen, name = "RoughFamilyLsvGamma")]
 #[derive(Clone, Debug)]
 pub struct PyRoughFamilyLsvGamma {
-    inner: pricing::rough_volatility::RoughFamilyLsvGamma,
+    pub(super) inner: pricing::rough_volatility::RoughFamilyLsvGamma,
 }
 #[pymethods]
 impl PyRoughFamilyLsvGamma {
@@ -771,7 +771,7 @@ impl PyRoughFamilyLsvGamma {
 #[pyclass(frozen, name = "HestonLsvParameterRisk")]
 #[derive(Clone, Debug)]
 pub struct PyHestonLsvParameterRisk {
-    inner: pricing::rough_volatility::HestonLsvParameterRisk,
+    pub(super) inner: pricing::rough_volatility::HestonLsvParameterRisk,
 }
 #[pymethods]
 impl PyHestonLsvParameterRisk {
@@ -822,7 +822,7 @@ impl PyHestonLsvParameterRisk {
 #[pyclass(frozen, name = "MixedBergomiLsvParameterRisk")]
 #[derive(Clone, Debug)]
 pub struct PyMixedBergomiLsvParameterRisk {
-    inner: pricing::rough_volatility::MixedBergomiLsvParameterRisk,
+    pub(super) inner: pricing::rough_volatility::MixedBergomiLsvParameterRisk,
 }
 #[pymethods]
 impl PyMixedBergomiLsvParameterRisk {
@@ -884,7 +884,7 @@ impl PyMixedBergomiLsvParameterRisk {
 #[pyclass(frozen, name = "QuadraticHestonLsvParameterRisk")]
 #[derive(Clone, Debug)]
 pub struct PyQuadraticHestonLsvParameterRisk {
-    inner: pricing::rough_volatility::QuadraticHestonLsvParameterRisk,
+    pub(super) inner: pricing::rough_volatility::QuadraticHestonLsvParameterRisk,
 }
 #[pymethods]
 impl PyQuadraticHestonLsvParameterRisk {
@@ -929,5 +929,94 @@ impl PyQuadraticHestonLsvParameterRisk {
     #[getter]
     fn risk_fingerprint(&self) -> String {
         self.inner.risk_fingerprint.to_string()
+    }
+}
+
+/// The native measures of a `measures` task on rough-family LSV (Spot Delta,
+/// Spot Gamma, market-IV Vega), each the dedicated API's result unchanged.
+#[pyclass(frozen, name = "RoughFamilyLsvMeasureRisk")]
+#[derive(Clone, Debug)]
+pub struct PyRoughFamilyLsvMeasureRisk {
+    pub(super) inner: pricing::rough_volatility::RoughFamilyLsvMeasureRisk,
+}
+#[pymethods]
+impl PyRoughFamilyLsvMeasureRisk {
+    #[getter]
+    fn price(&self) -> PyLsvPrice {
+        PyLsvPrice {
+            inner: self.inner.price.clone(),
+        }
+    }
+    #[getter]
+    fn delta(&self) -> Option<PyRoughFamilyLsvDelta> {
+        self.inner
+            .delta
+            .clone()
+            .map(|inner| PyRoughFamilyLsvDelta { inner })
+    }
+    #[getter]
+    fn gamma(&self) -> Option<PyRoughFamilyLsvGamma> {
+        self.inner
+            .gamma
+            .clone()
+            .map(|inner| PyRoughFamilyLsvGamma { inner })
+    }
+    #[getter]
+    fn market_iv(&self) -> Option<PyRoughFamilyLsvMarketIvRisk> {
+        self.inner
+            .market_iv
+            .clone()
+            .map(|inner| PyRoughFamilyLsvMarketIvRisk { inner })
+    }
+    #[getter]
+    fn model_parameters(&self) -> Option<PyRoughFamilyLsvModelParameterRisk> {
+        self.inner
+            .model_parameters
+            .clone()
+            .map(|inner| PyRoughFamilyLsvModelParameterRisk { inner })
+    }
+}
+
+/// A rough-family LSV parameter risk with the label of each native
+/// coordinate. `risk` is the dedicated API's result unchanged.
+#[pyclass(frozen, name = "RoughFamilyLsvModelParameterRisk")]
+#[derive(Clone, Debug)]
+pub struct PyRoughFamilyLsvModelParameterRisk {
+    inner: pricing::rough_volatility::RoughFamilyLsvModelParameterRisk,
+}
+#[pymethods]
+impl PyRoughFamilyLsvModelParameterRisk {
+    /// Parameter labels in the native order.
+    #[getter]
+    fn parameters(&self) -> Vec<String> {
+        self.inner.parameters.iter().map(|p| p.label()).collect()
+    }
+    #[getter]
+    fn risk(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        use pricing::rough_volatility::RoughFamilyLsvParameterRisk as R;
+        Ok(match &self.inner.risk {
+            R::Heston(inner) => Py::new(
+                py,
+                PyHestonLsvParameterRisk {
+                    inner: inner.clone(),
+                },
+            )?
+            .into_any(),
+            R::QuadraticHeston(inner) => Py::new(
+                py,
+                PyQuadraticHestonLsvParameterRisk {
+                    inner: inner.clone(),
+                },
+            )?
+            .into_any(),
+            R::MixedBergomi(inner) => Py::new(
+                py,
+                PyMixedBergomiLsvParameterRisk {
+                    inner: inner.clone(),
+                },
+            )?
+            .into_any(),
+            _ => py.None(),
+        })
     }
 }
