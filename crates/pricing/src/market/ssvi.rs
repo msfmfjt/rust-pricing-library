@@ -1477,29 +1477,23 @@ mod tests {
     }
 
     #[test]
-    fn forward_call_rejects_negative_roundoff_with_price_context() {
+    fn forward_call_prices_tiny_variance_without_negative_roundoff() {
         let time = 1.25_f64;
         let k = 1.12e-16_f64;
-        // At this tiny variance d1 and d2 round to the same float, while K > F.
-        // The existing failure contract rejects a negative computed price.
-        let error = FixedVarianceSurface(density_variance(1.0e-32, 0.0, 0.0))
+        // At this tiny variance d1 and d2 round to the same float while K > F,
+        // so a naive F N(d1) - K N(d2) cancels to a negative price. The Black
+        // price must instead keep the small-time value. Reference: 60-digit
+        // mpmath evaluation of N(d1) - exp(k) N(d2) at k = 1.12e-16, w = 1e-32.
+        let reference = 6.594_944_000_785_948e-18_f64;
+        let evaluation = FixedVarianceSurface(density_variance(1.0e-32, 0.0, 0.0))
             .forward_call_evaluation(time, k, 1.0)
-            .expect_err("negative roundoff must not be returned as a valid price");
-        match error {
-            MarketError::NonPositiveSurfaceValue {
-                field,
-                time_bits,
-                log_moneyness_bits,
-                value_bits,
-            } => {
-                assert_eq!(field, "undiscounted_call_price");
-                assert_eq!(time_bits, time.to_bits());
-                assert_eq!(log_moneyness_bits, k.to_bits());
-                let value = f64::from_bits(value_bits);
-                assert!(value.is_finite() && value < 0.0);
-            }
-            other => panic!("unexpected error: {other:?}"),
-        }
+            .expect("tiny-variance call price is positive and finite");
+        let price = evaluation.undiscounted_price;
+        assert!(price.is_finite() && price > 0.0, "price {price}");
+        assert!(
+            (price - reference).abs() <= 1.0e-13 * reference,
+            "price {price}, reference {reference}"
+        );
     }
 
     fn density_variance(w: f64, slope: f64, curvature: f64) -> TotalVarianceDerivatives {
