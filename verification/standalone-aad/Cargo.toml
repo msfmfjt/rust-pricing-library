@@ -1,0 +1,12 @@
+[package]
+name = "pricing-standalone-aad-check"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+pricing = { path = "../../crates/pricing" }
+rust-aad-core = { git = "https://github.com/msfmfjt/rust-aad", rev = "6393a4416fbce04d7ad678a3eff755e919336031" }
+
+[workspace]

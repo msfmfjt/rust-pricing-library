@@ -372,6 +372,12 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
+      - name: Check standalone AAD payoff parity
+        run: |
+          cargo fmt --manifest-path verification/standalone-aad/Cargo.toml --check
+          cargo clippy --locked --manifest-path verification/standalone-aad/Cargo.toml --all-targets -- -D warnings
+          cargo test --locked --manifest-path verification/standalone-aad/Cargo.toml
+
       - name: Check default and minimal feature configurations
         run: |
           cargo check --locked --workspace --all-targets
