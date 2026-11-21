@@ -373,10 +373,15 @@ jobs:
         run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
       - name: Check standalone AAD payoff parity
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/standalone-aad-target
+          CARGO_PROFILE_DEV_DEBUG: 0
+          CARGO_PROFILE_TEST_DEBUG: 0
         run: |
           cargo fmt --manifest-path verification/standalone-aad/Cargo.toml --check
           cargo clippy --locked --manifest-path verification/standalone-aad/Cargo.toml --all-targets -- -D warnings
           cargo test --locked --manifest-path verification/standalone-aad/Cargo.toml
+          cargo clean --manifest-path verification/standalone-aad/Cargo.toml
 
       - name: Check default and minimal feature configurations
         run: |
