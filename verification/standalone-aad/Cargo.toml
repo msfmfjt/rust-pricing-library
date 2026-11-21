@@ -1,0 +1,18 @@
+[package]
+name = "pricing-standalone-aad-check"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+pricing = { path = "../../crates/pricing" }
+rust-aad-core = { git = "https://github.com/msfmfjt/rust-aad", rev = "c26d3bff1e1eff737e8b0101a914a5de4aae9d81" }
+
+rust-aad-bench = { git = "https://github.com/msfmfjt/rust-aad", rev = "c26d3bff1e1eff737e8b0101a914a5de4aae9d81" }
+serde_json = "1"
+
+[features]
+count-allocations = ["rust-aad-bench/count-allocations"]
+
+[workspace]
