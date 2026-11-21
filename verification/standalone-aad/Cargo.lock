@@ -22,6 +22,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bytemuck"
+version = "1.25.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95832e849adfb21180ccb6826a99da14e5d266ae5c2e668e1602cf234f153797"
+
+[[package]]
 name = "cc"
 version = "1.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -127,7 +133,9 @@ name = "pricing-standalone-aad-check"
 version = "0.1.0"
 dependencies = [
  "pricing",
+ "rust-aad-bench",
  "rust-aad-core",
+ "serde_json",
 ]
 
 [[package]]
@@ -169,9 +177,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust-aad-bench"
+version = "0.1.0"
+source = "git+https://github.com/msfmfjt/rust-aad?rev=c26d3bff1e1eff737e8b0101a914a5de4aae9d81#c26d3bff1e1eff737e8b0101a914a5de4aae9d81"
+dependencies = [
+ "rust-aad-core",
+ "serde",
+ "serde_json",
+ "stats_alloc",
+]
+
+[[package]]
 name = "rust-aad-core"
 version = "0.1.0"
-source = "git+https://github.com/msfmfjt/rust-aad?rev=6393a4416fbce04d7ad678a3eff755e919336031#6393a4416fbce04d7ad678a3eff755e919336031"
+source = "git+https://github.com/msfmfjt/rust-aad?rev=c26d3bff1e1eff737e8b0101a914a5de4aae9d81#c26d3bff1e1eff737e8b0101a914a5de4aae9d81"
+dependencies = [
+ "wide",
+]
+
+[[package]]
+name = "safe_arch"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96b02de82ddbe1b636e6170c21be622223aea188ef2e139be0a5b219ec215323"
+dependencies = [
+ "bytemuck",
+]
 
 [[package]]
 name = "serde"
@@ -223,6 +254,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
+name = "stats_alloc"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c0e04424e733e69714ca1bbb9204c1a57f09f5493439520f9f68c132ad25eec"
+
+[[package]]
 name = "syn"
 version = "3.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -238,6 +275,16 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "wide"
+version = "0.7.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ce5da8ecb62bcd8ec8b7ea19f69a51275e91299be594ea5cc6ef7819e16cd03"
+dependencies = [
+ "bytemuck",
+ "safe_arch",
+]
 
 [[package]]
 name = "zmij"
